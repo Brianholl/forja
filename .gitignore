@@ -63,3 +63,4 @@ modules/*.el
 # --- Sistema Operativo ---
 .DS_Store
 Thumbs.db
+connect.sh
