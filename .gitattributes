@@ -1,0 +1,9 @@
+# Auto detect text files
+* text=auto
+
+# Emacs Lisp
+*.el text eol=lf
+*.org text eol=lf
+
+# Shell scripts
+*.sh text eol=lf

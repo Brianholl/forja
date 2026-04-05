@@ -1,0 +1,66 @@
+#+TITLE: Módulo Go - Gopls & Tree-Sitter
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* 10. Tree-Sitter para Go
+
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :config
+  (add-to-list 'treesit-language-source-alist
+               '(go "https://github.com/tree-sitter/tree-sitter-go"))
+  (add-to-list 'treesit-language-source-alist
+               '(gomod "https://github.com/camdencheek/tree-sitter-go-mod"))
+  (unless (treesit-language-available-p 'go)
+    (condition-case err
+        (treesit-install-language-grammar 'go)
+      (error (message "⚠️ No se pudo instalar gramática go: %s" err))))
+  (unless (treesit-language-available-p 'gomod)
+    (condition-case err
+        (treesit-install-language-grammar 'gomod)
+      (error (message "⚠️ No se pudo instalar gramática gomod: %s" err))))
+  (add-to-list 'major-mode-remap-alist '(go-mode . go-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.go\\'" . go-ts-mode))
+  (add-to-list 'auto-mode-alist '("/go\\.mod\\'" . go-mod-ts-mode)))
+#+end_src
+
+* 20. LSP para Go
+
+#+begin_src emacs-lisp
+(add-hook 'go-ts-mode-hook #'lsp-deferred)
+
+(defun my/go-mode-setup ()
+  (add-hook 'before-save-hook #'lsp-organize-imports nil t)
+  (add-hook 'before-save-hook #'lsp-format-buffer nil t))
+
+(add-hook 'go-ts-mode-hook #'my/go-mode-setup)
+#+end_src
+
+* 30. Compilar y Ejecutar
+
+#+begin_src emacs-lisp
+(defun my/go-run ()
+  "Ejecuta 'go run .' en el proyecto actual."
+  (interactive)
+  (compile "go run ."))
+
+(defun my/go-build ()
+  "Compila el proyecto Go sin ejecutar."
+  (interactive)
+  (compile "go build ./..."))
+
+(defun my/go-test ()
+  "Ejecuta tests del proyecto."
+  (interactive)
+  (compile "go test ./..."))
+
+(defun my/go-keybindings ()
+  "Atajos locales para desarrollo en Go."
+  (local-set-key (kbd "<f5>") #'my/go-run)
+  (local-set-key (kbd "C-c C-b") #'my/go-build)
+  (local-set-key (kbd "C-c C-t") #'my/go-test))
+
+(add-hook 'go-ts-mode-hook #'my/go-keybindings)
+#+end_src

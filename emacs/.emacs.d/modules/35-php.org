@@ -1,0 +1,116 @@
+#+TITLE: Módulo PHP - Laravel, Intelephense & Tree-Sitter
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* 10. Tree-Sitter para PHP
+
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :config
+  (add-to-list 'treesit-language-source-alist
+               '(php "https://github.com/tree-sitter/tree-sitter-php"
+                     "master" "php/src"))
+  (unless (treesit-language-available-p 'php)
+    (condition-case err
+        (treesit-install-language-grammar 'php)
+      (error (message "⚠️ No se pudo instalar gramática php: %s" err))))
+  ;; php-ts-mode viene incluido en Emacs 30+
+  (when (treesit-language-available-p 'php)
+    (add-to-list 'auto-mode-alist '("\\.php\\'" . php-ts-mode))))
+#+end_src
+
+* 20. PHP Mode (fallback si tree-sitter no disponible)
+
+#+begin_src emacs-lisp
+(use-package php-mode
+  :unless (treesit-language-available-p 'php)
+  :mode "\\.php\\'"
+  :config
+  (setq php-mode-coding-style 'psr2))
+#+end_src
+
+* 30. LSP para PHP (Intelephense)
+
+#+begin_src emacs-lisp
+(add-hook 'php-ts-mode-hook #'lsp-deferred)
+(add-hook 'php-mode-hook    #'lsp-deferred)
+
+(with-eval-after-load 'lsp-mode
+  ;; Intelephense como server por defecto para PHP
+  (setq lsp-intelephense-licence-key nil)  ; funciona sin licencia (features básicas)
+  (setq lsp-intelephense-format-enable t))
+#+end_src
+
+* 40. Formateo con Prettier
+
+#+begin_src emacs-lisp
+(defun my/php-format-buffer ()
+  "Formatea el buffer PHP con prettier (si disponible) o lsp."
+  (interactive)
+  (if (executable-find "prettier")
+      (let ((file (buffer-file-name)))
+        (when file
+          (save-buffer)
+          (shell-command (format "prettier --write %s" (shell-quote-argument file)))
+          (revert-buffer t t t)
+          (message "✅ Formateado con prettier")))
+    (lsp-format-buffer)))
+#+end_src
+
+* 50. Compilar y Ejecutar
+
+#+begin_src emacs-lisp
+(defun my/php-run ()
+  "Ejecuta el archivo PHP actual.
+Detecta Laravel (artisan serve), o ejecuta el archivo directamente."
+  (interactive)
+  (let* ((project-root (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+                           (locate-dominating-file default-directory "composer.json")
+                           default-directory))
+         (default-directory project-root)
+         (artisan (expand-file-name "artisan" project-root)))
+    (cond
+     ;; Laravel: php artisan serve
+     ((file-exists-p artisan)
+      (compile "php artisan serve"))
+     ;; PHP built-in server desde public/ o directorio actual
+     ((file-directory-p (expand-file-name "public" project-root))
+      (compile (format "php -S localhost:8000 -t %s"
+                       (expand-file-name "public" project-root))))
+     ;; Archivo suelto
+     ((buffer-file-name)
+      (save-buffer)
+      (compile (format "php %s" (file-name-nondirectory buffer-file-name))))
+     (t (message "❌ No se encontró archivo PHP para ejecutar")))))
+
+(defun my/php-test ()
+  "Ejecuta tests del proyecto PHP.
+Detecta Laravel (artisan test) o PHPUnit."
+  (interactive)
+  (let* ((project-root (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+                           (locate-dominating-file default-directory "composer.json")
+                           default-directory))
+         (default-directory project-root)
+         (artisan (expand-file-name "artisan" project-root))
+         (phpunit (expand-file-name "vendor/bin/phpunit" project-root)))
+    (cond
+     ;; Laravel
+     ((file-exists-p artisan)
+      (compile "php artisan test"))
+     ;; PHPUnit directo
+     ((file-exists-p phpunit)
+      (compile "./vendor/bin/phpunit"))
+     ;; Fallback
+     (t (compile "php -r \"echo 'No se encontró framework de tests';\"")))))
+
+(defun my/php-keybindings ()
+  "Atajos locales para desarrollo en PHP."
+  (local-set-key (kbd "<f5>") #'my/php-run)
+  (local-set-key (kbd "C-c C-t") #'my/php-test)
+  (local-set-key (kbd "C-c C-f") #'my/php-format-buffer))
+
+(add-hook 'php-ts-mode-hook #'my/php-keybindings)
+(add-hook 'php-mode-hook    #'my/php-keybindings)
+#+end_src

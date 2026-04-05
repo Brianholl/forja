@@ -1,0 +1,800 @@
+#+TITLE: Módulo Soporte y Resolución - Asistencia Operativa (El Servicio)
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-infraestructura-del-help-desk][10. Infraestructura del Help Desk]]
+- [[#20-sistema-de-tickets-y-sla][20. Sistema de Tickets y SLA]]
+- [[#30-árboles-de-diagnóstico-hardware][30. Árboles de Diagnóstico (Hardware)]]
+- [[#40-diagnóstico-de-software-y-sistema-operativo][40. Diagnóstico de Software y Sistema Operativo]]
+- [[#50-diagnóstico-de-redes-tcpip][50. Diagnóstico de Redes (TCP/IP)]]
+- [[#60-gestión-del-conocimiento-post-incidente][60. Gestión del Conocimiento (Post-Incidente)]]
+- [[#70-capacitación-a-usuarios-finales][70. Capacitación a Usuarios Finales]]
+- [[#80-itil-4-prácticas-de-gestión-de-servicio][80. ITIL 4: Prácticas de Gestión de Servicio]]
+- [[#90-ia-local-para-soporte-técnico][90. IA Local para Soporte Técnico]]
+- [[#100-atajos-y-hydra-de-soporte][100. Atajos y Hydra de Soporte]]
+
+* 10. Infraestructura del Help Desk
+Organización del directorio de soporte y archivos auxiliares.
+El archivo principal de tickets es =soporte.org= (creado en 50-gtd.org).
+Aquí agregamos archivos complementarios para inventario, base de errores
+conocidos (KEDB) y plantillas de comunicación con usuarios.
+
+Filosofía (ITIL 4): "No gestionamos tecnología. Gestionamos el VALOR
+que la tecnología entrega al usuario."
+
+#+begin_src emacs-lisp
+;; --- Archivos complementarios de soporte ---
+(defvar my/sop-inventario (expand-file-name "inventario.org" my/proc-dir)
+  "Inventario de equipos y software del laboratorio.")
+
+(defvar my/sop-kedb (expand-file-name "kedb.org" my/proc-dir)
+  "Known Error Database — errores conocidos con workaround documentado.")
+
+(defvar my/sop-usuarios (expand-file-name "usuarios.org" my/proc-dir)
+  "Registro de usuarios y capacitaciones realizadas.")
+
+(defvar my/sop-scripts (expand-file-name "scripts/" my/proc-dir)
+  "Scripts de diagnóstico reutilizables.")
+
+;; Crear directorios y archivos semilla
+(unless (file-directory-p my/sop-scripts)
+  (make-directory my/sop-scripts t))
+
+(my/proc-ensure-file my/sop-inventario "Inventario de Equipos"
+  "* Equipos del Laboratorio
+| ID | Hostname | Modelo | RAM | Disco | SO | Estado | Última revisión |
+|----+----------+--------+-----+-------+----+--------+-----------------+
+|    |          |        |     |       |    |        |                 |
+
+* Software Instalado (imagen base)
+| Software | Versión | Licencia | Propósito |
+|----------+---------+----------+-----------|
+|          |         |          |           |
+
+* Periféricos y Red
+| Tipo | Marca/Modelo | Ubicación | Estado |
+|------+--------------+-----------+--------+
+|      |              |           |        |
+")
+
+(my/proc-ensure-file my/sop-kedb "Known Error Database (KEDB)"
+  "* Errores Conocidos
+Cada entrada documenta un error recurrente con su workaround.
+Cuando un error se resuelve definitivamente, se mueve a Resueltos.
+
+** Activos
+** Resueltos
+")
+
+(my/proc-ensure-file my/sop-usuarios "Registro de Usuarios"
+  "* Usuarios del Laboratorio
+| Nombre | Curso | Equipo Asignado | Cuenta | Capacitaciones |
+|--------+-------+-----------------+--------+----------------|
+|        |       |                 |        |                |
+
+* Capacitaciones Realizadas
+")
+#+end_src
+
+* 20. Sistema de Tickets y SLA
+Extiende el sistema de captura de 50-gtd.org con lógica específica
+para gestión de tickets: niveles de soporte (N1/N2/N3), SLA tracking,
+y transiciones de estado con timestamp.
+
+Niveles de soporte:
+- *N1*: Primera línea. Recibe, clasifica, intenta resolver con KB/checklist.
+- *N2*: Especialista. Problemas que requieren conocimiento profundo.
+- *N3*: Proveedor o desarrollo. Bugs, fallas de producto, infraestructura.
+
+#+begin_src emacs-lisp
+;; --- Propiedades custom para tickets ---
+(with-eval-after-load 'org
+  ;; Agregar propiedades que org reconoce para columnas
+  (setq org-columns-default-format
+        "%25ITEM %TODO %3PRIORITY %PRIORIDAD %SLA %EQUIPO %NIVEL_SOPORTE %TAGS"))
+
+;; --- Vista de columnas para dashboard de tickets ---
+(defun my/sop-ticket-columns ()
+  "Activa vista de columnas en soporte.org para ver tickets como tabla."
+  (interactive)
+  (find-file my/gtd-soporte)
+  (org-columns))
+
+;; --- Función para escalar ticket ---
+(defun my/sop-escalar-ticket ()
+  "Escala el ticket actual al siguiente nivel de soporte."
+  (interactive)
+  (let* ((nivel-actual (or (org-entry-get nil "NIVEL_SOPORTE") "N1"))
+         (siguiente (cond
+                     ((string= nivel-actual "N1") "N2")
+                     ((string= nivel-actual "N2") "N3")
+                     (t (progn (message "Ya está en N3, nivel máximo.") nil)))))
+    (when siguiente
+      (org-entry-put nil "NIVEL_SOPORTE" siguiente)
+      (org-entry-put nil "ESCALADO_EN" (format-time-string "[%Y-%m-%d %H:%M]"))
+      (org-todo "WAITING")
+      ;; Agregar nota de escalado
+      (org-add-log-note)
+      (message "⬆️ Ticket escalado de %s a %s" nivel-actual siguiente))))
+
+;; --- Función para verificar SLA ---
+(defun my/sop-verificar-sla ()
+  "Verifica el cumplimiento de SLA de todos los tickets abiertos."
+  (interactive)
+  (let ((violations 0)
+        (ok 0)
+        (sin-sla 0))
+    (when (file-exists-p my/gtd-soporte)
+      (with-current-buffer (find-file-noselect my/gtd-soporte)
+        (org-map-entries
+         (lambda ()
+           (let ((state (org-get-todo-state))
+                 (sla-str (org-entry-get nil "SLA"))
+                 (created-str (org-entry-get nil "CREATED")))
+             (when (and state (not (member state '("DONE" "CANCELLED"))))
+               (if (and sla-str created-str)
+                   (let* ((sla-hours (string-to-number sla-str))
+                          (created-time (org-time-string-to-time created-str))
+                          (deadline (time-add created-time
+                                             (seconds-to-time (* sla-hours 3600))))
+                          (now (current-time)))
+                     (if (time-less-p deadline now)
+                         (progn
+                           (setq violations (1+ violations))
+                           (message "🔴 SLA VIOLADO: %s (SLA: %sh)"
+                                    (org-get-heading t t t t) sla-str))
+                       (setq ok (1+ ok))))
+                 (setq sin-sla (1+ sin-sla)))))))))
+    (message "📊 SLA: ✅ %d OK | 🔴 %d Violaciones | ⚠️ %d sin SLA definido"
+             ok violations sin-sla)))
+
+;; --- Función para cerrar ticket con resolución ---
+(defun my/sop-cerrar-ticket ()
+  "Cierra el ticket actual pidiendo la resolución y actualizando propiedades."
+  (interactive)
+  (let ((resolucion (read-string "Descripción de la resolución: "))
+        (categoria (completing-read "Categoría de cierre: "
+                    '("Resuelto" "Workaround aplicado" "No reproducible"
+                      "Duplicado" "Cancelado por usuario") nil t)))
+    ;; Registrar resolución
+    (save-excursion
+      (org-end-of-subtree)
+      (unless (re-search-backward "^\\*\\* Resolución" (org-entry-beginning-position) t)
+        (goto-char (org-entry-end-position))
+        (insert "\n** Resolución\n"))
+      (end-of-line)
+      (insert (format "\n- [%s] %s — %s"
+                      (format-time-string "%Y-%m-%d %H:%M")
+                      categoria resolucion)))
+    ;; Actualizar propiedades
+    (org-entry-put nil "RESUELTO_EN" (format-time-string "[%Y-%m-%d %H:%M]"))
+    (org-entry-put nil "CATEGORIA_CIERRE" categoria)
+    ;; Marcar como DONE
+    (org-todo "DONE")
+    ;; Clock out si estaba con clock
+    (when (org-clocking-p)
+      (org-clock-out))
+    (message "✅ Ticket cerrado: %s" categoria)))
+#+end_src
+
+* 30. Árboles de Diagnóstico (Hardware)
+Árboles de decisión interactivos para diagnóstico de fallas comunes
+en PC, basados en la metodología CompTIA A+.
+El técnico responde preguntas y el sistema lo guía al diagnóstico.
+
+#+begin_src emacs-lisp
+;; --- Árbol de diagnóstico: PC no enciende ---
+(defun my/sop-diag-no-enciende ()
+  "Árbol de decisión para PC que no enciende (CompTIA A+ troubleshooting)."
+  (interactive)
+  (let ((result nil))
+    (if (y-or-n-p "¿El LED de la fuente (trasero) está encendido?")
+        (if (y-or-n-p "¿Al presionar power, los ventiladores giran aunque sea brevemente?")
+            (if (y-or-n-p "¿La PC emite beeps o tiene LEDs de diagnóstico en el motherboard?")
+                (setq result
+                      "🔍 DIAGNÓSTICO: Falla de POST.
+Acción: Interpretar código de beeps según fabricante del BIOS.
+- 1 beep largo + 2 cortos = Falla de video (resentar GPU)
+- Beeps continuos = Falla de RAM (resentar/reemplazar)
+- Sin beeps pero sin video = Probar con monitor externo
+Próximo paso: Consultar manual del motherboard para códigos específicos.")
+              (if (y-or-n-p "¿Tiene imagen en el monitor?")
+                  (setq result
+                        "🔍 DIAGNÓSTICO: POST exitoso pero no bootea.
+Acción: Verificar dispositivo de arranque.
+1. Entrar a BIOS (DEL/F2 al encender)
+2. Verificar orden de boot
+3. Si no detecta disco: revisar cables SATA/NVMe
+4. Si detecta pero no bootea: reparar bootloader o reinstalar SO")
+                (setq result
+                      "🔍 DIAGNÓSTICO: Ventiladores giran pero sin video.
+Acción: Falla probable de GPU, RAM o motherboard.
+1. Resentar módulos RAM (uno por uno si hay varios)
+2. Probar con GPU integrada (si tiene) o resentar GPU dedicada
+3. Limpiar contactos RAM con goma de borrar blanca
+4. Si persiste: testear RAM con otro módulo conocido bueno")))
+          (setq result
+                "🔍 DIAGNÓSTICO: Tiene corriente pero no arranca.
+Acción: Probable falla de botón power o cables front panel.
+1. Verificar conexión del cable Power SW al motherboard
+2. Puentear pins de power con destornillador (bypass del botón)
+3. Si arranca puenteando: reemplazar botón/cable del gabinete
+4. Si no arranca: posible motherboard dañado o fuente defectuosa"))
+      (setq result
+            "🔍 DIAGNÓSTICO: Sin corriente en la fuente.
+Acción:
+1. Verificar cable de alimentación y zapatilla/enchufe
+2. Verificar switch trasero de la fuente (I/O)
+3. Probar con otro cable de corriente conocido bueno
+4. Test de fuente: puentear pin verde con negro en conector ATX 24-pin
+5. Si no arranca la fuente: reemplazar PSU"))
+    (message result)
+    ;; Ofrecer insertar en el ticket actual
+    (when (y-or-n-p "¿Insertar diagnóstico en el ticket actual?")
+      (save-excursion
+        (org-end-of-subtree)
+        (unless (re-search-backward "^\\*\\* Diagnóstico" (org-entry-beginning-position) t)
+          (goto-char (org-entry-end-position))
+          (insert "\n** Diagnóstico\n"))
+        (end-of-line)
+        (insert (format "\n%s\nFecha: %s\n" result (format-time-string "[%Y-%m-%d %H:%M]")))))))
+
+;; --- Árbol de diagnóstico: PC lenta ---
+(defun my/sop-diag-pc-lenta ()
+  "Árbol de decisión para PC con rendimiento lento."
+  (interactive)
+  (let ((result nil))
+    (if (y-or-n-p "¿El problema empezó de repente o fue gradual?")
+        ;; De repente
+        (if (y-or-n-p "¿Se instaló algún software nuevo recientemente?")
+            (setq result
+                  "🔍 DIAGNÓSTICO: Probable software problemático.
+1. Revisar programas instalados recientemente
+2. Verificar Task Manager → Startup (desactivar innecesarios)
+3. Escanear con antimalware actualizado
+4. Si persiste: restaurar sistema a punto anterior")
+          (setq result
+                "🔍 DIAGNÓSTICO: Cambio repentino sin software nuevo.
+1. Verificar uso de disco en Task Manager (¿100%?)
+   → Si disco al 100%: posible disco dañado (chkdsk /f /r)
+2. Verificar uso de RAM (¿>90%?)
+   → Si RAM alta: cerrar procesos pesados o ampliar RAM
+3. Verificar temperatura CPU (HWMonitor/sensors)
+   → Si temp alta: limpiar ventiladores y pasta térmica
+4. Verificar espacio en disco (mínimo 10% libre)"))
+      ;; Gradual
+      (setq result
+            "🔍 DIAGNÓSTICO: Degradación gradual de rendimiento.
+1. Limpieza de inicio: msconfig → Startup / systemctl list-unit-files
+2. Limpieza de disco: eliminar temporales, vaciar papelera
+3. Verificar fragmentación (solo HDD, no SSD)
+4. Verificar actualizaciones pendientes del SO
+5. Considerar reinstalación limpia si tiene >2 años sin mantenimiento
+6. Evaluar upgrade: SSD si tiene HDD, más RAM si <8GB"))
+    (message result)
+    (when (y-or-n-p "¿Insertar diagnóstico en el ticket actual?")
+      (save-excursion
+        (org-end-of-subtree)
+        (unless (re-search-backward "^\\*\\* Diagnóstico" (org-entry-beginning-position) t)
+          (goto-char (org-entry-end-position))
+          (insert "\n** Diagnóstico\n"))
+        (end-of-line)
+        (insert (format "\n%s\nFecha: %s\n" result (format-time-string "[%Y-%m-%d %H:%M]")))))))
+#+end_src
+
+* 40. Diagnóstico de Software y Sistema Operativo
+Scripts de diagnóstico ejecutables desde Emacs para problemas comunes
+de Windows y Linux: usuarios, permisos, actualizaciones, servicios.
+
+#+begin_src emacs-lisp
+;; --- Ejecutar comando de diagnóstico y capturar salida ---
+(defun my/sop-run-diag (nombre comando)
+  "Ejecuta COMANDO de diagnóstico y muestra resultado en buffer *Diag*."
+  (let ((buf (get-buffer-create (format "*Diag: %s*" nombre))))
+    (with-current-buffer buf
+      (erase-buffer)
+      (insert (format "═══ Diagnóstico: %s ═══\n" nombre))
+      (insert (format "Fecha: %s\n" (format-time-string "%Y-%m-%d %H:%M:%S")))
+      (insert (format "Comando: %s\n" comando))
+      (insert "═══════════════════════════════════\n\n")
+      (call-process-shell-command comando nil t)
+      (goto-char (point-min)))
+    (switch-to-buffer-other-window buf)
+    (message "✅ Diagnóstico '%s' completado" nombre)))
+
+;; --- Suite de diagnósticos Linux ---
+(defun my/sop-diag-sistema-info ()
+  "Información general del sistema."
+  (interactive)
+  (my/sop-run-diag "Info del Sistema"
+    "echo '--- Hostname ---' && hostname && echo '\n--- OS ---' && cat /etc/os-release 2>/dev/null | head -5 && echo '\n--- Kernel ---' && uname -a && echo '\n--- Uptime ---' && uptime && echo '\n--- CPU ---' && lscpu | grep -E 'Model name|CPU\\(s\\)|Thread' && echo '\n--- RAM ---' && free -h && echo '\n--- Disco ---' && df -h / /home 2>/dev/null && echo '\n--- GPU ---' && lspci | grep -i vga"))
+
+(defun my/sop-diag-usuarios ()
+  "Estado de usuarios y permisos."
+  (interactive)
+  (my/sop-run-diag "Usuarios y Permisos"
+    "echo '--- Usuarios con shell ---' && grep -v nologin /etc/passwd | grep -v false && echo '\n--- Grupos del usuario actual ---' && groups && echo '\n--- Usuarios logueados ---' && who && echo '\n--- Últimos logins ---' && last -10 && echo '\n--- Intentos fallidos ---' && sudo lastb -5 2>/dev/null || echo '(requiere sudo)'"))
+
+(defun my/sop-diag-servicios ()
+  "Estado de servicios del sistema."
+  (interactive)
+  (my/sop-run-diag "Servicios"
+    "echo '--- Servicios fallidos ---' && systemctl --failed && echo '\n--- Servicios activos (principales) ---' && systemctl list-units --type=service --state=running | head -20 && echo '\n--- Uso de memoria por servicio ---' && systemctl list-units --type=service --state=running --no-legend | awk '{print $1}' | xargs -I{} systemctl show {} --property=MemoryCurrent,Description 2>/dev/null | grep -v '^$' | head -30"))
+
+(defun my/sop-diag-disco ()
+  "Diagnóstico de almacenamiento."
+  (interactive)
+  (my/sop-run-diag "Almacenamiento"
+    "echo '--- Uso de disco ---' && df -h && echo '\n--- Particiones ---' && lsblk && echo '\n--- SMART (salud del disco) ---' && sudo smartctl -H /dev/sda 2>/dev/null || echo '(smartctl no disponible o requiere sudo)' && echo '\n--- Directorios más pesados en /home ---' && du -sh /home/*/ 2>/dev/null | sort -rh | head -10"))
+
+(defun my/sop-diag-procesos ()
+  "Procesos que más consumen."
+  (interactive)
+  (my/sop-run-diag "Procesos"
+    "echo '--- Top 10 CPU ---' && ps aux --sort=-%cpu | head -11 && echo '\n--- Top 10 RAM ---' && ps aux --sort=-%mem | head -11 && echo '\n--- Carga del sistema ---' && cat /proc/loadavg"))
+#+end_src
+
+* 50. Diagnóstico de Redes (TCP/IP)
+Herramientas de diagnóstico de conectividad basadas en CompTIA Network+.
+Cada función ejecuta el comando y muestra el resultado en un buffer dedicado.
+
+Metodología de diagnóstico de red (de abajo hacia arriba):
+1. Capa física: ¿hay cable/WiFi conectado?
+2. Capa de red: ¿tiene IP? ¿puede hacer ping al gateway?
+3. Capa de transporte: ¿puede resolver DNS? ¿llega a internet?
+4. Capa de aplicación: ¿funciona el servicio específico?
+
+#+begin_src emacs-lisp
+;; --- Diagnóstico completo de red ---
+(defun my/sop-diag-red-completo ()
+  "Ejecuta diagnóstico completo de red (capa por capa)."
+  (interactive)
+  (my/sop-run-diag "Red - Diagnóstico Completo"
+    (concat
+     "echo '═══ CAPA 1: FÍSICA ═══'"
+     " && echo '--- Interfaces de red ---'"
+     " && ip link show"
+     " && echo '\n═══ CAPA 2: CONFIGURACIÓN IP ═══'"
+     " && echo '--- Direcciones IP ---'"
+     " && ip -4 addr show | grep -E 'inet |^[0-9]'"
+     " && echo '\n--- Gateway por defecto ---'"
+     " && ip route | grep default"
+     " && echo '\n--- Servidores DNS ---'"
+     " && cat /etc/resolv.conf | grep nameserver"
+     " && echo '\n═══ CAPA 3: CONECTIVIDAD ═══'"
+     " && echo '--- Ping a Gateway ---'"
+     " && ping -c 3 $(ip route | grep default | awk '{print $3}') 2>&1 || echo 'FALLO: sin acceso al gateway'"
+     " && echo '\n--- Ping a Internet (8.8.8.8) ---'"
+     " && ping -c 3 8.8.8.8 2>&1 || echo 'FALLO: sin acceso a internet'"
+     " && echo '\n═══ CAPA 4: RESOLUCIÓN DNS ═══'"
+     " && echo '--- nslookup google.com ---'"
+     " && nslookup google.com 2>&1 || echo 'FALLO: DNS no resuelve'"
+     " && echo '\n═══ CAPA 5: APLICACIÓN ═══'"
+     " && echo '--- HTTP test ---'"
+     " && curl -s -o /dev/null -w 'HTTP Status: %{http_code}\\nTiempo: %{time_total}s\\n' https://www.google.com 2>&1 || echo 'FALLO: sin acceso HTTP'")))
+
+;; --- Diagnósticos individuales ---
+(defun my/sop-diag-ping ()
+  "Ping a un host específico."
+  (interactive)
+  (let ((host (read-string "Host o IP a pingear: " "8.8.8.8")))
+    (my/sop-run-diag (format "Ping a %s" host)
+      (format "ping -c 5 %s 2>&1" host))))
+
+(defun my/sop-diag-traceroute ()
+  "Traceroute a un host."
+  (interactive)
+  (let ((host (read-string "Host destino: " "8.8.8.8")))
+    (my/sop-run-diag (format "Traceroute a %s" host)
+      (format "traceroute -m 15 %s 2>&1 || tracepath %s 2>&1" host host))))
+
+(defun my/sop-diag-puertos ()
+  "Verifica puertos abiertos en el equipo local."
+  (interactive)
+  (my/sop-run-diag "Puertos Abiertos"
+    "echo '--- Puertos en escucha ---' && ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null && echo '\n--- Conexiones establecidas ---' && ss -tnp state established 2>/dev/null | head -20"))
+
+(defun my/sop-diag-dns ()
+  "Diagnóstico de resolución DNS."
+  (interactive)
+  (let ((domain (read-string "Dominio a resolver: " "google.com")))
+    (my/sop-run-diag (format "DNS: %s" domain)
+      (format "echo '--- nslookup ---' && nslookup %s 2>&1 && echo '\n--- dig (si disponible) ---' && dig %s +short 2>/dev/null || echo 'dig no instalado'" domain domain))))
+#+end_src
+
+* 60. Gestión del Conocimiento (Post-Incidente)
+Cuando un ticket se cierra, el conocimiento debe transferirse al sistema.
+El ciclo de ITIL se cierra con documentación: si la solución es nueva,
+se agrega a la KEDB; si ya existía, se verifica que esté actualizada.
+
+#+begin_src emacs-lisp
+;; --- Crear entrada en KEDB desde ticket resuelto ---
+(defun my/sop-ticket-a-kedb ()
+  "Extrae la info del ticket actual y crea una entrada en la KEDB."
+  (interactive)
+  (let* ((titulo (org-get-heading t t t t))
+         (categoria (or (org-entry-get nil "CATEGORIA") "General"))
+         (equipo (or (org-entry-get nil "EQUIPO") "N/A"))
+         (resolucion ""))
+    ;; Buscar sección de resolución
+    (save-excursion
+      (when (re-search-forward "^\\*\\* Resolución" (org-entry-end-position) t)
+        (forward-line 1)
+        (let ((start (point)))
+          (if (re-search-forward "^\\*" (org-entry-end-position) t)
+              (setq resolucion (buffer-substring-no-properties start (match-beginning 0)))
+            (setq resolucion (buffer-substring-no-properties start (org-entry-end-position)))))))
+    ;; Insertar en KEDB
+    (with-current-buffer (find-file-noselect my/sop-kedb)
+      (goto-char (point-min))
+      (if (re-search-forward "^\\*\\* Activos" nil t)
+          (progn
+            (end-of-line)
+            (insert (format "\n*** KEDB: %s\n" titulo))
+            (insert ":PROPERTIES:\n")
+            (insert (format ":FECHA: %s\n" (format-time-string "[%Y-%m-%d]")))
+            (insert (format ":CATEGORIA: %s\n" categoria))
+            (insert (format ":EQUIPO_AFECTADO: %s\n" equipo))
+            (insert ":OCURRENCIAS: 1\n")
+            (insert ":END:\n\n")
+            (insert "**** Síntoma\n")
+            (insert (format "- %s\n\n" titulo))
+            (insert "**** Causa Raíz\n")
+            (insert "- \n\n")
+            (insert "**** Workaround / Solución\n")
+            (insert (string-trim resolucion))
+            (insert "\n\n")
+            (insert "**** Solución Definitiva\n")
+            (insert "- (pendiente / en evaluación)\n")
+            (save-buffer)
+            (message "📚 Entrada KEDB creada: %s" titulo))
+        (message "❌ No se encontró la sección '** Activos' en kedb.org")))))
+
+;; --- Reporte post-incidente ---
+(defun my/sop-reporte-post-incidente ()
+  "Genera un reporte post-incidente desde el ticket actual."
+  (interactive)
+  (let* ((titulo (org-get-heading t t t t))
+         (prioridad (or (org-entry-get nil "PRIORITY") "B"))
+         (reportado (or (org-entry-get nil "REPORTADO") "N/A"))
+         (equipo (or (org-entry-get nil "EQUIPO") "N/A"))
+         (creado (or (org-entry-get nil "CREATED") "N/A"))
+         (resuelto (or (org-entry-get nil "RESUELTO_EN") "N/A"))
+         (nivel (or (org-entry-get nil "NIVEL_SOPORTE") "N1")))
+    (switch-to-buffer
+     (generate-new-buffer (format "*PostIncidente-%s*"
+                           (format-time-string "%Y%m%d"))))
+    (org-mode)
+    (insert "#+TITLE: Reporte Post-Incidente\n")
+    (insert (format "#+DATE: %s\n\n" (format-time-string "[%Y-%m-%d]")))
+    (insert "* 1. Datos del Incidente\n")
+    (insert (format "| Campo         | Valor                          |\n"))
+    (insert (format "|---------------+--------------------------------|\n"))
+    (insert (format "| Título        | %s |\n" titulo))
+    (insert (format "| Prioridad     | %s |\n" prioridad))
+    (insert (format "| Reportado por | %s |\n" reportado))
+    (insert (format "| Equipo        | %s |\n" equipo))
+    (insert (format "| Creado        | %s |\n" creado))
+    (insert (format "| Resuelto      | %s |\n" resuelto))
+    (insert (format "| Nivel final   | %s |\n\n" nivel))
+    (insert "* 2. Cronología\n")
+    (insert "| Hora | Evento |\n")
+    (insert "|------+--------|\n")
+    (insert "|      |        |\n\n")
+    (insert "* 3. Causa Raíz\n")
+    (insert "(Describir la causa técnica fundamental)\n\n\n")
+    (insert "* 4. Impacto\n")
+    (insert "- Usuarios afectados: \n")
+    (insert "- Duración de la interrupción: \n")
+    (insert "- Servicios impactados: \n\n")
+    (insert "* 5. Acciones Correctivas\n")
+    (insert "| # | Acción | Responsable | Fecha límite | Estado |\n")
+    (insert "|---+--------+-------------+--------------+--------|\n")
+    (insert "|   |        |             |              |        |\n\n")
+    (insert "* 6. Acciones Preventivas\n")
+    (insert "¿Qué cambios implementar para que no vuelva a ocurrir?\n")
+    (insert "- [ ] \n\n")
+    (insert "* 7. Lecciones Aprendidas\n")
+    (insert "- \n")
+    (goto-char (point-min))
+    (message "📋 Reporte post-incidente generado. Completar y exportar.")))
+#+end_src
+
+* 70. Capacitación a Usuarios Finales
+Herramientas para crear material de capacitación y registrar
+las sesiones realizadas. El técnico no solo resuelve: enseña.
+
+Principio ITIL: "Empoderar al usuario para que resuelva por sí mismo
+reduce la demanda de soporte y aumenta la satisfacción."
+
+#+begin_src emacs-lisp
+;; --- Template de guía rápida para usuario ---
+(defun my/sop-guia-usuario ()
+  "Genera una guía rápida para usuario final sobre un tema."
+  (interactive)
+  (let* ((tema (read-string "Tema de la guía: "))
+         (audiencia (completing-read "Audiencia: "
+                     '("Usuario básico" "Usuario intermedio" "Administrativo") nil t))
+         (slug (replace-regexp-in-string "[^a-z0-9]" "-" (downcase tema)))
+         (filepath (expand-file-name
+                    (concat "guia-" slug ".org") my/docs-dir)))
+    (find-file filepath)
+    (insert (format "#+TITLE: Guía Rápida: %s\n" tema))
+    (insert (format "#+AUTHOR: Soporte Técnico (%s)\n" (or user-full-name "")))
+    (insert (format "#+DATE: %s\n" (format-time-string "[%Y-%m-%d]")))
+    (insert (format "#+DESCRIPTION: Guía para %s\n" audiencia))
+    (insert "#+OPTIONS: toc:nil num:nil\n")
+    (insert "#+STARTUP: indent showall\n\n")
+    (insert (format "* %s\n\n" tema))
+    (insert "** ¿Qué es y para qué sirve?\n")
+    (insert "(Explicar en lenguaje simple, sin jerga técnica)\n\n\n")
+    (insert "** Paso a paso\n")
+    (insert "1. \n2. \n3. \n\n")
+    (insert "** Errores comunes y cómo evitarlos\n")
+    (insert "| Error frecuente | Solución |\n")
+    (insert "|-----------------+----------|\n")
+    (insert "|                 |          |\n\n")
+    (insert "** ¿Cuándo llamar a Soporte?\n")
+    (insert "Contactar a Soporte Técnico si:\n")
+    (insert "- \n\n")
+    (insert "** Contacto\n")
+    (insert "- Soporte Técnico: [email/extensión]\n")
+    (insert "- Horario de atención: [horarios]\n")
+    (goto-char (point-min))
+    (search-forward "¿Qué es")
+    (forward-line 1)
+    (message "📖 Guía para usuario creada. Completar y exportar a PDF/HTML.")))
+
+;; --- Registrar capacitación realizada ---
+(with-eval-after-load 'org-capture
+  (add-to-list 'org-capture-templates
+    '("H" "Capacitación realizada"
+      entry (file+headline my/sop-usuarios "Capacitaciones Realizadas")
+      "* %^{Tema de la capacitación} :capacitacion:\n:PROPERTIES:\n:FECHA: %U\n:AUDIENCIA: %^{Audiencia|Alumnos|Docentes|Administrativos|Mixta}\n:ASISTENTES: %^{Cantidad de asistentes}\n:DURACION: %^{Duración (minutos)}\n:MODALIDAD: %^{Modalidad|Presencial|Virtual|Híbrida}\n:END:\n\n** Contenidos cubiertos\n- %?\n\n** Preguntas frecuentes durante la sesión\n-\n\n** Mejoras para la próxima vez\n-\n"
+      :empty-lines 1)
+    t))
+#+end_src
+
+* 80. ITIL 4: Prácticas de Gestión de Servicio
+Funciones que implementan conceptos clave de ITIL 4 dentro del sistema:
+catálogo de servicios, acuerdos de nivel de servicio (SLA), y el ciclo
+de valor del servicio.
+
+#+begin_src emacs-lisp
+;; --- Catálogo de servicios ---
+(defun my/sop-catalogo-servicios ()
+  "Abre o crea el catálogo de servicios del laboratorio."
+  (interactive)
+  (let ((filepath (expand-file-name "catalogo-servicios.org" my/proc-dir)))
+    (unless (file-exists-p filepath)
+      (with-temp-file filepath
+        (insert "#+TITLE: Catálogo de Servicios — Laboratorio\n")
+        (insert "#+STARTUP: indent overview\n\n")
+        (insert "* Servicios Ofrecidos\n")
+        (insert "| ID | Servicio | Descripción | SLA | Nivel | Estado |\n")
+        (insert "|----+----------+-------------+-----+-------+--------|\n")
+        (insert "| S01 | Soporte PC | Diagnóstico y reparación de hardware/software | 24h | N1 | Activo |\n")
+        (insert "| S02 | Cuentas de usuario | Creación, reseteo de contraseña, permisos | 4h | N1 | Activo |\n")
+        (insert "| S03 | Instalación de software | Evaluación, instalación y configuración | 8h | N1-N2 | Activo |\n")
+        (insert "| S04 | Conectividad de red | Diagnóstico y resolución de problemas de red | 8h | N1-N2 | Activo |\n")
+        (insert "| S05 | Backup y recuperación | Resguardo y restauración de datos | 24h | N2 | Activo |\n")
+        (insert "| S06 | Capacitación | Formación a usuarios finales | Coord. | N1 | Activo |\n\n")
+        (insert "* Acuerdos de Nivel de Servicio (SLA)\n")
+        (insert "| Prioridad | Descripción | Tiempo de respuesta | Tiempo de resolución |\n")
+        (insert "|-----------+-------------+---------------------+----------------------|\n")
+        (insert "| Crítica   | Servicio caído, afecta a todos | 15 min | 1 hora |\n")
+        (insert "| Alta      | Servicio degradado, múltiples usuarios | 30 min | 4 horas |\n")
+        (insert "| Media     | Un usuario afectado, puede trabajar parcialmente | 2 horas | 8 horas |\n")
+        (insert "| Baja      | Solicitud de mejora o consulta | 4 horas | 24 horas |\n")))
+    (find-file filepath)
+    (message "📋 Catálogo de servicios abierto.")))
+
+;; --- Resumen rápido del estado del servicio ---
+(defun my/sop-estado-servicio ()
+  "Muestra un resumen del estado actual del servicio de soporte."
+  (interactive)
+  (let ((abiertos 0) (en-progreso 0) (esperando 0) (resueltos-hoy 0)
+        (hoy (format-time-string "%Y-%m-%d")))
+    (when (file-exists-p my/gtd-soporte)
+      (with-current-buffer (find-file-noselect my/gtd-soporte)
+        (org-map-entries
+         (lambda ()
+           (let ((state (org-get-todo-state)))
+             (cond
+              ((string= state "INBOX") (setq abiertos (1+ abiertos)))
+              ((string= state "NEXT") (setq en-progreso (1+ en-progreso)))
+              ((string= state "WAITING") (setq esperando (1+ esperando)))
+              ((and (string= state "DONE")
+                    (let ((closed (org-entry-get nil "CLOSED")))
+                      (and closed (string-prefix-p hoy closed))))
+               (setq resueltos-hoy (1+ resueltos-hoy)))))))))
+    (message "🏥 Estado del Servicio: 📥 %d nuevos | 🔧 %d en trabajo | ⏳ %d esperando | ✅ %d resueltos hoy"
+             abiertos en-progreso esperando resueltos-hoy)))
+#+end_src
+
+* 90. IA Local para Soporte Técnico
+Funciones de IA para asistir en diagnóstico y documentación.
+El modelo local actúa como un "compañero de N2" que sugiere
+diagnósticos y soluciones basado en la descripción del problema.
+
+#+begin_src emacs-lisp
+(defun my/sop-ai-diagnosticar ()
+  "Pide a la IA que sugiera un diagnóstico basado en el ticket actual."
+  (interactive)
+  (let* ((heading (org-get-heading t t t t))
+         (body (org-get-entry))
+         (categoria (or (org-entry-get nil "CATEGORIA") "General"))
+         (equipo (or (org-entry-get nil "EQUIPO") "PC"))
+         (prompt (format
+                  "Sos un técnico de soporte N2 con experiencia en CompTIA A+ y Network+.
+Analizá este ticket y sugerí:
+1. Las 3 causas más probables (ordenadas por probabilidad)
+2. Pasos de diagnóstico para confirmar cada causa
+3. Solución sugerida para la causa más probable
+4. Si es necesario escalar a N3 y por qué
+
+Ticket: %s
+Categoría: %s
+Equipo: %s
+Detalles: %s
+
+Respondé breve y técnico, en formato Org Mode." heading categoria equipo (or body ""))))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (progn
+                        (org-end-of-subtree)
+                        (insert "\n** Sugerencia IA (N2)\n" response "\n")
+                        (message "🤖 Diagnóstico IA insertado"))
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+
+(defun my/sop-ai-redactar-respuesta-usuario ()
+  "Genera un borrador de respuesta para el usuario basado en el ticket."
+  (interactive)
+  (let* ((heading (org-get-heading t t t t))
+         (body (org-get-entry))
+         (estado (or (org-get-todo-state) "OPEN"))
+         (prompt (format
+                  "Redactá un mensaje breve y amable para el usuario que reportó este problema.
+El mensaje debe:
+- Saludar al usuario
+- Confirmar que entendemos su problema
+- Informar el estado actual (%s)
+- Si está resuelto: explicar qué se hizo en lenguaje simple (NO técnico)
+- Si está en proceso: dar un tiempo estimado
+- Cerrar con ofrecimiento de ayuda adicional
+
+Ticket: %s
+Detalles: %s
+
+Formato: texto plano (no Org Mode), listo para copiar a un email." estado heading (or body ""))))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (let ((buf (generate-new-buffer "*Respuesta-Usuario*")))
+                        (with-current-buffer buf
+                          (insert response)
+                          (goto-char (point-min)))
+                        (switch-to-buffer-other-window buf)
+                        (message "📧 Respuesta generada. Revisar y enviar."))
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+
+(defun my/sop-ai-buscar-kedb ()
+  "Busca en la KEDB una solución al problema del ticket actual."
+  (interactive)
+  (let* ((heading (org-get-heading t t t t))
+         (body (org-get-entry))
+         (kedb-content ""))
+    ;; Leer contenido de KEDB
+    (when (file-exists-p my/sop-kedb)
+      (with-temp-buffer
+        (insert-file-contents my/sop-kedb)
+        (setq kedb-content (buffer-string))))
+    (if (string-empty-p kedb-content)
+        (message "KEDB vacía, no hay errores conocidos registrados.")
+      (let ((prompt (format
+                     "Tengo un ticket de soporte y una base de errores conocidos (KEDB).
+¿Alguna entrada de la KEDB coincide con este problema?
+
+TICKET: %s
+Detalles: %s
+
+KEDB:
+%s
+
+Si hay coincidencia: indicá cuál entrada aplica y qué workaround usar.
+Si no hay coincidencia: decí 'Sin coincidencia en KEDB' y sugerí si vale la pena crear una entrada nueva."
+                     heading (or body "") kedb-content)))
+        (gptel-request prompt
+          :callback (lambda (response info)
+                      (if response
+                          (message "🔍 KEDB: %s" response)
+                        (message "❌ Error: %s" (plist-get info :error)))))))))
+#+end_src
+
+* 100. Atajos y Hydra de Soporte
+Todos los atajos de soporte bajo el prefijo =C-c H= (H de Help desk).
+
+#+begin_src emacs-lisp
+;; --- Funciones de navegación rápida ---
+(defun my/sop-open-soporte ()    (interactive) (find-file my/gtd-soporte))
+(defun my/sop-open-inventario () (interactive) (find-file my/sop-inventario))
+(defun my/sop-open-kedb ()       (interactive) (find-file my/sop-kedb))
+(defun my/sop-open-usuarios ()   (interactive) (find-file my/sop-usuarios))
+
+;; --- Hydra: menú visual de soporte ---
+(defhydra my/hydra-sop (:color blue :hint nil)
+  "
+   HELP DESK -- SOPORTE
+  --------------------------------------------------
+   ARCHIVOS          TICKETS          ESTADO
+   _t_: Tickets       _n_: Nuevo ticket  _e_: Estado svc
+   _i_: Inventario    _x_: Escalar       _l_: Verificar SLA
+   _k_: KEDB          _z_: Cerrar ticket _v_: Vista cols
+   _u_: Usuarios      _p_: Post-incid.
+   _c_: Catalogo svc  _b_: Ticket>KEDB
+
+   DIAGNOSTICO HW    DIAGNOSTICO SW/RED
+   _d 1_: No enciende  _d s_: Info sistema
+   _d 2_: PC lenta     _d u_: Usuarios
+                      _d v_: Servicios
+                      _d k_: Disco
+                      _d p_: Procesos
+                      _d r_: Red completa
+                      _d g_: Ping
+                      _d t_: Traceroute
+                      _d o_: Puertos
+                      _d n_: DNS
+
+   USUARIOS          IA LOCAL
+   _g_: Guia usuario   _a d_: IA diagnostico
+   _h_: Reg.capacit.   _a r_: IA respuesta usuario
+                      _a k_: IA buscar KEDB
+
+   _q_: Salir
+"
+  ;; Archivos
+  ("t" my/sop-open-soporte)
+  ("i" my/sop-open-inventario)
+  ("k" my/sop-open-kedb)
+  ("u" my/sop-open-usuarios)
+  ("c" my/sop-catalogo-servicios)
+  ;; Tickets
+  ("n" (org-capture nil "s"))
+  ("x" my/sop-escalar-ticket)
+  ("z" my/sop-cerrar-ticket)
+  ("p" my/sop-reporte-post-incidente)
+  ("b" my/sop-ticket-a-kedb)
+  ;; Estado
+  ("e" my/sop-estado-servicio)
+  ("l" my/sop-verificar-sla)
+  ("v" my/sop-ticket-columns)
+  ;; Diagnóstico hardware
+  ("d 1" my/sop-diag-no-enciende)
+  ("d 2" my/sop-diag-pc-lenta)
+  ;; Diagnóstico software/red
+  ("d s" my/sop-diag-sistema-info)
+  ("d u" my/sop-diag-usuarios)
+  ("d v" my/sop-diag-servicios)
+  ("d k" my/sop-diag-disco)
+  ("d p" my/sop-diag-procesos)
+  ("d r" my/sop-diag-red-completo)
+  ("d g" my/sop-diag-ping)
+  ("d t" my/sop-diag-traceroute)
+  ("d o" my/sop-diag-puertos)
+  ("d n" my/sop-diag-dns)
+  ;; Usuarios
+  ("g" my/sop-guia-usuario)
+  ("h" (org-capture nil "H"))
+  ;; IA
+  ("a d" my/sop-ai-diagnosticar)
+  ("a r" my/sop-ai-redactar-respuesta-usuario)
+  ("a k" my/sop-ai-buscar-kedb)
+  ;; Salir
+  ("q" nil))
+
+;; --- Atajo global ---
+(global-set-key (kbd "C-c H") #'my/hydra-sop/body)
+#+end_src

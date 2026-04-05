@@ -1,0 +1,453 @@
+#+TITLE: Módulo Termux - Adaptaciones para Android (Asistencia Operativa)
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-detección-y-paths-de-termux][10. Detección y Paths de Termux]]
+- [[#20-parches-para-00-coreorg][20. Parches para 00-core.org]]
+- [[#30-parches-para-01-dashboardorg-y-10-gitorg][30. Parches para 01-dashboard.org y 10-git.org]]
+- [[#40-parches-para-módulos-50-53-asistencia-operativa][40. Parches para Módulos 50-53 (Asistencia Operativa)]]
+- [[#50-clipboard-android][50. Clipboard Android]]
+- [[#60-keybindings-para-teclado-virtual][60. Keybindings para Teclado Virtual]]
+- [[#70-performance-en-android][70. Performance en Android]]
+- [[#80-setup-de-termux-instrucciones][80. Setup de Termux (Instrucciones)]]
+
+* 10. Detección y Paths de Termux
+Variables de entorno y paths específicos de Termux.
+Este módulo se carga ANTES que 00-core.org para poder parchear
+funciones y variables antes de que se definan.
+
+#+begin_src emacs-lisp
+(defvar termux-p (getenv "TERMUX_VERSION")
+  "Non-nil si Emacs corre dentro de Termux.")
+
+(defvar termux-prefix "/data/data/com.termux/files/usr"
+  "Prefijo de Termux (equivalente a /usr).")
+
+(when termux-p
+  ;; Asegurar que el PATH incluya los binarios de Termux
+  (setenv "PATH" (concat termux-prefix "/bin:" (getenv "PATH")))
+  (add-to-list 'exec-path (concat termux-prefix "/bin"))
+
+  ;; Shell correcto
+  (setq explicit-shell-file-name (concat termux-prefix "/bin/bash"))
+  (setq shell-file-name (concat termux-prefix "/bin/bash"))
+
+  ;; Abrir URLs con termux-open (abre en el navegador de Android)
+  (setq browse-url-browser-function
+        (lambda (url &rest _args)
+          (start-process "termux-open" nil "termux-open" url)))
+
+  (message "📱 Termux detectado: paths configurados"))
+#+end_src
+
+* 20. Parches para 00-core.org
+00-core.org carga paquetes GUI pesados que no funcionan en terminal Android.
+Acá los neutralizamos ANTES de que carguen.
+
+Paquetes problemáticos:
+- =exec-path-from-shell=: ya tiene guard con =window-system=, OK
+- =doom-modeline= con iconos: sin soporte gráfico
+- =all-the-icons=: requiere GUI
+- =company-box=: requiere GUI (child frames)
+- =my/set-font=: no aplica en terminal
+- =my/open-terminal-here=: alacritty no existe, usar eshell
+- =my/vterm-compile=: vterm difícil de compilar en Termux
+- =envrc=: direnv puede no estar instalado
+- =minuet=: necesita Ollama corriendo (opcional en Termux)
+
+#+begin_src emacs-lisp
+(when termux-p
+  ;; --- doom-modeline: sin iconos, más compacto ---
+  (setq doom-modeline-icon nil)
+  (setq doom-modeline-height 22)
+  (setq doom-modeline-bar-width 2)
+
+  ;; --- all-the-icons: stub para que no crashee ---
+  (unless (display-graphic-p)
+    (defun all-the-icons-install-fonts (&rest _) (interactive))
+    (defun all-the-icons-faicon (&rest _) ""))
+
+  ;; --- company-box: desactivar en terminal ---
+  (with-eval-after-load 'company-box
+    (company-box-mode -1))
+
+  ;; --- Fuente: no intentar setear fuentes gráficas ---
+  (defun my/set-font () "No-op en Termux." nil)
+
+  ;; --- Números de línea: absolutos (más legible en pantalla chica) ---
+  (setq display-line-numbers-type t)
+
+  ;; --- Scroll suave ---
+  (setq scroll-margin 2
+        scroll-conservatively 101
+        scroll-preserve-screen-position t)
+
+  ;; --- Desactivar UI gráfica defensivamente ---
+  (when (fboundp 'tool-bar-mode)   (tool-bar-mode -1))
+  (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+  (when (fboundp 'menu-bar-mode)   (menu-bar-mode -1))
+
+  ;; --- Whitespace: simplificar (caracteres especiales se ven mal) ---
+  (setq whitespace-style '(face trailing))
+
+  ;; --- Abrir terminal: eshell en vez de alacritty ---
+  (defun my/open-terminal-here ()
+    "Abre eshell en el directorio actual (Termux)."
+    (interactive)
+    (let ((default-directory
+           (or (and (bound-and-true-p projectile-mode)
+                    (projectile-project-root))
+               default-directory)))
+      (eshell)))
+
+  ;; --- vterm-compile: usar compile estándar ---
+  (defun my/vterm-compile (cmd)
+    "Fallback a compile estándar en Termux."
+    (interactive "sComando: ")
+    (compile cmd))
+
+  ;; --- envrc/direnv: desactivar si no está instalado ---
+  (unless (executable-find "direnv")
+    (with-eval-after-load 'envrc
+      (envrc-global-mode -1)))
+
+  ;; --- minuet (autocompletado IA): desactivar si no hay Ollama ---
+  (unless (executable-find "ollama")
+    (defun minuet-show-suggestion (&rest _) (interactive)
+      (message "📱 minuet desactivado: Ollama no está instalado"))
+    (defun minuet-accept-suggestion (&rest _) (interactive))
+    (defun minuet-dismiss-suggestion (&rest _) (interactive)))
+
+  ;; --- Yasnippet: prevenir inicio en Android (muy pesado) ---
+  (with-eval-after-load 'yasnippet
+    (yas-global-mode -1))
+
+  ;; --- Visuales pesadas en terminal: desactivar ---
+  (when (fboundp 'show-paren-mode) (show-paren-mode -1))
+  (when (fboundp 'hl-line-mode)    (hl-line-mode -1))
+  (when (fboundp 'global-hl-line-mode) (global-hl-line-mode -1))
+
+  ;; --- Guardado auto resiliente: evitar pérdida de datos si Android cierra la App ---
+  (auto-save-visited-mode 1)
+  (setq auto-save-visited-interval 30)
+
+  (message "📱 Parches 00-core aplicados para Termux"))
+#+end_src
+
+* 30. Parches para 01-dashboard.org y 10-git.org
+Dashboard usa widgets que funcionan en terminal, pero necesita ajustes.
+10-git.org tiene treemacs (pesado), vterm (no compila), y
+all-the-icons-ivy-rich (GUI).
+
+#+begin_src emacs-lisp
+(when termux-p
+  ;; --- Dashboard: ajustar para pantalla chica ---
+  ;; El paquete dashboard funciona en terminal, pero reducimos items
+  (with-eval-after-load 'dashboard
+    (setq dashboard-items '((recents  . 3)
+                            (agenda   . 5)))  ;; Sin projects ni scratch-button
+    (setq dashboard-center-content nil)       ;; Más espacio
+    (setq dashboard-startup-banner 'logo))
+
+  ;; --- Treemacs: reemplazar F7 con dired-jump ---
+  ;; Treemacs es muy pesado y poco práctico en pantalla táctil
+  (global-set-key (kbd "<f7>") #'dired-jump)
+
+  ;; --- all-the-icons-ivy-rich: desactivar (requiere GUI) ---
+  (with-eval-after-load 'all-the-icons-ivy-rich
+    (all-the-icons-ivy-rich-mode -1))
+
+  ;; --- Ivy: menos candidatos para pantalla chica y desactivar prescient si existe ---
+  (with-eval-after-load 'ivy
+    (setq ivy-height 6))
+
+  ;; --- vterm: reemplazar con eshell ---
+  (global-set-key (kbd "C-c t") #'eshell)
+
+  ;; --- multi-term: ajustar shell ---
+  (with-eval-after-load 'multi-term
+    (setq multi-term-program (concat termux-prefix "/bin/bash")))
+
+  ;; --- Projectile: paths accesibles desde Android ---
+  (with-eval-after-load 'projectile
+    (setq projectile-project-search-path
+          '(("~/projects/" . 3)
+            "~/storage/shared/projects/"  ;; Si usás termux-setup-storage
+            "~/dotfiles/"))
+    (setq projectile-indexing-method 'alien))
+
+  ;; --- Magit: reducir consumo ---
+  (with-eval-after-load 'magit
+    (setq magit-refresh-status-buffer nil)
+    (setq magit-diff-refine-hunk nil)
+    (setq magit-process-finish-apply-ansi-colors nil))
+
+  ;; --- Which-key: más compacto ---
+  (with-eval-after-load 'which-key
+    (setq which-key-max-display-columns 2)
+    (setq which-key-side-window-max-height 0.4))
+
+  (message "📱 Parches dashboard/git aplicados para Termux"))
+#+end_src
+
+* 40. Parches para Módulos 50-53 (Asistencia Operativa)
+Estos son los módulos que tus alumnos VAN a usar desde el celular.
+La mayoría funciona perfecto en terminal, pero hay dependencias
+que no estarán disponibles:
+
+Funciona sin cambios:
+- GTD completo (captura, agenda, refile, eisenhower, revisión)
+- Checklists DO-CONFIRM / READ-DO
+- SOPs (creación y edición)
+- Tickets de soporte (captura, escalar, cerrar, SLA)
+- Árboles de diagnóstico (hardware)
+- Diagnóstico de redes (ping, traceroute, DNS — ¡todo funciona en Termux!)
+- Diagnóstico de software (procesos, disco, servicios)
+- Org-babel con shell (scripts embebidos)
+- Clock-in/clock-out y reportes de tiempo
+- Org-kanban
+- Formularios de captura estructurada
+
+Necesita parches:
+- =gptel/Ollama=: probablemente no esté instalado → desactivar IA
+- =calfw=: funciona pero los caracteres unicode se ven raro → OK
+- =org-roam=: necesita sqlite (disponible en Termux) → OK pero pesado
+- Exportación PDF (LaTeX): no disponible → solo HTML
+- Mermaid/gnuplot: no disponibles → solo texto
+
+#+begin_src emacs-lisp
+(when termux-p
+  ;; --- gptel/IA: desactivar si no hay Ollama ---
+  ;; Los módulos 50-53 usan gptel para IA local.
+  ;; En Termux sin Ollama, las funciones de IA simplemente avisan.
+  (unless (executable-find "ollama")
+    ;; Stub de gptel-request para que las funciones no crasheen
+    (with-eval-after-load 'gptel
+      (defun gptel-request (prompt &rest _args)
+        "Stub: Ollama no disponible en este dispositivo."
+        (message "🤖 IA no disponible: Ollama no está instalado en Termux.
+Para activar IA: pkg install ollama && ollama pull qwen2.5-coder:0.5b")))
+
+    ;; Stubs para las funciones de IA de cada módulo
+    (defun my/gtd-ai-procesar-item ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/gtd-ai-generar-checklist ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/gtd-ai-resumir-notas ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/docs-ai-generar-sop ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/docs-ai-texto-a-checklist ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/docs-ai-revisar-documento ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/proc-ai-analizar-restricciones ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/proc-ai-detectar-muda ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/proc-ai-generar-mermaid ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/sop-ai-diagnosticar ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/sop-ai-redactar-respuesta-usuario ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)"))
+    (defun my/sop-ai-buscar-kedb ()
+      (interactive) (message "🤖 IA no disponible en Termux (falta Ollama)")))
+
+  ;; --- Exportación: solo HTML (sin LaTeX en Termux) ---
+  (defun my/docs-exportar-a (formato)
+    "Exporta en Termux (solo HTML disponible, sin LaTeX)."
+    (interactive
+     (list (completing-read "Formato: " '("html" "txt") nil t)))
+    (pcase formato
+      ("html" (org-html-export-to-html)
+              (message "📄 Exportado a HTML"))
+      ("txt"  (org-ascii-export-to-ascii)
+              (message "📄 Exportado a texto plano"))))
+
+  ;; --- Mermaid/gnuplot: avisar que no están disponibles ---
+  (with-eval-after-load 'ob-mermaid
+    (setq ob-mermaid-cli-path nil))
+
+  ;; --- org-roam: desactivar si sqlite no está instalado ---
+  (unless (executable-find "sqlite3")
+    (with-eval-after-load 'org-roam
+      (org-roam-db-autosync-mode -1)
+      (message "📱 org-roam desactivado: instalar con pkg install sqlite")))
+
+  ;; --- LSP: reducir consumo drásticamente ---
+  ;; Los módulos 50-53 no necesitan LSP, pero 00-core lo carga globalmente
+  (with-eval-after-load 'lsp-mode
+    (setq lsp-enable-file-watchers nil)
+    (setq lsp-idle-delay 1.5)
+    (setq lsp-log-io nil)
+    (setq lsp-enable-snippet nil)
+    (setq lsp-headerline-breadcrumb-enable nil)
+    (setq lsp-modeline-code-actions-enable nil)
+    (setq lsp-modeline-diagnostics-enable nil)
+    (setq lsp-lens-enable nil))
+
+  ;; --- Flycheck: apagado total en móvil (innecesario para SOPs/Org) ---
+  (with-eval-after-load 'flycheck
+    (global-flycheck-mode -1)
+    (setq flycheck-check-syntax-automatically nil))
+
+  ;; --- Company: autocompletar SOLO a petición (teclado virtual molesta) ---
+  (with-eval-after-load 'company
+    (setq company-idle-delay nil) ;; Apagar auto-sugerencias molestas
+    (setq company-minimum-prefix-length 3))
+
+  ;; --- Org: ajustes para pantalla chica ---
+  (with-eval-after-load 'org
+    (setq org-startup-folded t)
+    (setq org-ellipsis " ▾")
+    (setq org-return-follows-link t)
+    (setq org-directory "~/org/"))
+
+  (message "📱 Parches para módulos 50-53 aplicados"))
+#+end_src
+
+* 50. Clipboard Android
+En Termux, el clipboard del sistema Android se accede via =termux-clipboard-get=
+y =termux-clipboard-set=. Requiere el paquete =termux-api= y la app Termux:API.
+
+#+begin_src emacs-lisp
+(when termux-p
+  (defun termux-clipboard-paste ()
+    "Pegar desde el clipboard de Android."
+    (interactive)
+    (let ((text (string-trim
+                 (shell-command-to-string "termux-clipboard-get"))))
+      (unless (string-empty-p text)
+        (insert text))))
+
+  (defun termux-clipboard-copy (beg end)
+    "Copiar región al clipboard de Android."
+    (interactive "r")
+    (shell-command-on-region beg end "termux-clipboard-set")
+    (deactivate-mark)
+    (message "📋 Copiado al clipboard de Android"))
+
+  (defun termux-copy-last-kill ()
+    "Copia el último kill al clipboard de Android."
+    (interactive)
+    (let ((text (current-kill 0 t)))
+      (when text
+        (with-temp-buffer
+          (insert text)
+          (shell-command-on-region (point-min) (point-max) "termux-clipboard-set"))
+        (message "📋 Kill ring → clipboard Android"))))
+
+  (global-set-key (kbd "C-c x c") #'termux-clipboard-copy)
+  (global-set-key (kbd "C-c x v") #'termux-clipboard-paste)
+  (global-set-key (kbd "C-c x k") #'termux-copy-last-kill)
+
+  (message "📋 Clipboard Android configurado"))
+#+end_src
+
+* 60. Keybindings para Teclado Virtual
+En Termux con teclado virtual, Meta (Alt) y Ctrl son incómodos.
+El hydra principal reemplaza al dashboard gráfico: con =C-z= accedés
+a todo lo que necesitás para asistencia operativa.
+
+#+begin_src emacs-lisp
+(when termux-p
+  (with-eval-after-load 'hydra
+
+    ;; --- HYDRA PRINCIPAL: Centro de Mando Termux ---
+    ;; Reemplaza al 01-dashboard.org y añade comodines de edición táctil
+    (defhydra hydra-termux (:color blue :hint nil)
+      "
+╔═══════════════════════════════════════════╗
+║         📱 CENTRO DE MANDO TERMUX         ║
+╠═══════════════════════════════════════════╣
+║ NAVEGACIÓN      ORGANIZACIÓN             ║
+║ _f_: Archivos     _g_: GTD (menú)          ║
+║ _b_: Buffers      _S_: SOPs/Docs (menú)    ║
+║ _p_: Proyectos    _V_: Visión Sist. (menú) ║
+║ _d_: Dired        _H_: Help Desk (menú)    ║
+║                                           ║
+║ EDICIÓN TÁCTIL  AGENDA & GIT             ║
+║ _u_: Deshacer     _a_: Dashboard           ║
+║ _U_: Rehacer      _c_: Capturar            ║
+║ _k_: Cortar líne  _m_: Magit               ║
+║ _SPC_: Seleccionar_/_: Buscar (Swiper)     ║
+║ _+_ / _-_: Zoom     _x_/_v_: Copiar/Pegar      ║
+║                                           ║
+║ SISTEMA                                   ║
+║ _s_: Guardar    _w_: Guardar+Cerrar _q_: Fin ║
+╚═══════════════════════════════════════════╝
+"
+      ;; Navegación
+      ("f" counsel-find-file)
+      ("b" counsel-switch-buffer)
+      ("p" projectile-switch-project)
+      ("d" dired-jump)
+      ;; Organización
+      ("g" my/hydra-gtd/body)
+      ("S" my/hydra-docs/body)
+      ("V" my/hydra-proc/body)
+      ("H" my/hydra-sop/body)
+      ;; Edición Táctil (Esenciales sin teclado hard)
+      ("u" undo)
+      ("U" undo-redo)
+      ("k" kill-whole-line)
+      ("SPC" set-mark-command)
+      ("+" text-scale-increase)
+      ("-" text-scale-decrease)
+      ("x" termux-clipboard-copy)
+      ("v" termux-clipboard-paste)
+      ;; Agenda & Git
+      ("a" (org-agenda nil "d"))
+      ("c" org-capture)
+      ("m" magit-status)
+      ("/" swiper)
+      ;; Sistema
+      ("s" save-buffer)
+      ("w" (progn (save-buffer) (kill-current-buffer)))
+      ("q" nil))
+
+    ;; C-z abre el centro de mando (fácil con extra-keys)
+    (global-set-key (kbd "C-z") #'hydra-termux/body))
+
+  ;; --- Atajos accesibles sin hydra ---
+  (global-set-key (kbd "M-o") #'other-window)
+
+  (message "📱 Keybindings Termux configurados"))
+#+end_src
+
+* 70. Performance en Android
+Ajustes críticos de GC y memoria para dispositivos con recursos limitados.
+
+#+begin_src emacs-lisp
+(when termux-p
+  ;; --- GC más conservador (00-core pone 50MB, acá 16MB) ---
+  (setq gc-cons-threshold (* 16 1024 1024))
+  (setq gc-cons-percentage 0.1)
+  (setq read-process-output-max (* 512 1024))  ;; 512KB
+
+  ;; --- GCMH: ajustar (00-core pone 1GB, absurdo en un celular) ---
+  (with-eval-after-load 'gcmh
+    (setq gcmh-high-cons-threshold (* 16 1024 1024))
+    (setq gcmh-idle-delay 10))
+
+  ;; --- Desactivar native-comp en background ---
+  (setq native-comp-async-report-warnings-errors nil)
+  (setq native-comp-deferred-compilation nil)
+
+  ;; --- Reducir historial ---
+  (setq history-length 50)
+  (setq recentf-max-saved-items 25)
+
+  ;; --- Auto-save menos agresivo ---
+  (setq auto-save-interval 120)
+  (setq auto-save-timeout 60)
+
+  (message "📱 Performance Termux optimizada"))
+#+end_src
+
+* 80. Setup de Termux (Instrucciones)
+El script de instalación y configuración inicial ha sido extraído al archivo `install.sh`
+en la raíz de este proyecto para facilitar la descarga vía `curl` en los dispositivos móviles.

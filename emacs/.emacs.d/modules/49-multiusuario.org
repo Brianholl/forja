@@ -1,0 +1,585 @@
+#+TITLE: 49 - Sistema Multiusuario
+#+AUTHOR: Módulo de Gestión por Alumno
+#+STARTUP: indent overview
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Sistema Multiusuario
+
+Este módulo permite que múltiples alumnos usen Emacs en PCs compartidas
+de la escuela. Cada alumno tiene su propia carpeta con datos org (GDT,
+módulos 50-53) y también sus propios proyectos de código (C, C++, Rust,
+Go, Web, Godot, etc.).
+
+** Flujo de uso
+1. El alumno abre Emacs
+2. Si hay un USB con el marcador =.org-alumno=, se usa automáticamente
+3. Si no, un selector interactivo permite elegir o crear un alumno
+4. Al terminar, puede hacer backup a USB o exportar un =.tar.gz= para Drive
+
+* 1. Variables de configuración
+
+#+begin_src emacs-lisp
+(defvar my/mu-base-dir (expand-file-name "org-alumnos/" "~/")
+  "Directorio base donde se almacenan las carpetas de cada alumno.")
+
+(defvar my/mu-usb-marker ".org-alumno"
+  "Archivo marcador que identifica un USB con datos org de un alumno.
+Contiene el nombre del alumno en la primera línea.")
+
+(defvar my/mu-usb-search-paths
+  (if (bound-and-true-p my/is-termux)
+      ;; En Termux: ~/storage/ es el acceso a almacenamiento compartido
+      ;; (requiere haber ejecutado termux-setup-storage una vez)
+      (list (expand-file-name "storage/" "~"))
+    ;; En Linux desktop: rutas estándar de montaje USB
+    (list
+     (format "/run/media/%s/" user-login-name)
+     (format "/media/%s/" user-login-name)
+     "/mnt/"))
+  "Rutas donde buscar dispositivos USB montados.")
+
+(defvar my/mu-alumno-actual nil
+  "Nombre del alumno activo en esta sesión.")
+
+(defvar my/mu-usb-path-actual nil
+  "Ruta al USB del alumno actual, o nil si no hay USB.")
+
+(defvar my/mu-ultimo-backup nil
+  "Timestamp del último backup realizado.")
+
+;; --- Variables rclone (sincronización con Google Drive) ---
+(defvar my/mu-rclone-remote "gdrive"
+  "Nombre del remote de rclone para Google Drive.")
+
+(defvar my/mu-rclone-base-path "emacs-sync"
+  "Carpeta base en Google Drive donde se guardan los datos.")
+
+(defvar my/mu-sync-subdirs '("gtd" "docs" "procesos" "projects")
+  "Subdirectorios a sincronizar con Drive.")
+
+(defvar my/mu-ultimo-sync-drive nil
+  "Timestamp de la última sincronización con Drive.")
+#+end_src
+
+* 1.1 Directorio de proyectos por alumno
+
+Cuando hay un alumno activo, los proyectos se crean dentro de su carpeta
+personal. Esto permite que cada alumno tenga sus propios proyectos aislados.
+
+#+begin_src emacs-lisp
+(defvar my/mu-projects-global (expand-file-name "projects/" "~/")
+  "Directorio global de proyectos (usado cuando no hay alumno activo).")
+
+(defun my/mu-projects-base ()
+  "Retorna el directorio base de proyectos.
+Si hay un alumno activo, retorna ~/org-alumnos/ALUMNO/projects/.
+Si no, retorna ~/projects/ (comportamiento original)."
+  (if my/mu-alumno-actual
+      (let ((dir (expand-file-name
+                  (concat my/mu-alumno-actual "/projects/")
+                  my/mu-base-dir)))
+        (make-directory dir t)
+        dir)
+    my/mu-projects-global))
+#+end_src
+
+* 2. Detección de USB
+
+#+begin_src emacs-lisp
+(defun my/mu-detectar-usb ()
+  "Busca un USB montado que contenga el marcador .org-alumno.
+Retorna la ruta al directorio raíz del USB, o nil."
+  (catch 'found
+    (dolist (base-path my/mu-usb-search-paths)
+      (when (file-accessible-directory-p base-path)
+        (condition-case nil
+            (dolist (device (directory-files base-path t "^[^.]"))
+              (when (file-directory-p device)
+                (let ((marker (expand-file-name my/mu-usb-marker device)))
+                  (when (file-exists-p marker)
+                    (throw 'found device)))))
+          ;; En Termux /storage puede existir pero dar permission-denied
+          (error nil))))
+    nil))
+
+(defun my/mu-leer-nombre-usb (usb-path)
+  "Lee el nombre del alumno desde el marcador en USB-PATH."
+  (let ((marker (expand-file-name my/mu-usb-marker usb-path)))
+    (when (file-exists-p marker)
+      (string-trim
+       (with-temp-buffer
+         (insert-file-contents marker)
+         (buffer-string))))))
+#+end_src
+
+* 3. Selector de alumno
+
+#+begin_src emacs-lisp
+(defun my/mu-listar-alumnos ()
+  "Retorna lista de nombres de alumnos existentes en el directorio base."
+  (when (file-directory-p my/mu-base-dir)
+    (seq-filter
+     (lambda (d)
+       (and (file-directory-p (expand-file-name d my/mu-base-dir))
+            (not (string-prefix-p "." d))))
+     (directory-files my/mu-base-dir nil "^[^.]"))))
+
+(defun my/mu-crear-alumno (nombre)
+  "Crea la carpeta para un nuevo alumno NOMBRE."
+  (let ((dir (expand-file-name (concat nombre "/") my/mu-base-dir)))
+    (make-directory dir t)
+    ;; Crear marcador local
+    (with-temp-file (expand-file-name my/mu-usb-marker dir)
+      (insert nombre))
+    (message "Alumno creado: %s en %s" nombre dir)
+    nombre))
+
+(defun my/mu-selector-alumno ()
+  "Muestra un selector interactivo para elegir o crear un alumno.
+Retorna el nombre del alumno seleccionado."
+  (unless (file-directory-p my/mu-base-dir)
+    (make-directory my/mu-base-dir t))
+  (let* ((alumnos (my/mu-listar-alumnos))
+         (opciones (append alumnos '("[+ Nuevo alumno]")))
+         (seleccion (completing-read
+                     "Seleccionar alumno: " opciones nil t)))
+    (if (string= seleccion "[+ Nuevo alumno]")
+        (let ((nombre (read-string "Nombre del alumno (apellido-nombre, ej: garcia-juan): ")))
+          (if (string-match-p "^[a-z][-a-z0-9]+$" nombre)
+              (my/mu-crear-alumno nombre)
+            (error "Nombre inválido. Usar formato: apellido-nombre (minúsculas, sin espacios ni acentos)")))
+      seleccion)))
+#+end_src
+
+* 4. Activación de alumno
+
+#+begin_src emacs-lisp
+(defun my/mu-activar-alumno (nombre &optional usb-path)
+  "Activa el alumno NOMBRE, configurando org-directory.
+Si USB-PATH es dado, se registra para backups."
+  (let ((dir (if usb-path
+               ;; Si viene de USB, usar el USB directamente como org-directory
+               ;; pero también asegurar copia local
+               (expand-file-name (concat nombre "/") my/mu-base-dir)
+             (expand-file-name (concat nombre "/") my/mu-base-dir))))
+    ;; Crear directorio local si no existe
+    (unless (file-directory-p dir)
+      (make-directory dir t))
+    ;; Si hay USB, sincronizar desde USB al local
+    (when usb-path
+      (my/mu--sync-desde-usb usb-path dir))
+    ;; Configurar org-directory
+    (setq org-directory dir)
+    (setq org-default-notes-file (concat org-directory "notas.org"))
+    (setq my/mu-alumno-actual nombre)
+    (setq my/mu-usb-path-actual usb-path)
+    (message "Alumno activo: %s | org-directory: %s%s"
+             nombre dir
+             (if usb-path " (USB detectado)" ""))))
+
+(defun my/mu--sync-desde-usb (usb-path local-dir)
+  "Sincroniza datos desde USB-PATH al LOCAL-DIR usando rsync."
+  (let ((usb-org (expand-file-name "" usb-path)))
+    ;; Solo sincronizar las carpetas de datos org, no el marcador
+    (dolist (subdir '("gtd" "docs" "procesos" "projects"))
+      (let ((src (expand-file-name (concat subdir "/") usb-org))
+            (dst (expand-file-name (concat subdir "/") local-dir)))
+        (when (file-directory-p src)
+          (unless (file-directory-p dst)
+            (make-directory dst t))
+          (call-process "rsync" nil nil nil "-av" src dst))))
+    (message "Datos sincronizados desde USB a local.")))
+#+end_src
+
+* 5. Inicio automático
+
+#+begin_src emacs-lisp
+(defun my/mu-iniciar ()
+  "Punto de entrada principal. Detecta USB o muestra selector."
+  (let ((usb (my/mu-detectar-usb)))
+    (if usb
+        ;; USB encontrado: leer nombre y activar
+        (let ((nombre (my/mu-leer-nombre-usb usb)))
+          (if nombre
+              (progn
+                (my/mu-activar-alumno nombre usb)
+                (message "USB detectado para alumno: %s" nombre))
+            ;; USB tiene marcador pero sin nombre, pedir
+            (let ((nombre (read-string "USB detectado pero sin nombre. Nombre del alumno: ")))
+              (with-temp-file (expand-file-name my/mu-usb-marker usb)
+                (insert nombre))
+              (my/mu-activar-alumno nombre usb))))
+      ;; Sin USB: mostrar selector
+      (let ((nombre (my/mu-selector-alumno)))
+        (my/mu-activar-alumno nombre nil)))))
+
+;; Ejecutar al cargar el módulo
+(my/mu-iniciar)
+#+end_src
+
+* 6. Funciones de backup
+
+** 6.1 Backup a USB
+
+#+begin_src emacs-lisp
+(defun my/mu-backup-usb ()
+  "Hace backup del org-directory actual al USB.
+Si no hay USB conectado, intenta detectar uno."
+  (interactive)
+  (let ((usb (or my/mu-usb-path-actual (my/mu-detectar-usb))))
+    (if usb
+        (progn
+          ;; Guardar todos los buffers org primero
+          (org-save-all-org-buffers)
+          (dolist (subdir '("gtd" "docs" "procesos" "projects"))
+            (let ((src (expand-file-name (concat subdir "/") org-directory))
+                  (dst (expand-file-name (concat subdir "/") usb)))
+              (when (file-directory-p src)
+                (unless (file-directory-p dst)
+                  (make-directory dst t))
+                (call-process "rsync" nil nil nil "-av" "--delete" src dst))))
+          ;; Asegurar marcador en USB
+          (let ((marker (expand-file-name my/mu-usb-marker usb)))
+            (unless (file-exists-p marker)
+              (with-temp-file marker
+                (insert my/mu-alumno-actual))))
+          (setq my/mu-usb-path-actual usb)
+          (setq my/mu-ultimo-backup (format-time-string "%Y-%m-%d %H:%M"))
+          (message "Backup completado al USB: %s [%s]" usb my/mu-ultimo-backup))
+      (message "No se detectó ningún USB. Conecte un pendrive e intente de nuevo."))))
+#+end_src
+
+** 6.2 Restaurar desde USB
+
+#+begin_src emacs-lisp
+(defun my/mu-restaurar-usb ()
+  "Restaura datos desde el USB al directorio local del alumno."
+  (interactive)
+  (let ((usb (or my/mu-usb-path-actual (my/mu-detectar-usb))))
+    (if usb
+        (when (yes-or-no-p (format "Restaurar datos desde USB %s? Esto sobreescribirá los datos locales." usb))
+          (my/mu--sync-desde-usb usb org-directory)
+          (message "Datos restaurados desde USB."))
+      (message "No se detectó ningún USB."))))
+#+end_src
+
+** 6.3 Exportar tar.gz (para Google Drive)
+
+#+begin_src emacs-lisp
+(defun my/mu-exportar-targz ()
+  "Crea un archivo .tar.gz del org-directory del alumno actual.
+Se guarda en ~/Descargas/ (PC) o ~/storage/downloads/ (Termux) listo para subir a Google Drive."
+  (interactive)
+  (org-save-all-org-buffers)
+  (let* ((downloads-dir (expand-file-name
+                        (if (bound-and-true-p my/is-termux)
+                            "storage/downloads/" "Descargas/")
+                        "~/"))
+         (timestamp (format-time-string "%Y%m%d-%H%M"))
+         (filename (format "org-backup-%s-%s.tar.gz"
+                           (or my/mu-alumno-actual "sin-nombre")
+                           timestamp))
+         (filepath (expand-file-name filename downloads-dir))
+         (parent-dir (file-name-directory (directory-file-name org-directory)))
+         (dir-name (file-name-nondirectory (directory-file-name org-directory))))
+    (unless (file-directory-p downloads-dir)
+      (make-directory downloads-dir t))
+    (let ((exit-code (call-process "tar" nil nil nil
+                                   "-czf" filepath
+                                   "-C" parent-dir
+                                   dir-name)))
+      (if (= exit-code 0)
+          (message "Backup exportado: %s\nSubilo a Google Drive desde el explorador de archivos." filepath)
+        (message "Error al crear el archivo tar.gz.")))))
+#+end_src
+
+** 6.4 Importar tar.gz (desde Google Drive)
+
+#+begin_src emacs-lisp
+(defun my/mu-importar-targz ()
+  "Importa un archivo .tar.gz descargado de Google Drive.
+Extrae los datos en el directorio del alumno actual."
+  (interactive)
+  (let ((archivo (read-file-name "Seleccionar archivo .tar.gz: "
+                                 (expand-file-name
+                                  (if (bound-and-true-p my/is-termux)
+                                      "storage/downloads/" "Descargas/")
+                                  "~/")
+                                 nil t nil
+                                 (lambda (f) (string-suffix-p ".tar.gz" f)))))
+    (when (and archivo (file-exists-p archivo))
+      (when (yes-or-no-p (format "Importar %s? Esto sobreescribirá los datos actuales del alumno." archivo))
+        (let* ((parent-dir (file-name-directory (directory-file-name org-directory)))
+               (exit-code (call-process "tar" nil nil nil
+                                        "-xzf" archivo
+                                        "-C" parent-dir)))
+          (if (= exit-code 0)
+              (message "Datos importados correctamente desde: %s" archivo)
+            (message "Error al extraer el archivo.")))))))
+#+end_src
+
+* 7. Cambio de alumno
+
+#+begin_src emacs-lisp
+(defun my/mu-cambiar-alumno ()
+  "Cambia al alumno activo. Guarda buffers y permite seleccionar otro."
+  (interactive)
+  ;; Guardar trabajo actual
+  (org-save-all-org-buffers)
+  ;; Cerrar buffers org abiertos
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (and (derived-mode-p 'org-mode)
+                 (buffer-file-name)
+                 (string-prefix-p (expand-file-name my/mu-base-dir)
+                                  (buffer-file-name)))
+        (kill-buffer buf))))
+  ;; Seleccionar nuevo alumno
+  (let ((nombre (my/mu-selector-alumno))
+        (usb (my/mu-detectar-usb)))
+    (my/mu-activar-alumno nombre usb)
+    (message "Cambiado a alumno: %s" nombre)))
+#+end_src
+
+* 8. Preparar USB nuevo
+
+#+begin_src emacs-lisp
+(defun my/mu-preparar-usb ()
+  "Prepara un USB nuevo para usar con el sistema multiusuario.
+Crea el marcador y hace la primera sincronización."
+  (interactive)
+  (let ((usb-path (read-directory-name "Ruta del USB montado: "
+                                       (if (bound-and-true-p my/is-termux)
+                                           "/storage/" "/run/media/"))))
+    (when (file-directory-p usb-path)
+      (let ((nombre (or my/mu-alumno-actual
+                        (read-string "Nombre del alumno para este USB: "))))
+        ;; Crear marcador
+        (with-temp-file (expand-file-name my/mu-usb-marker usb-path)
+          (insert nombre))
+        ;; Sincronizar datos al USB
+        (setq my/mu-usb-path-actual usb-path)
+        (my/mu-backup-usb)
+        (message "USB preparado para alumno: %s" nombre)))))
+#+end_src
+
+* 9. Sincronización con Google Drive (rclone)
+
+** 9.1 Verificar disponibilidad
+
+#+begin_src emacs-lisp
+(defun my/mu-rclone-available-p ()
+  "Verifica si rclone está instalado."
+  (executable-find "rclone"))
+
+(defun my/mu-rclone-remote-configured-p ()
+  "Verifica si el remote 'gdrive' está configurado en rclone."
+  (and (my/mu-rclone-available-p)
+       (= 0 (call-process "rclone" nil nil nil
+                           "listremotes" "--long"))
+       (with-temp-buffer
+         (call-process "rclone" nil t nil "listremotes")
+         (string-match-p (concat "^" (regexp-quote my/mu-rclone-remote) ":")
+                         (buffer-string)))))
+#+end_src
+
+** 9.2 Sync Push (local → Drive)
+
+#+begin_src emacs-lisp
+(defun my/mu-sync-drive-push ()
+  "Sube los datos del alumno actual a Google Drive via rclone.
+Sincroniza solo archivos más nuevos (--update)."
+  (interactive)
+  (unless (my/mu-rclone-available-p)
+    (user-error "rclone no está instalado. Ejecuta install.sh o install-wsl.sh"))
+  (unless (my/mu-rclone-remote-configured-p)
+    (user-error "Remote '%s' no configurado. Usa C-c U D para configurar" my/mu-rclone-remote))
+  (unless my/mu-alumno-actual
+    (user-error "No hay alumno activo"))
+  ;; Guardar buffers org primero
+  (org-save-all-org-buffers)
+  (let* ((remote-base (format "%s:%s/%s"
+                              my/mu-rclone-remote
+                              my/mu-rclone-base-path
+                              my/mu-alumno-actual))
+         (errors 0))
+    (message "☁️ Subiendo datos de %s a Google Drive..." my/mu-alumno-actual)
+    (dolist (subdir my/mu-sync-subdirs)
+      (let ((local-dir (expand-file-name (concat subdir "/") org-directory))
+            (remote-dir (format "%s/%s/" remote-base subdir)))
+        (when (file-directory-p local-dir)
+          (message "  ↑ Sincronizando %s..." subdir)
+          (let ((exit-code (call-process "rclone" nil nil nil
+                                         "sync" local-dir remote-dir
+                                         "--update"
+                                         "--transfers" "4"
+                                         "--checkers" "4")))
+            (unless (= exit-code 0)
+              (setq errors (1+ errors))
+              (warn "Error sincronizando %s (código %d)" subdir exit-code))))))
+    (if (= errors 0)
+        (progn
+          (setq my/mu-ultimo-sync-drive (format-time-string "%Y-%m-%d %H:%M"))
+          (message "✅ Sync completado: %s → Drive [%s]"
+                   my/mu-alumno-actual my/mu-ultimo-sync-drive))
+      (message "⚠️ Sync completado con %d errores" errors))))
+#+end_src
+
+** 9.3 Sync Pull (Drive → local)
+
+#+begin_src emacs-lisp
+(defun my/mu-sync-drive-pull ()
+  "Descarga los datos del alumno desde Google Drive via rclone.
+Sincroniza solo archivos más nuevos (--update). Pide confirmación."
+  (interactive)
+  (unless (my/mu-rclone-available-p)
+    (user-error "rclone no está instalado. Ejecuta install.sh o install-wsl.sh"))
+  (unless (my/mu-rclone-remote-configured-p)
+    (user-error "Remote '%s' no configurado. Usa C-c U D para configurar" my/mu-rclone-remote))
+  (unless my/mu-alumno-actual
+    (user-error "No hay alumno activo"))
+  (when (yes-or-no-p (format "Descargar datos de %s desde Google Drive? (archivos locales más viejos se sobreescriben)"
+                             my/mu-alumno-actual))
+    (let* ((remote-base (format "%s:%s/%s"
+                                my/mu-rclone-remote
+                                my/mu-rclone-base-path
+                                my/mu-alumno-actual))
+           (errors 0))
+      (message "☁️ Descargando datos de %s desde Google Drive..." my/mu-alumno-actual)
+      (dolist (subdir my/mu-sync-subdirs)
+        (let ((local-dir (expand-file-name (concat subdir "/") org-directory))
+              (remote-dir (format "%s/%s/" remote-base subdir)))
+          (unless (file-directory-p local-dir)
+            (make-directory local-dir t))
+          (message "  ↓ Sincronizando %s..." subdir)
+          (let ((exit-code (call-process "rclone" nil nil nil
+                                         "sync" remote-dir local-dir
+                                         "--update"
+                                         "--transfers" "4"
+                                         "--checkers" "4")))
+            (unless (= exit-code 0)
+              (setq errors (1+ errors))
+              (warn "Error sincronizando %s (código %d)" subdir exit-code)))))
+      (if (= errors 0)
+          (progn
+            (setq my/mu-ultimo-sync-drive (format-time-string "%Y-%m-%d %H:%M"))
+            (message "✅ Sync completado: Drive → %s [%s]"
+                     my/mu-alumno-actual my/mu-ultimo-sync-drive))
+        (message "⚠️ Sync completado con %d errores" errors)))))
+#+end_src
+
+** 9.4 Setup guiado de rclone
+
+#+begin_src emacs-lisp
+(defun my/mu-sync-drive-setup ()
+  "Muestra guía de configuración de rclone para Google Drive.
+Si rclone está instalado, ofrece abrir rclone config."
+  (interactive)
+  (let ((buf (get-buffer-create "*Configurar Google Drive*")))
+    (with-current-buffer buf
+      (erase-buffer)
+      (insert "╔══════════════════════════════════════════════════════╗\n")
+      (insert "║   Configurar Sincronización con Google Drive        ║\n")
+      (insert "╚══════════════════════════════════════════════════════╝\n\n")
+      (if (not (my/mu-rclone-available-p))
+          (progn
+            (insert "❌ rclone NO está instalado.\n\n")
+            (insert "Para instalar:\n")
+            (insert "  PC (Arch):    sudo pacman -S rclone\n")
+            (insert "  Termux:       pkg install rclone\n")
+            (insert "  WSL (Ubuntu): sudo apt-get install rclone\n\n")
+            (insert "O ejecuta install.sh / install-wsl.sh que lo instala automáticamente.\n"))
+        (if (my/mu-rclone-remote-configured-p)
+            (progn
+              (insert "✅ rclone está instalado y configurado.\n")
+              (insert (format "   Remote: %s\n\n" my/mu-rclone-remote))
+              (insert "Ya podés usar:\n")
+              (insert "  C-c U s  →  Subir datos a Drive\n")
+              (insert "  C-c U S  →  Descargar datos desde Drive\n"))
+          (insert "✅ rclone está instalado pero falta configurar el remote.\n\n")
+          (insert "Pasos para configurar:\n\n")
+          (insert "1. Ejecutá en una terminal:\n")
+          (insert "   rclone config\n\n")
+          (insert "2. Elegí:\n")
+          (insert "   n  (nuevo remote)\n\n")
+          (insert "3. Nombre del remote:\n")
+          (insert (format "   %s\n\n" my/mu-rclone-remote))
+          (insert "4. Tipo de storage:\n")
+          (insert "   Buscá 'Google Drive' (número ~18, puede variar)\n\n")
+          (insert "5. Client ID y Secret:\n")
+          (insert "   Dejá vacíos (Enter, Enter)\n\n")
+          (insert "6. Scope:\n")
+          (insert "   1  (Full access)\n\n")
+          (insert "7. Root folder ID y Service Account:\n")
+          (insert "   Dejá vacíos (Enter, Enter)\n\n")
+          (insert "8. Auto config:\n")
+          (insert "   - Con browser: y (se abre el navegador, login con Google)\n")
+          (insert "   - Sin browser (Termux/WSL): n\n")
+          (insert "     → Copia la URL que aparece\n")
+          (insert "     → Abrila en el celular/navegador\n")
+          (insert "     → Pegá el código de verificación\n\n")
+          (insert "9. Team Drive:\n")
+          (insert "   n\n\n")
+          (insert "10. Confirmar:\n")
+          (insert "    y\n\n")
+          (insert "─────────────────────────────────────────────\n")
+          (insert "Después de configurar, usá:\n")
+          (insert "  C-c U s  →  Subir datos a Drive\n")
+          (insert "  C-c U S  →  Descargar datos desde Drive\n")))
+      (goto-char (point-min))
+      (special-mode))
+    (switch-to-buffer buf)
+    ;; Si rclone existe pero no está configurado, ofrecer abrir config
+    (when (and (my/mu-rclone-available-p)
+               (not (my/mu-rclone-remote-configured-p)))
+      (when (yes-or-no-p "¿Abrir rclone config en una terminal?")
+        (if (fboundp 'vterm)
+            (progn
+              (vterm "*rclone-config*")
+              (vterm-send-string "rclone config\n"))
+          (term "/bin/bash")
+          (term-send-string (get-buffer-process (current-buffer))
+                            "rclone config\n"))))))
+#+end_src
+
+* 10. Hydra de acceso rápido
+
+#+begin_src emacs-lisp
+(defun my/mu-estado ()
+  "Muestra el estado actual del sistema multiusuario."
+  (interactive)
+  (message "Alumno: %s | Dir: %s | USB: %s | Backup: %s | Drive: %s"
+           (or my/mu-alumno-actual "ninguno")
+           org-directory
+           (if my/mu-usb-path-actual my/mu-usb-path-actual "no")
+           (or my/mu-ultimo-backup "nunca")
+           (or my/mu-ultimo-sync-drive "nunca")))
+
+(defhydra hydra-multiusuario (:color blue :hint nil)
+  "
+   SISTEMA MULTIUSUARIO
+   Alumno: %-30s`my/mu-alumno-actual
+  ─────────────────────────────────────
+   _u_ Backup → USB     _r_ Restaurar ← USB
+   _e_ Exportar .tar.gz _i_ Importar .tar.gz
+   _p_ Preparar USB nuevo
+  ─────────────────────────────────────
+   _s_ Sync → Drive     _S_ Sync ← Drive
+   _D_ Configurar Drive
+  ─────────────────────────────────────
+   _c_ Cambiar alumno   _t_ Estado
+   _q_ Salir"
+  ("u" my/mu-backup-usb)
+  ("r" my/mu-restaurar-usb)
+  ("e" my/mu-exportar-targz)
+  ("i" my/mu-importar-targz)
+  ("p" my/mu-preparar-usb)
+  ("s" my/mu-sync-drive-push)
+  ("S" my/mu-sync-drive-pull)
+  ("D" my/mu-sync-drive-setup)
+  ("c" my/mu-cambiar-alumno)
+  ("t" my/mu-estado)
+  ("q" nil))
+
+(global-set-key (kbd "C-c U") 'hydra-multiusuario/body)
+#+end_src

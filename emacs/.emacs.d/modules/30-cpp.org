@@ -1,0 +1,389 @@
+#+TITLE: Módulo Nativo - C/C++, ASM y ESP32
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-toolchain-cc-build--format][10. Toolchain C/C++ (Build & Format)]]
+  - [[#documentación-y-traducción-cppman--ia][Documentación y Traducción (Cppman + IA)]]
+  - [[#herramientas-de-análisis-disassembly][Herramientas de Análisis (Disassembly)]]
+- [[#20-análisis-estático-y-navegación-clangd][20. Análisis Estático y Navegación (Clangd)]]
+- [[#30-desarrollo-iot--embebidos-esp-idf][30. Desarrollo IoT / Embebidos (ESP-IDF)]]
+- [[#40-programación-de-bajo-nivel-ensamblador][40. Programación de Bajo Nivel (Ensamblador)]]
+- [[#50-depuración-nativa-gdbgud][50. Depuración Nativa (GDB/GUD)]]
+
+* 10. Toolchain C/C++ (Build & Format)
+
+#+begin_src emacs-lisp
+;; --- 1. Estilo de Código ---
+(defun my/c-mode-setup ()
+  "Configuración personalizada para C/C++."
+  (c-set-style "linux")
+  (setq c-basic-offset 4)
+  (setq indent-tabs-mode nil)
+  (display-line-numbers-mode t))
+
+(add-hook 'c-mode-hook   #'my/c-mode-setup)
+(add-hook 'c++-mode-hook #'my/c-mode-setup)
+
+;; --- 2. CMake ---
+(use-package cmake-mode
+  :mode (("CMakeLists\\.txt\\'" . cmake-mode)
+         ("\\.cmake\\'" . cmake-mode)))
+
+(use-package cmake-font-lock
+  :after cmake-mode
+  :config (cmake-font-lock-activate))
+
+;; --- 3. Sistema de Compilación Inteligente ---
+(defun my/find-and-compile ()
+  "Busca build.sh, Makefile, CMakeLists.txt o compila el archivo actual.
+   Soporte para ESP32 (idf.py) y nob.h (Tsoding style)."
+  (interactive)
+  (let* ((project-root (or (and (fboundp 'projectile-project-root)
+                                (projectile-project-root))
+                           default-directory))
+         (nob-script   (expand-file-name "nob.c"          project-root))
+         (build-script (expand-file-name "build.sh"       project-root))
+         (makefile     (expand-file-name "Makefile"       project-root))
+         (cmake-file   (expand-file-name "CMakeLists.txt" project-root)))
+    (cond
+     ;; 0. ESP32
+     ((or (string-match-p "projects/esp32" project-root)
+          (and (file-exists-p cmake-file)
+               (with-temp-buffer
+                 (insert-file-contents cmake-file)
+                 (search-forward "idf_component_register" nil t))))
+      (let ((default-directory project-root))
+        (compile "idf.py build")))
+     ;; 1. nob.h (Tsoding)
+     ((file-exists-p nob-script)
+      (let ((default-directory project-root))
+        (compile "cc nob.c -o nob && ./nob")))
+     ;; 2. build.sh
+     ((file-exists-p build-script)
+      (let ((default-directory project-root))
+        (compile build-script)))
+     ;; 3. Makefile
+     ((file-exists-p makefile)
+      (let ((default-directory project-root))
+        (compile (format "make -C \"%s\"" project-root))))
+     ;; 4. CMake genérico
+     ((file-exists-p cmake-file)
+      (let ((default-directory project-root))
+        (compile (format "cmake --build \"%s/build\"" project-root))))
+     ;; 5. Archivo suelto (usa clang en Termux, gcc en PC)
+     ((buffer-file-name)
+      (save-buffer)
+      (let* ((file (file-name-nondirectory buffer-file-name))
+             (exe  (file-name-sans-extension file))
+             (cc   (if (executable-find "gcc") "gcc" "clang")))
+        (compile (format "%s -Wall -g %s -o %s && ./%s" cc file exe exe))))
+     ;; 6. Fallback
+     (t (message "❌ No se encontró build system válido")))))
+
+;; F5 para compilar en C/C++
+(add-hook 'c-mode-hook
+          (lambda () (local-set-key (kbd "<f5>") #'my/find-and-compile)))
+(add-hook 'c++-mode-hook
+          (lambda () (local-set-key (kbd "<f5>") #'my/find-and-compile)))
+
+;; Auto-scroll en compilación
+(setq compilation-scroll-output t)
+
+;; --- 4. Formateo con clang-format ---
+(use-package clang-format
+  :bind (:map c-mode-base-map
+              ("C-c F b" . clang-format-buffer)
+              ("C-c F r" . clang-format-region)))
+
+;; --- 5. Proyecto C con nob.h (Tsoding style) ---
+(defun my/new-nob-project (name)
+  "Crea estructura básica para un proyecto C manejado por nob.h."
+  (interactive "sNombre del proyecto: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "c/"))))
+    (make-directory project-dir t)
+    (make-directory (concat project-dir "/src") t)
+    (make-directory (concat project-dir "/build") t)
+    (shell-command (format "curl -sLo %s/nob.h https://raw.githubusercontent.com/tsoding/nob.h/main/nob.h" project-dir))
+    (with-temp-file (concat project-dir "/nob.c")
+      (insert "#define NOB_IMPLEMENTATION\n")
+      (insert "#include \"nob.h\"\n\n")
+      (insert "int main(int argc, char **argv) {\n")
+      (insert "    NOB_GO_REBUILD_URSELF(argc, argv);\n\n")
+      (insert "    const char *compilers[] = {\"gcc\", \"clang\", \"icx\", \"c99\"};\n\n")
+      (insert "    for (size_t i = 0; i < NOB_ARRAY_LEN(compilers); ++i) {\n")
+      (insert "        Nob_Cmd cmd = {0};\n")
+      (insert "        nob_cmd_append(&cmd, compilers[i]);\n")
+      (insert "        nob_cmd_append(&cmd, \"-Wall\", \"-Wextra\", \"-g\");\n")
+      (insert "        nob_cmd_append(&cmd, \"-o\", nob_temp_sprintf(\"build/main_%s\", compilers[i]));\n")
+      (insert "        nob_cmd_append(&cmd, \"src/main.c\");\n\n")
+      (insert "        nob_log(INFO, \"🔨 Compilando con %s...\", compilers[i]);\n")
+      (insert "        if (!nob_cmd_run_sync(cmd)) {\n")
+      (insert "            nob_log(WARNING, \"⚠️ Falló con %s\", compilers[i]);\n")
+      (insert "        }\n")
+      (insert "    }\n")
+      (insert "    nob_log(INFO, \"✅ ¡Todos los compiladores terminaron!\");\n")
+      (insert "    return 0;\n")
+      (insert "}\n"))
+    (with-temp-file (concat project-dir "/src/main.c")
+      (insert "#include <stdio.h>\n\n")
+      (insert "int main(void) {\n")
+      (insert "    printf(\"¡Hola desde C con nob.h!\\n\");\n")
+      (insert "    return 0;\n")
+      (insert "}\n"))
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (message "🛠️ Proyecto nob creado: %s" project-dir)
+    (find-file (concat project-dir "/nob.c"))))
+
+(global-set-key (kbd "C-c n n") #'my/new-nob-project)
+#+end_src
+
+** Documentación y Traducción (Cppman + IA)
+
+#+begin_src emacs-lisp
+(defun my/cppman-at-point ()
+  "Llama a cppman para la palabra bajo el cursor."
+  (interactive)
+  (require 'man)
+  (let ((symbol (thing-at-point 'symbol)))
+    (if (not symbol)
+        (message "❌ No hay nada bajo el cursor.")
+      (let ((buffer-name (concat "*cppman " symbol "*")))
+        (with-current-buffer (get-buffer-create buffer-name)
+          (erase-buffer)
+          (let ((exit-code (call-process "cppman" nil t nil symbol)))
+            (if (eq exit-code 0)
+                (progn
+                  (Man-mode)
+                  (goto-char (point-min))
+                  (display-buffer (current-buffer))
+                  (message "✅ Documentación para '%s'" symbol))
+              (message "⚠️ No se encontró manual para '%s'" symbol)
+              (kill-buffer buffer-name))))))))
+
+(defun my/system-man-at-point ()
+  "Llama al man nativo para el símbolo bajo el cursor."
+  (interactive)
+  (let ((symbol (thing-at-point 'symbol)))
+    (if symbol
+        (man symbol)
+      (man (read-string "Manual entry: ")))))
+
+(add-hook 'c++-mode-hook
+          (lambda () (local-set-key (kbd "C-c h") #'my/cppman-at-point)))
+(add-hook 'c-mode-hook
+          (lambda () (local-set-key (kbd "C-c h") #'my/system-man-at-point)))
+
+;; --- Consultar error con IA ---
+(defun my/consultar-error-ia ()
+  "Envía el error de compilación y el código a Ollama."
+  (interactive)
+  (let* ((codigo (buffer-substring-no-properties (point-min) (point-max)))
+         (error-msg (if (get-buffer "*compilation*")
+                        (with-current-buffer "*compilation*"
+                          (buffer-substring-no-properties (point-min) (point-max)))
+                      "No hay buffer de compilación disponible."))
+         (prompt (format "Hola. Estoy programando en C/C++.
+Mi código es:\n---\n%s\n---\n
+El error de compilación es:\n---\n%s\n---\n
+No me des la solución directa. Explícame el error de forma pedagógica
+y dame pistas para que yo mismo pueda arreglarlo."
+                         codigo error-msg)))
+    (message "🤖 Analizando error con Ollama...")
+    (gptel-request prompt
+      :system "Eres un mentor de programación experto y paciente. Tu objetivo es enseñar, no solo corregir."
+      :callback (lambda (response info)
+                  (if (not response)
+                      (message "❌ Error: ¿Está Ollama corriendo?")
+                    (with-current-buffer (get-buffer-create "*Consulta IA*")
+                      (erase-buffer)
+                      (require 'markdown-mode nil t)
+                      (when (fboundp 'markdown-mode) (markdown-mode))
+                      (insert response)
+                      (display-buffer (current-buffer))
+                      (message "✅ Explicación lista.")))))))
+
+(global-set-key (kbd "C-c C") #'my/consultar-error-ia)
+#+end_src
+
+** Herramientas de Análisis (Disassembly)
+
+#+begin_src emacs-lisp
+(use-package disaster
+  :ensure t
+  :bind (:map c-mode-base-map
+              ("C-c d a" . disaster)))
+#+end_src
+
+* 20. Análisis Estático y Navegación (Clangd)
+
+#+begin_src emacs-lisp
+;; LSP para C/C++ — configuración consolidada
+;; lsp-mode base ya está configurado en 00-core.org
+;; Clangd args (esto sí es global para clangd, no afecta otros LSPs)
+(with-eval-after-load 'lsp-mode
+  (setq lsp-clients-clangd-args
+        '("--header-insertion=never"
+          "--background-index"
+          "--clang-tidy"
+          "--completion-style=detailed"
+          "--pch-storage=memory"
+          "-j=4")))
+
+;; Hooks consistentes con Rust y Go
+(add-hook 'c-mode-hook   #'lsp-deferred)
+(add-hook 'c++-mode-hook #'lsp-deferred)
+
+;; LSP UI enriquecido — solo para C/C++
+;; Nota: usamos setq (no setq-local) porque las variables lsp-ui son
+;; defcustom que no soportan make-local-variable de forma segura.
+;; El hook se ejecuta en el buffer correcto, así que el efecto es el deseado.
+(defun my/cpp-lsp-ui-setup ()
+  "Ajustes de lsp-ui para buffers C/C++."
+  (setq lsp-ui-doc-enable t)
+  (setq lsp-ui-doc-position 'at-point)
+  (setq lsp-ui-doc-max-width 150)
+  (setq lsp-ui-doc-max-height 30)
+  (setq lsp-ui-sideline-enable t)
+  (setq lsp-ui-sideline-show-code-actions t)
+  (setq lsp-ui-sideline-show-hover nil)
+  (setq lsp-ui-sideline-show-diagnostics nil)
+  (setq lsp-headerline-breadcrumb-enable t)
+  (setq lsp-semantic-tokens-enable t))
+
+(add-hook 'c-mode-hook   #'my/cpp-lsp-ui-setup)
+(add-hook 'c++-mode-hook #'my/cpp-lsp-ui-setup)
+#+end_src
+
+* 30. Desarrollo IoT / Embebidos (ESP-IDF)
+No disponible en Termux (requiere ESP-IDF nativo).
+
+#+begin_src emacs-lisp
+(unless (bound-and-true-p my/is-termux)
+
+(defun my/new-esp32-project (name)
+  "Crea un proyecto ESP-IDF estándar."
+  (interactive "sNombre del proyecto ESP32: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "esp32/"))))
+    (make-directory project-dir t)
+    (make-directory (concat project-dir "/main") t)
+    (with-temp-file (concat project-dir "/CMakeLists.txt")
+      (insert "cmake_minimum_required(VERSION 3.5)\n\n")
+      (insert "include($ENV{IDF_PATH}/tools/cmake/project.cmake)\n")
+      (insert (format "project(%s)\n" name)))
+    (with-temp-file (concat project-dir "/main/CMakeLists.txt")
+      (insert "idf_component_register(SRCS \"main.c\"\n")
+      (insert "                        INCLUDE_DIRS \".\")\n"))
+    (with-temp-file (concat project-dir "/main/main.c")
+      (insert "#include <stdio.h>\n")
+      (insert "#include \"freertos/FreeRTOS.h\"\n")
+      (insert "#include \"freertos/task.h\"\n")
+      (insert "#include \"esp_log.h\"\n\n")
+      (insert "static const char *TAG = \"APP\";\n\n")
+      (insert "void app_main(void)\n")
+      (insert "{\n")
+      (insert "    ESP_LOGI(TAG, \"¡Hola desde ESP32! 🚀\");\n")
+      (insert "    while (1) {\n")
+      (insert "        ESP_LOGI(TAG, \"Funcionando...\");\n")
+      (insert "        vTaskDelay(1000 / portTICK_PERIOD_MS);\n")
+      (insert "    }\n")
+      (insert "}\n"))
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "build/\nsdkconfig\nsdkconfig.old\n.vscode/\n"))
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (message "🔌 Proyecto ESP32 creado en: %s" project-dir)
+    (find-file (concat project-dir "/main/main.c"))))
+
+(global-set-key (kbd "C-c n e") #'my/new-esp32-project)
+
+(defun my/esp32-flash-monitor ()
+  "Ejecuta idf.py flash monitor desde la raíz del proyecto."
+  (interactive)
+  (let ((project-root (or (and (fboundp 'projectile-project-root)
+                               (projectile-project-root))
+                          default-directory)))
+    (if (or (file-exists-p (expand-file-name "main/main.c" project-root))
+            (string-match-p "projects/esp32" project-root))
+        (let ((default-directory project-root))
+          (compile "idf.py flash monitor"))
+      (message "⚠️ No pareces estar en un proyecto ESP32 válido."))))
+
+(global-set-key (kbd "<f6>") #'my/esp32-flash-monitor)
+
+) ;; fin (unless my/is-termux) — ESP32
+#+end_src
+
+* 40. Programación de Bajo Nivel (Ensamblador)
+No disponible en Termux (FASM es x86 only, no hay GDB nativo).
+
+#+begin_src emacs-lisp
+(unless (bound-and-true-p my/is-termux)
+
+(use-package nasm-mode
+  :ensure t
+  :mode "\\.asm\\'"
+  :config
+  (setq nasm-basic-offset 4))
+
+(defun my/fasm-compile-and-run ()
+  "Compila con FASM y ejecuta."
+  (interactive)
+  (save-buffer)
+  (let* ((file-name  (file-name-nondirectory buffer-file-name))
+         (base-name  (file-name-sans-extension file-name))
+         (obj-name   (concat base-name ".o"))
+         (exe-name   base-name))
+    (compile (format "fasm %s %s && ld %s -o %s && ./%s"
+                     file-name obj-name obj-name exe-name exe-name))))
+
+(defun my/fasm-debug ()
+  "Compila con FASM y lanza GDB."
+  (interactive)
+  (save-buffer)
+  (let* ((file-name  (file-name-nondirectory buffer-file-name))
+         (base-name  (file-name-sans-extension file-name))
+         (obj-name   (concat base-name ".o"))
+         (exe-name   base-name))
+    (shell-command (format "fasm %s %s && ld %s -o %s"
+                           file-name obj-name obj-name exe-name))
+    (if (file-exists-p exe-name)
+        (gdb (format "gdb -i=mi %s" exe-name))
+      (message "❌ Error de compilación con FASM."))))
+
+(add-hook 'nasm-mode-hook
+          (lambda ()
+            (local-set-key (kbd "<f5>") #'my/fasm-compile-and-run)
+            (local-set-key (kbd "C-c d") #'my/fasm-debug)))
+
+) ;; fin (unless my/is-termux) — Ensamblador
+#+end_src
+
+* 50. Depuración Nativa (GDB/GUD)
+No disponible en Termux (no hay GDB nativo en ARM Android).
+
+#+begin_src emacs-lisp
+(unless (bound-and-true-p my/is-termux)
+
+(setq gdb-many-windows t)
+(setq gdb-show-main t)
+
+(global-set-key (kbd "<f9>")    #'gdb)
+(global-set-key (kbd "<f10>")   #'gud-next)
+(global-set-key (kbd "<f11>")   #'gud-step)
+(global-set-key (kbd "S-<f11>") #'gud-finish)
+(global-set-key (kbd "<f8>")    #'gud-cont)
+
+(defun my/debug-current-file ()
+  "Compila con -g y lanza GDB automáticamente."
+  (interactive)
+  (let* ((file (buffer-file-name))
+         (exe  (file-name-sans-extension file)))
+    (compile (format "gcc -g -Wall %s -o %s" file exe))
+    (sit-for 1)
+    (gdb (format "gdb -i=mi %s" exe))))
+
+(global-set-key (kbd "C-c d") #'my/debug-current-file)
+
+) ;; fin (unless my/is-termux) — GDB
+#+end_src

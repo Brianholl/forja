@@ -1,0 +1,58 @@
+# =============================================================================
+# .bashrc_custom — Configuracion compartida para Emacs Modular Config
+# Desplegado via GNU Stow (stow -v -t ~ shell)
+# Soporta: Arch Linux (PC) y Termux (Android)
+# =============================================================================
+
+# --- Deteccion de plataforma ---
+if [ -n "$TERMUX_VERSION" ] || [[ "$HOME" == /data/data/com.termux* ]]; then
+    # =========================================================================
+    # TERMUX (Android)
+    # =========================================================================
+
+    # PATH para herramientas locales
+    export PATH="$HOME/.local/bin:$PATH"
+
+    # Rust (Termux instala en ubicacion estandar)
+    if [ -d "$HOME/.cargo/bin" ]; then
+        export PATH="$HOME/.cargo/bin:$PATH"
+    fi
+
+    # Go (Termux)
+    if [ -d "$HOME/go/bin" ]; then
+        export PATH="$HOME/go/bin:$PATH"
+    fi
+
+    # Node.js global modules
+    if [ -d "$HOME/.npm-global/bin" ]; then
+        export PATH="$HOME/.npm-global/bin:$PATH"
+    fi
+
+    # Alias utiles para Termux
+    alias em='emacs -nw'
+    alias e='emacs -nw'
+
+else
+    # =========================================================================
+    # PC (Arch Linux)
+    # =========================================================================
+
+    # Configuracion Permanente de ESP-IDF
+    if [ -d /opt/esp-idf ]; then
+        export IDF_PATH=/opt/esp-idf
+        # Silenciamos la salida para no confundir a Emacs
+        source /opt/esp-idf/export.sh > /dev/null 2>&1
+    fi
+
+    # Cargar herramientas de Unreal
+    if [ -f ~/.bashrc_unreal ]; then
+        source ~/.bashrc_unreal
+    fi
+fi
+
+# --- Configuracion comun (ambas plataformas) ---
+
+# Direnv hook (si esta instalado)
+if command -v direnv &>/dev/null; then
+    eval "$(direnv hook bash)"
+fi

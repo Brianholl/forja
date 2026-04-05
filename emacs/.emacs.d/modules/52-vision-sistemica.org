@@ -1,0 +1,709 @@
+#+TITLE: Módulo Visión Sistémica - Asistencia Operativa (El Proceso)
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-infraestructura-de-métricas-y-dashboards][10. Infraestructura de Métricas y Dashboards]]
+- [[#20-tablero-kanban-visual-org-kanban][20. Tablero Kanban Visual (org-kanban)]]
+- [[#30-value-stream-mapping-con-mermaid-y-graphviz][30. Value Stream Mapping con Mermaid y Graphviz]]
+- [[#40-métricas-e-indicadores-kpi-con-org-tables][40. Métricas e Indicadores (KPI) con Org Tables]]
+- [[#50-visualización-de-datos-gnuplot][50. Visualización de Datos (gnuplot)]]
+- [[#60-registro-de-restricciones-y-desperdicios][60. Registro de Restricciones y Desperdicios]]
+- [[#70-comunicación-técnica-escrita-templates][70. Comunicación Técnica Escrita (Templates)]]
+- [[#80-clock-reports-tiempo-y-flujo][80. Clock Reports: Tiempo y Flujo]]
+- [[#90-ia-local-para-análisis-de-procesos][90. IA Local para Análisis de Procesos]]
+- [[#100-atajos-y-hydra-de-visión-sistémica][100. Atajos y Hydra de Visión Sistémica]]
+
+* 10. Infraestructura de Métricas y Dashboards
+Crea la estructura de directorios y archivos para el análisis de procesos.
+El directorio base es =~/org/procesos/=.
+
+Filosofía (Goldratt): "Decime cómo me medís y te diré cómo me comporto."
+Sin métricas visibles, no hay mejora posible.
+
+#+begin_src emacs-lisp
+;; --- Directorio base de procesos ---
+(defvar my/proc-dir (expand-file-name "procesos/" org-directory)
+  "Directorio raíz de visión sistémica y métricas.")
+
+(defvar my/proc-dashboard  (expand-file-name "dashboard.org"    my/proc-dir))
+(defvar my/proc-vsm        (expand-file-name "vsm.org"          my/proc-dir))
+(defvar my/proc-restricc   (expand-file-name "restricciones.org" my/proc-dir))
+(defvar my/proc-muda       (expand-file-name "desperdicios.org"  my/proc-dir))
+(defvar my/proc-comms      (expand-file-name "comunicaciones.org" my/proc-dir))
+(defvar my/proc-diagramas  (expand-file-name "diagramas/"       my/proc-dir))
+
+;; Crear directorios si no existen
+(dolist (dir (list my/proc-dir my/proc-diagramas))
+  (unless (file-directory-p dir)
+    (make-directory dir t)
+    (message "📁 Creado: %s" dir)))
+
+;; --- Archivos semilla ---
+(defun my/proc-ensure-file (filepath title &optional content)
+  "Crea FILEPATH con TITLE y CONTENT opcional si no existe."
+  (unless (file-exists-p filepath)
+    (with-temp-file filepath
+      (insert (format "#+TITLE: %s\n" title))
+      (insert "#+FILETAGS: :procesos:\n")
+      (insert "#+STARTUP: indent overview\n\n")
+      (when content (insert content)))
+    (message "📄 Creado: %s" filepath)))
+
+(my/proc-ensure-file my/proc-dashboard "Dashboard de Métricas"
+  "* KPIs del Servicio\n* Tendencias\n* Alertas\n")
+
+(my/proc-ensure-file my/proc-vsm "Value Stream Maps"
+  "* Mapas de Flujo de Valor\nCada sección documenta un proceso de punta a punta.\n")
+
+(my/proc-ensure-file my/proc-restricc "Registro de Restricciones (TOC)"
+  "* Restricciones Identificadas\n| Fecha | Proceso | Restricción | Estado | Acción |\n|-------+---------+-------------+--------+--------|\n|       |         |             |        |        |\n\n* Historial de Mejoras\n")
+
+(my/proc-ensure-file my/proc-muda "Registro de Desperdicios (MUDA)"
+  "* Los 7 Desperdicios — Registro de Observaciones
+| Fecha | Tipo de Desperdicio | Dónde se observó | Impacto estimado | Acción propuesta |
+|-------+---------------------+------------------+------------------+------------------+
+|       |                     |                  |                  |                  |
+
+** Referencia: Los 7 Desperdicios (Ohno / TPS)
+1. *Sobreproducción*: Hacer más de lo que el cliente/usuario pidió
+2. *Espera*: Tiempo muerto entre pasos del proceso
+3. *Transporte*: Mover cosas (archivos, mails, equipos) innecesariamente
+4. *Sobreprocesamiento*: Pasos que no agregan valor al resultado
+5. *Inventario*: Acumular trabajo en progreso sin terminarlo
+6. *Movimiento*: Desplazamientos innecesarios (del técnico, del usuario)
+7. *Defectos*: Errores que requieren retrabajo
+")
+
+(my/proc-ensure-file my/proc-comms "Registro de Comunicaciones Técnicas"
+  "* Comunicaciones Enviadas\n* Templates Utilizados\n")
+#+end_src
+
+* 20. Tablero Kanban Visual (org-kanban)
+Un tablero Kanban hace visible el flujo de trabajo: qué está pendiente,
+qué está en proceso, qué está terminado. Es la herramienta central de
+los Tres Caminos de DevOps (Kim) y del Sistema Toyota (Ohno).
+
+Regla WIP (Work In Progress): limitar el trabajo en curso para evitar
+cuellos de botella. Si hay demasiado en "En Progreso", el sistema está
+sobrecargado.
+
+org-kanban genera un tablero a partir de los estados TODO del archivo.
+
+#+begin_src emacs-lisp
+(use-package org-kanban
+  :defer t
+  :config
+  ;; Usar los estados de 50-gtd.org como columnas
+  (setq org-kanban/layout '("..." . 30))) ; Ancho de columna
+
+;; --- Funciones para insertar tableros Kanban ---
+(defun my/proc-insertar-kanban ()
+  "Inserta un bloque de tablero Kanban dinámico en el punto actual."
+  (interactive)
+  (insert "\n#+BEGIN: kanban :mirrored t :range (\"/\" . \"/\")\n")
+  (insert "#+END:\n")
+  (forward-line -1)
+  (org-ctrl-c-ctrl-c)
+  (message "📊 Tablero Kanban insertado. Actualizar con C-c C-c"))
+
+;; --- Función para visualizar WIP (Work In Progress) ---
+(defun my/proc-wip-status ()
+  "Muestra el conteo de tareas por estado en los archivos de agenda."
+  (interactive)
+  (let ((counts '())
+        (files org-agenda-files))
+    (dolist (file files)
+      (when (file-exists-p file)
+        (with-current-buffer (find-file-noselect file)
+          (org-map-entries
+           (lambda ()
+             (let ((state (org-get-todo-state)))
+               (when state
+                 (let ((pair (assoc state counts)))
+                   (if pair
+                       (setcdr pair (1+ (cdr pair)))
+                     (push (cons state 1) counts))))))))))
+    (let ((msg ""))
+      (dolist (pair (sort counts (lambda (a b) (string< (car a) (car b)))))
+        (setq msg (concat msg (format "  %s: %d" (car pair) (cdr pair)))))
+      (message "📊 WIP:%s" msg))))
+#+end_src
+
+* 30. Value Stream Mapping con Mermaid y Graphviz
+El Value Stream Mapping (VSM) identifica cada paso de un proceso,
+midiendo tiempo de valor agregado vs. tiempo de espera.
+Permite detectar cuellos de botella y desperdicios visualmente.
+
+Usamos dos motores de diagramas:
+- *Mermaid*: sintaxis simple, ideal para flujos y diagramas de secuencia
+- *Graphviz (dot)*: más potente, ideal para grafos complejos y VSMs
+
+Ambos se ejecutan dentro de bloques org-babel y generan imágenes inline.
+
+Requisitos del sistema:
+#+begin_src bash :tangle no
+# Mermaid CLI (requiere npm, ya instalado desde 00-core)
+sudo npm install -g @mermaid-js/mermaid-cli
+
+# Graphviz
+sudo pacman -S graphviz
+#+end_src
+
+#+begin_src emacs-lisp
+;; --- Soporte para Mermaid en org-babel ---
+(use-package ob-mermaid
+  :defer t
+  :config
+  (setq ob-mermaid-cli-path
+        (or (executable-find "mmdc")
+            "/usr/local/bin/mmdc")))
+
+;; Agregar mermaid y dot a los lenguajes de babel
+(with-eval-after-load 'org
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   (append org-babel-load-languages
+           '((mermaid . t)
+             (dot     . t)))))  ; Graphviz
+
+;; --- Template de VSM como función ---
+(defun my/proc-nuevo-vsm ()
+  "Crea un nuevo Value Stream Map en ~/org/procesos/vsm.org."
+  (interactive)
+  (let* ((proceso (read-string "Nombre del proceso: "))
+         (slug (replace-regexp-in-string "[^a-z0-9]" "-" (downcase proceso))))
+    (find-file my/proc-vsm)
+    (goto-char (point-max))
+    (insert (format "\n* VSM: %s\n" proceso))
+    (insert ":PROPERTIES:\n")
+    (insert (format ":FECHA_MAPEO: %s\n" (format-time-string "[%Y-%m-%d]")))
+    (insert ":ESTADO: Borrador\n")
+    (insert ":END:\n\n")
+    (insert "** Estado Actual (AS-IS)\n")
+    (insert (format "#+begin_src mermaid :file %s%s-as-is.png\n"
+                    my/proc-diagramas slug))
+    (insert "graph LR\n")
+    (insert "    A[Solicitud\\n5 min] -->|espera: 2h| B[Diagnóstico\\n30 min]\n")
+    (insert "    B -->|espera: 1h| C[Resolución\\n45 min]\n")
+    (insert "    C -->|espera: 30min| D[Verificación\\n10 min]\n")
+    (insert "    D --> E[Cierre\\n5 min]\n\n")
+    (insert "    style A fill:#4CAF50,color:#fff\n")
+    (insert "    style E fill:#4CAF50,color:#fff\n")
+    (insert "#+end_src\n\n")
+    (insert "** Métricas del Flujo Actual\n")
+    (insert "| Paso | Tiempo Valor | Tiempo Espera | % Valor |\n")
+    (insert "|------+--------------+---------------+---------|\n")
+    (insert "|      |              |               |         |\n")
+    (insert "| TOTAL|              |               |         |\n")
+    (insert "#+TBLFM: @>$2=vsum(@2..@-1)::@>$3=vsum(@2..@-1)::$4=$2/($2+$3)*100;%.1f\n\n")
+    (insert "** Restricciones Identificadas (TOC)\n")
+    (insert "1. \n\n")
+    (insert "** Desperdicios Observados (MUDA)\n")
+    (insert "| Tipo | Dónde | Impacto |\n")
+    (insert "|------+-------+---------|\n")
+    (insert "|      |       |         |\n\n")
+    (insert "** Estado Futuro (TO-BE)\n")
+    (insert (format "#+begin_src mermaid :file %s%s-to-be.png\n"
+                    my/proc-diagramas slug))
+    (insert "graph LR\n")
+    (insert "    A[Solicitud\\n5 min] -->|espera: 15min| B[Diagnóstico\\n20 min]\n")
+    (insert "    B -->|espera: 15min| C[Resolución\\n30 min]\n")
+    (insert "    C --> D[Verificación + Cierre\\n10 min]\n\n")
+    (insert "    style A fill:#4CAF50,color:#fff\n")
+    (insert "    style D fill:#4CAF50,color:#fff\n")
+    (insert "#+end_src\n\n")
+    (insert "** Plan de Mejora\n")
+    (insert "| # | Acción | Responsable | Fecha | Estado |\n")
+    (insert "|---+--------+-------------+-------+--------|\n")
+    (insert "|   |        |             |       |        |\n")
+    (message "🗺️ VSM creado. Ejecutá los bloques mermaid con C-c C-c")))
+
+;; --- Template rápido de diagrama de flujo de soporte ---
+(defun my/proc-diagrama-flujo-soporte ()
+  "Inserta un diagrama de flujo tipo Help Desk en el punto actual."
+  (interactive)
+  (insert "\n#+begin_src mermaid :file " my/proc-diagramas "flujo-soporte.png\n")
+  (insert "flowchart TD\n")
+  (insert "    A([Usuario reporta\\nincidente]) --> B{¿Está en\\nla KB?}\n")
+  (insert "    B -->|Sí| C[Aplicar solución\\ndocumentada]\n")
+  (insert "    B -->|No| D{¿N1 puede\\nresolverlo?}\n")
+  (insert "    D -->|Sí| E[Resolver y\\ndocumentar]\n")
+  (insert "    D -->|No| F[Escalar a N2]\n")
+  (insert "    C --> G[Verificar con\\nusuario]\n")
+  (insert "    E --> G\n")
+  (insert "    F --> H[N2 resuelve]\n")
+  (insert "    H --> G\n")
+  (insert "    G --> I([Cerrar ticket\\ny actualizar KB])\n\n")
+  (insert "    style A fill:#42a5f5,color:#fff\n")
+  (insert "    style I fill:#66bb6a,color:#fff\n")
+  (insert "    style F fill:#ff9800,color:#fff\n")
+  (insert "#+end_src\n")
+  (message "📊 Diagrama insertado. Ejecutar con C-c C-c"))
+#+end_src
+
+* 40. Métricas e Indicadores (KPI) con Org Tables
+Las tablas de Org Mode son spreadsheets embebidos: soportan fórmulas,
+referencias, y se recalculan con =C-c C-c=.
+
+KPIs centrales para un servicio de soporte (ITIL):
+- *MTTR* (Mean Time To Resolve): promedio de tiempo de resolución
+- *SLA Compliance*: % de tickets resueltos dentro del SLA
+- *First Contact Resolution*: % resueltos en primer contacto
+- *Backlog*: tickets abiertos acumulados
+- *Satisfacción del usuario*: encuesta post-resolución
+
+#+begin_src emacs-lisp
+;; --- Insertar tabla de KPI con fórmulas ---
+(defun my/proc-insertar-kpi-table ()
+  "Inserta una tabla de KPIs de servicio con fórmulas automáticas."
+  (interactive)
+  (insert "\n** KPIs del Período: " (format-time-string "%B %Y") "\n")
+  (insert "| Semana | Tickets Recibidos | Resueltos | Backlog | MTTR (hs) | SLA % | FCR % |\n")
+  (insert "|--------+-------------------+-----------+---------+-----------+-------+-------|\n")
+  (insert "|      1 |                   |           |         |           |       |       |\n")
+  (insert "|      2 |                   |           |         |           |       |       |\n")
+  (insert "|      3 |                   |           |         |           |       |       |\n")
+  (insert "|      4 |                   |           |         |           |       |       |\n")
+  (insert "|--------+-------------------+-----------+---------+-----------+-------+-------|\n")
+  (insert "|  TOTAL |                   |           |         |           |       |       |\n")
+  (insert "|  PROM  |                   |           |         |           |       |       |\n")
+  (insert "#+TBLFM: @7$2=vsum(@3..@6)::@7$3=vsum(@3..@6)::@7$4=@6$4\n")
+  (insert "#+TBLFM: @8$2=vmean(@3..@6);%.0f::@8$3=vmean(@3..@6);%.0f::@8$5=vmean(@3..@6);%.1f::@8$6=vmean(@3..@6);%.1f::@8$7=vmean(@3..@6);%.1f\n")
+  (message "📊 Tabla KPI insertada. Completar datos y recalcular con C-c C-c"))
+
+;; --- Insertar tabla para análisis de restricciones (TOC) ---
+(defun my/proc-insertar-toc-analysis ()
+  "Inserta una tabla para el análisis de Teoría de Restricciones."
+  (interactive)
+  (insert "\n** Análisis de Restricciones — " (format-time-string "[%Y-%m-%d]") "\n\n")
+  (insert "/La cadena es tan fuerte como su eslabón más débil (Goldratt)/\n\n")
+  (insert "*** 1. IDENTIFICAR la restricción\n")
+  (insert "| Proceso | Throughput (unid/hora) | Cola promedio | Es restricción? |\n")
+  (insert "|---------+-----------------------+---------------+-----------------|\n")
+  (insert "|         |                       |               |                 |\n\n")
+  (insert "*** 2. EXPLOTAR la restricción\n")
+  (insert "¿Cómo maximizar el rendimiento del cuello de botella sin invertir?\n")
+  (insert "- \n\n")
+  (insert "*** 3. SUBORDINAR todo lo demás\n")
+  (insert "¿Qué ajustes hacer en otros pasos para que el cuello de botella no pare?\n")
+  (insert "- \n\n")
+  (insert "*** 4. ELEVAR la restricción\n")
+  (insert "Si los pasos anteriores no alcanzan, ¿qué inversión se justifica?\n")
+  (insert "- \n\n")
+  (insert "*** 5. REPETIR (¡no dejar que la inercia sea la nueva restricción!)\n")
+  (insert "- \n")
+  (message "📊 Análisis TOC insertado."))
+#+end_src
+
+* 50. Visualización de Datos (gnuplot)
+Gnuplot se integra nativamente con org-babel para generar gráficos
+a partir de tablas org. El alumno puede construir dashboards visuales
+sin salir de Emacs.
+
+Requisitos:
+#+begin_src bash :tangle no
+sudo pacman -S gnuplot
+#+end_src
+
+#+begin_src emacs-lisp
+;; --- Template de gráfico de tendencia de tickets ---
+(defun my/proc-insertar-grafico-tendencia ()
+  "Inserta un bloque gnuplot para graficar tendencia de tickets."
+  (interactive)
+  (insert "\n** Gráfico de Tendencia\n\n")
+  ;; Tabla de datos
+  (insert "#+NAME: datos-tendencia\n")
+  (insert "| Semana | Recibidos | Resueltos | Backlog |\n")
+  (insert "|--------+-----------+-----------+---------|\n")
+  (insert "|      1 |        12 |        10 |       2 |\n")
+  (insert "|      2 |        15 |        14 |       3 |\n")
+  (insert "|      3 |         8 |        11 |       0 |\n")
+  (insert "|      4 |        20 |        16 |       4 |\n\n")
+  ;; Bloque gnuplot
+  (insert "#+begin_src gnuplot :var data=datos-tendencia :file "
+          my/proc-diagramas "tendencia-tickets.png\n")
+  (insert "set terminal pngcairo size 800,400 enhanced font 'Inter,11'\n")
+  (insert "set title 'Tendencia de Tickets por Semana' font 'Inter,14'\n")
+  (insert "set xlabel 'Semana'\n")
+  (insert "set ylabel 'Cantidad'\n")
+  (insert "set grid ytics\n")
+  (insert "set style data linespoints\n")
+  (insert "set key outside right\n")
+  (insert "set style line 1 lc rgb '#42a5f5' lw 2 pt 7 ps 1.2\n")
+  (insert "set style line 2 lc rgb '#66bb6a' lw 2 pt 5 ps 1.2\n")
+  (insert "set style line 3 lc rgb '#ff5252' lw 2 pt 9 ps 1.2\n")
+  (insert "plot data using 1:2 ls 1 title 'Recibidos', \\\n")
+  (insert "     data using 1:3 ls 2 title 'Resueltos', \\\n")
+  (insert "     data using 1:4 ls 3 title 'Backlog'\n")
+  (insert "#+end_src\n")
+  (message "📈 Gráfico insertado. Completar datos y ejecutar con C-c C-c"))
+
+;; --- Template de gráfico de barras para MUDA ---
+(defun my/proc-insertar-grafico-muda ()
+  "Inserta un bloque gnuplot para un Pareto de desperdicios."
+  (interactive)
+  (insert "\n** Análisis Pareto de Desperdicios (MUDA)\n\n")
+  (insert "#+NAME: datos-muda\n")
+  (insert "| Tipo Desperdicio  | Ocurrencias |\n")
+  (insert "|-------------------+-------------|\n")
+  (insert "| Espera            |             |\n")
+  (insert "| Defectos          |             |\n")
+  (insert "| Sobreprocesam.    |             |\n")
+  (insert "| Transporte        |             |\n")
+  (insert "| Movimiento        |             |\n")
+  (insert "| Inventario        |             |\n")
+  (insert "| Sobreproducción   |             |\n\n")
+  (insert "#+begin_src gnuplot :var data=datos-muda :file "
+          my/proc-diagramas "pareto-muda.png\n")
+  (insert "set terminal pngcairo size 800,400 enhanced font 'Inter,11'\n")
+  (insert "set title 'Pareto de Desperdicios' font 'Inter,14'\n")
+  (insert "set style data histogram\n")
+  (insert "set style histogram cluster gap 1\n")
+  (insert "set style fill solid 0.8 border -1\n")
+  (insert "set boxwidth 0.8\n")
+  (insert "set xtics rotate by -30\n")
+  (insert "set ylabel 'Ocurrencias'\n")
+  (insert "set grid ytics\n")
+  (insert "plot data using 2:xtic(1) lc rgb '#ff9800' title 'Ocurrencias'\n")
+  (insert "#+end_src\n")
+  (message "📊 Pareto MUDA insertado. Completar datos y ejecutar con C-c C-c"))
+#+end_src
+
+* 60. Registro de Restricciones y Desperdicios
+Funciones para captura rápida de observaciones en el día a día.
+Un técnico de soporte que detecta un cuello de botella o un desperdicio
+lo registra inmediatamente para analizarlo en la revisión semanal.
+
+#+begin_src emacs-lisp
+;; --- Agregar a org-capture-templates (definidos en 50-gtd.org) ---
+(with-eval-after-load 'org-capture
+  (dolist (tmpl
+           '(("P" "Procesos")
+
+             ("Pr" "Restricción detectada (TOC)"
+              table-line (file+headline my/proc-restricc "Restricciones Identificadas")
+              "| %U | %^{Proceso} | %^{Restricción/Cuello de botella} | Abierta | %^{Acción propuesta} |"
+              :immediate-finish t)
+
+             ("Pm" "Desperdicio observado (MUDA)"
+              table-line (file+headline my/proc-muda "Los 7 Desperdicios — Registro de Observaciones")
+              "| %U | %^{Tipo|Espera|Defectos|Sobreprocesamiento|Transporte|Movimiento|Inventario|Sobreproducción} | %^{Dónde se observó} | %^{Impacto estimado|Bajo|Medio|Alto} | %^{Acción propuesta} |"
+              :immediate-finish t)
+
+             ("Pc" "Comunicación técnica enviada"
+              entry (file+headline my/proc-comms "Comunicaciones Enviadas")
+              "* %^{Asunto} :comm:\n:PROPERTIES:\n:FECHA: %U\n:TIPO: %^{Tipo|Email de escalado|Reporte de incidente|Informe semanal|Notificación a usuarios|Otro}\n:DESTINATARIO: %^{Para quién}\n:END:\n\n%?"
+              :empty-lines 1)))
+    (add-to-list 'org-capture-templates tmpl t)))
+#+end_src
+
+* 70. Comunicación Técnica Escrita (Templates)
+El Módulo 3 incluye comunicación técnica: mails de escalado,
+reportes de incidentes, informes semanales. Estas funciones generan
+templates pre-estructurados que el alumno completa.
+
+Principio (Kim, El Proyecto Fénix): "El flujo de información es tan
+importante como el flujo de trabajo."
+
+#+begin_src emacs-lisp
+;; --- Template de mail de escalado ---
+(defun my/proc-template-escalado ()
+  "Genera un template de email de escalado técnico."
+  (interactive)
+  (let* ((ticket (read-string "Número de ticket: "))
+         (asunto (read-string "Asunto breve: "))
+         (nivel (completing-read "Escalar a: " '("N2" "N3" "Proveedor externo") nil t)))
+    (switch-to-buffer (generate-new-buffer (format "*Escalado-%s*" ticket)))
+    (org-mode)
+    (insert (format "#+TITLE: Escalado %s — %s\n\n" ticket asunto))
+    (insert (format "Para: Equipo %s\n" nivel))
+    (insert (format "Asunto: [ESCALADO] Ticket #%s — %s\n\n" ticket asunto))
+    (insert "---\n\n")
+    (insert (format "Estimado equipo %s,\n\n" nivel))
+    (insert (format "Escalo el ticket #%s por los siguientes motivos:\n\n" ticket))
+    (insert "** Resumen del Problema\n")
+    (insert "- Usuario afectado: \n")
+    (insert "- Equipo: \n")
+    (insert "- Inicio del incidente: \n\n")
+    (insert "** Acciones Realizadas (N1)\n")
+    (insert "1. \n")
+    (insert "2. \n")
+    (insert "3. \n\n")
+    (insert "** Motivo del Escalado\n")
+    (insert "- \n\n")
+    (insert "** Información Adicional\n")
+    (insert "- Logs adjuntos: \n")
+    (insert "- Screenshots: \n\n")
+    (insert "Quedo atento a cualquier consulta.\n\n")
+    (insert "Saludos,\n")
+    (insert (format "%s\nSoporte Técnico N1\n" (or user-full-name "Nombre")))
+    (goto-char (point-min))
+    (search-forward "Usuario afectado: ")
+    (message "📧 Template de escalado generado. Completar y enviar.")))
+
+;; --- Template de reporte semanal de servicio ---
+(defun my/proc-template-reporte-semanal ()
+  "Genera un template de reporte semanal del área de soporte."
+  (interactive)
+  (let ((semana (format-time-string "%V"))
+        (fecha-inicio (format-time-string "%Y-%m-%d"
+                       (time-subtract (current-time) (days-to-time 7))))
+        (fecha-fin (format-time-string "%Y-%m-%d")))
+    (switch-to-buffer (generate-new-buffer
+                       (format "*Reporte-Semana-%s*" semana)))
+    (org-mode)
+    (insert (format "#+TITLE: Reporte Semanal de Soporte — Semana %s\n" semana))
+    (insert (format "#+DATE: %s al %s\n\n" fecha-inicio fecha-fin))
+    (insert "* 1. Resumen Ejecutivo\n")
+    (insert "(2-3 oraciones: qué pasó esta semana, qué se resolvió, qué queda pendiente)\n\n\n")
+    (insert "* 2. Métricas del Período\n")
+    (insert "| Métrica               | Valor | Target | Status |\n")
+    (insert "|-----------------------+-------+--------+--------|\n")
+    (insert "| Tickets recibidos     |       |        |        |\n")
+    (insert "| Tickets resueltos     |       |        |        |\n")
+    (insert "| MTTR (horas)          |       | <8     |        |\n")
+    (insert "| SLA compliance (%)    |       | >90%   |        |\n")
+    (insert "| First Contact Res (%) |       | >60%   |        |\n")
+    (insert "| Backlog actual        |       | <5     |        |\n\n")
+    (insert "* 3. Incidentes Destacados\n")
+    (insert "** Incidente 1: \n")
+    (insert "- Impacto: \n- Estado: \n- Lección aprendida: \n\n")
+    (insert "* 4. Restricciones / Cuellos de Botella\n")
+    (insert "- \n\n")
+    (insert "* 5. Desperdicios Identificados\n")
+    (insert "- \n\n")
+    (insert "* 6. Mejoras Implementadas\n")
+    (insert "- \n\n")
+    (insert "* 7. Plan para la Próxima Semana\n")
+    (insert "- [ ] \n- [ ] \n- [ ] \n")
+    (goto-char (point-min))
+    (search-forward "Resumen Ejecutivo")
+    (forward-line 1)
+    (message "📋 Reporte semanal generado. Completar métricas y enviar.")))
+#+end_src
+
+* 80. Clock Reports: Tiempo y Flujo
+Org Mode tiene un sistema de clock-in/clock-out integrado que permite
+medir cuánto tiempo se dedica a cada tarea. Esto genera datos reales
+para calcular MTTR, detectar tareas que consumen demasiado tiempo,
+y alimentar los KPIs del dashboard.
+
+Atajos: =C-c C-x C-i= (clock-in), =C-c C-x C-o= (clock-out)
+
+#+begin_src emacs-lisp
+;; --- Configuración de clocking ---
+(setq org-clock-persist 'history)       ; Recordar el clock entre sesiones
+(setq org-clock-in-resume t)            ; Reanudar clock al re-clock-in
+(setq org-clock-out-remove-zero-time-clocks t) ; Limpiar clocks vacíos
+(setq org-clock-report-include-clocking-task t) ; Incluir tarea actual en reportes
+
+;; Ingerir historial de clocks una vez que org-clock esté cargado
+(with-eval-after-load 'org-clock
+  (org-clock-persistence-ingest))
+
+;; --- Función para generar clock report del período ---
+(defun my/proc-insertar-clock-report ()
+  "Inserta un reporte de tiempo dedicado por tarea."
+  (interactive)
+  (let ((scope (completing-read "Alcance: "
+                '("subtree" "file" "agenda") nil t "agenda"))
+        (periodo (completing-read "Período: "
+                  '("today" "thisweek" "lastweek" "thismonth") nil t "thisweek")))
+    (insert (format "\n#+BEGIN: clocktable :scope %s :block %s :maxlevel 3 :emphasize t :link t\n"
+                    scope periodo))
+    (insert "#+END:\n")
+    (forward-line -1)
+    (org-ctrl-c-ctrl-c)
+    (message "⏱️ Clock report insertado.")))
+
+;; --- Función para calcular MTTR desde tickets cerrados ---
+(defun my/proc-calcular-mttr ()
+  "Calcula el MTTR promedio de tickets DONE en soporte.org."
+  (interactive)
+  (let ((total-time 0)
+        (count 0))
+    (when (file-exists-p my/gtd-soporte)
+      (with-current-buffer (find-file-noselect my/gtd-soporte)
+        (org-map-entries
+         (lambda ()
+           (when (string= (org-get-todo-state) "DONE")
+             (let ((clock-minutes (org-clock-sum-current-item)))
+               (when (> clock-minutes 0)
+                 (setq total-time (+ total-time clock-minutes))
+                 (setq count (1+ count)))))))))
+    (if (> count 0)
+        (let* ((avg-min (/ (float total-time) count))
+               (avg-hrs (/ avg-min 60.0)))
+          (message "📊 MTTR: %.1f horas (%.0f min) — basado en %d tickets cerrados con clock"
+                   avg-hrs avg-min count))
+      (message "No se encontraron tickets DONE con tiempo registrado."))))
+#+end_src
+
+* 90. IA Local para Análisis de Procesos
+Funciones de IA para asistir en el análisis sistémico:
+- Identificar restricciones a partir de descripciones de procesos
+- Sugerir mejoras basadas en los 7 desperdicios
+- Generar borradores de VSM a partir de notas
+
+#+begin_src emacs-lisp
+(defun my/proc-ai-analizar-restricciones ()
+  "Analiza el texto del subtree actual buscando restricciones (TOC)."
+  (interactive)
+  (let* ((content (if (use-region-p)
+                      (buffer-substring-no-properties (region-beginning) (region-end))
+                    (org-get-entry)))
+         (prompt (format
+                  "Sos un consultor de Teoría de Restricciones (Goldratt).
+Analizá esta descripción de proceso e identificá:
+1. La restricción principal (cuello de botella)
+2. Los 5 pasos de focalización: IDENTIFICAR, EXPLOTAR, SUBORDINAR, ELEVAR, REPETIR
+3. Sugerencia concreta de mejora
+
+Descripción del proceso:\n%s
+
+Respondé en formato Org Mode, breve y accionable." content)))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (progn
+                        (org-end-of-subtree)
+                        (insert "\n** Análisis TOC (IA)\n" response "\n")
+                        (message "🔍 Análisis de restricciones insertado"))
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+
+(defun my/proc-ai-detectar-muda ()
+  "Analiza un proceso descrito en texto y detecta los 7 desperdicios."
+  (interactive)
+  (let* ((content (if (use-region-p)
+                      (buffer-substring-no-properties (region-beginning) (region-end))
+                    (org-get-entry)))
+         (prompt (format
+                  "Sos un experto en Lean/TPS (Sistema Toyota).
+Analizá esta descripción de proceso e identificá cuáles de los 7 desperdicios
+(MUDA) están presentes:
+1. Sobreproducción
+2. Espera
+3. Transporte
+4. Sobreprocesamiento
+5. Inventario
+6. Movimiento
+7. Defectos
+
+Para cada desperdicio encontrado, indicá: dónde ocurre, impacto estimado (alto/medio/bajo),
+y una acción concreta para eliminarlo.
+
+Formato: tabla Org Mode con columnas | Desperdicio | Dónde | Impacto | Acción |
+
+Proceso:\n%s" content)))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (progn
+                        (org-end-of-subtree)
+                        (insert "\n** Análisis MUDA (IA)\n" response "\n")
+                        (message "🔍 Análisis de desperdicios insertado"))
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+
+(defun my/proc-ai-generar-mermaid ()
+  "Genera un diagrama Mermaid a partir de una descripción de proceso."
+  (interactive)
+  (let* ((desc (if (use-region-p)
+                   (buffer-substring-no-properties (region-beginning) (region-end))
+                 (read-string "Describí el proceso: ")))
+         (tipo (completing-read "Tipo de diagrama: "
+                 '("flowchart (diagrama de flujo)"
+                   "sequenceDiagram (interacción entre actores)"
+                   "gantt (línea temporal)")
+                 nil t))
+         (tipo-code (car (split-string tipo " ")))
+         (prompt (format
+                  "Generá un diagrama Mermaid tipo %s para este proceso.
+Usá sintaxis Mermaid válida. Incluí estilos de color en los nodos principales.
+NO incluyas la etiqueta #+begin_src, solo el código Mermaid puro.
+
+Proceso: %s" tipo-code desc)))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (progn
+                        (insert (format "\n#+begin_src mermaid :file %sdiagrama-%s.png\n"
+                                        my/proc-diagramas
+                                        (format-time-string "%Y%m%d%H%M%S")))
+                        (insert response)
+                        (insert "\n#+end_src\n")
+                        (message "📊 Diagrama Mermaid insertado. Ejecutar con C-c C-c"))
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+#+end_src
+
+* 100. Atajos y Hydra de Visión Sistémica
+Todos los atajos de procesos bajo el prefijo =C-c V= (V de Visión).
+
+#+begin_src emacs-lisp
+;; --- Funciones de navegación rápida ---
+(defun my/proc-open-dashboard () (interactive) (find-file my/proc-dashboard))
+(defun my/proc-open-vsm ()       (interactive) (find-file my/proc-vsm))
+(defun my/proc-open-restricc ()  (interactive) (find-file my/proc-restricc))
+(defun my/proc-open-muda ()      (interactive) (find-file my/proc-muda))
+(defun my/proc-open-comms ()     (interactive) (find-file my/proc-comms))
+
+;; --- Hydra: menú visual de visión sistémica ---
+(defhydra my/hydra-proc (:color blue :hint nil)
+  "
+   VISION SISTEMICA
+  --------------------------------------------------
+   ARCHIVOS          CREAR            ANALISIS
+   _d_: Dashboard     _v_: Nuevo VSM    _w_: WIP count
+   _V_: VSMs          _k_: Kanban       _t_: MTTR calc
+   _r_: Restricciones _f_: Flujo sop.   _c_: Clock rep
+   _m_: Desperdicios  _K_: Tabla KPI
+   _o_: Comunic.      _T_: Analisis TOC
+                      _M_: Graf.MUDA
+   GRAFICOS          _G_: Graf.tendenc.
+
+   CAPTURA RAPIDA    IA LOCAL
+   _C r_: Restriccion  _a r_: IA restricciones
+   _C m_: Desperdicio  _a m_: IA desperdicios
+   _C c_: Comunicacion _a d_: IA > diagrama
+
+   COMUNICACION
+   _e_: Template escalado  _R_: Reporte semanal
+
+   _q_: Salir
+"
+  ;; Archivos
+  ("d" my/proc-open-dashboard)
+  ("V" my/proc-open-vsm)
+  ("r" my/proc-open-restricc)
+  ("m" my/proc-open-muda)
+  ("o" my/proc-open-comms)
+  ;; Crear
+  ("v" my/proc-nuevo-vsm)
+  ("k" my/proc-insertar-kanban)
+  ("f" my/proc-diagrama-flujo-soporte)
+  ("K" my/proc-insertar-kpi-table)
+  ("T" my/proc-insertar-toc-analysis)
+  ("M" my/proc-insertar-grafico-muda)
+  ("G" my/proc-insertar-grafico-tendencia)
+  ;; Análisis
+  ("w" my/proc-wip-status)
+  ("t" my/proc-calcular-mttr)
+  ("c" my/proc-insertar-clock-report)
+  ;; Captura rápida
+  ("C r" (org-capture nil "Pr"))
+  ("C m" (org-capture nil "Pm"))
+  ("C c" (org-capture nil "Pc"))
+  ;; IA
+  ("a r" my/proc-ai-analizar-restricciones)
+  ("a m" my/proc-ai-detectar-muda)
+  ("a d" my/proc-ai-generar-mermaid)
+  ;; Comunicación
+  ("e" my/proc-template-escalado)
+  ("R" my/proc-template-reporte-semanal)
+  ;; Salir
+  ("q" nil))
+
+;; --- Atajo global ---
+(global-set-key (kbd "C-c V") #'my/hydra-proc/body)
+#+end_src

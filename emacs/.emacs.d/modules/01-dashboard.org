@@ -1,0 +1,39 @@
+#+TITLE: Módulo Dashboard - Centro de Mando Gráfico
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* 10. Dashboard y Pantalla de Inicio
+
+Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, reemplazando el buffer de *scratch* estándar por un panel de control interactivo.
+
+#+begin_src emacs-lisp
+(use-package dashboard
+  :ensure t
+  :config
+  (setq dashboard-startup-banner 'logo)
+  (setq dashboard-center-content t)
+  (setq dashboard-show-shortcuts nil)
+
+  ;; --- Generador de botón manual (Prueba a prueba de fallos) ---
+  (defun my/dashboard-insert-scratch (list-size)
+    (insert "📝 Acciones Rápidas:\n")
+    (widget-create 'push-button
+                   :action (lambda (&rest ignore) (switch-to-buffer "*scratch*"))
+                   :mouse-face 'highlight
+                   :button-face 'dashboard-heading
+                   "  [ Abrir Lienzo en Blanco (Scratch) ]")
+    (insert "\n"))
+  
+  (add-to-list 'dashboard-item-generators '(scratch-button . my/dashboard-insert-scratch))
+
+  ;; --- Contenido principal ---
+  (setq dashboard-items '((recents  . 5)
+                          (scratch-button . 1)
+                          (projects . 5)
+                          (agenda . 5)))
+
+  ;; IMPORTANTE: setup al final y activarlo
+  (dashboard-setup-startup-hook)
+  (setq initial-buffer-choice (lambda () (get-buffer-create "*dashboard*"))))
+#+end_src

@@ -1,0 +1,377 @@
+#+TITLE: Módulo Game Dev - Unreal Engine Automation
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-configuración-de-motor-lsp--performance][10. Configuración de Motor (LSP & Performance)]]
+- [[#20-integración-unreal-engine-45][20. Integración Unreal Engine 4/5]]
+  - [[#generadores-de-proyectos-scaffolding][Generadores de Proyectos (Scaffolding)]]
+  - [[#automatización-de-build--cook][Automatización de Build & Cook]]
+  - [[#generación-de-contexto-lsp-estrategia-cmake][Generación de Contexto LSP (Estrategia CMake)]]
+
+* 10. Configuración de Motor (LSP & Performance)
+Ajustes críticos para evitar que Emacs se congele al abrir proyectos gigantes de UE4/5.
+Esto se ha movido aquí desde el módulo de C++ para mantener limpio el entorno general.
+
+#+begin_src emacs-lisp
+;; Unreal Engine Directorio (Definido al principio para ser usado por LSP)
+(defvar my/ue4-root "~/UnrealEngine/"
+  "Ruta raíz de Unreal Engine. En Arch suele ser /opt/unreal-engine o ~/UnrealEngine.
+   Asegúrate de que dentro de esta carpeta exista 'Engine/Build/BatchFiles/Linux/Build.sh'.")
+
+;; Optimización para Clangd en Proyectos Gigantes
+(with-eval-after-load 'lsp-mode
+  ;; 1. Desactivar file watchers para evitar escaneo masivo de 100k archivos
+  (setq lsp-enable-file-watchers nil)
+
+  ;; 2. Ignorar explícitamente carpetas de compilación y caché
+  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\.cache\\'")
+  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]Intermediate\\'")
+  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]Saved\\'")
+  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]Binaries\\'")
+  (add-to-list 'lsp-file-watch-ignored-directories (expand-file-name my/ue4-root))
+
+  ;; 3. Argumentos vitales para que Clangd entienda el código de UE
+  ;; Necesita el --query-driver para saber dónde están los compiladores internos del motor
+  (add-to-list 'lsp-clients-clangd-args "--query-driver=/usr/bin/clang++,/opt/unreal-engine/**/*clang*,~/UnrealEngine/**/*clang*")
+  
+  ;; Aumentar límites para que no corte las referencias
+  (add-to-list 'lsp-clients-clangd-args "--limit-references=0")
+  (add-to-list 'lsp-clients-clangd-args "--limit-results=0"))
+#+end_src
+
+* 20. Integración Unreal Engine 4/5
+
+#+begin_src emacs-lisp
+;; Forzar que los .h se abran como C++ (necesario para ver los snippets)
+;; --- 0. Detección Inteligente: C vs C++ ---
+(defun my/ue-smart-header-mode ()
+  "Cambia automáticamente a C++ Mode solo si detecta que es un proyecto de Unreal o C++ moderno.
+   Si no, mantiene el modo C clásico."
+  (when (and (buffer-file-name)
+             (string-suffix-p ".h" (buffer-file-name))
+             ;; Criterios para decidir si es C++ / Unreal:
+             (or
+              ;; 1. Por estructura de carpetas (Unreal siempre usa Source/Public/Private)
+              (string-match-p "/Source/" (buffer-file-name))
+              (string-match-p "/Public/" (buffer-file-name))
+              (string-match-p "/Private/" (buffer-file-name))
+              ;; 2. Por existencia de .uproject en directorios superiores
+              (locate-dominating-file default-directory (lambda (dir)
+                                                          (directory-files dir nil ".*\\.uproject$")))))
+    (c++-mode)
+    (message "🦖 Unreal Engine detectado: Cambiando header a C++")))
+
+;; Ejecutar esta detección cada vez que abrimos un archivo
+(add-hook 'find-file-hook 'my/ue-smart-header-mode)
+#+end_src
+
+** Generadores de Proyectos (Scaffolding)
+
+#+begin_src emacs-lisp
+;; --- Generador de Proyectos Unreal Engine (Basado en Alex Forsythe) ---
+(defun my/new-ue-project (name)
+  "Crea un proyecto Unreal Engine C++ completo.
+   Incluye: Scaffolding, Logs, Scripts (Build/Run/Cook/Package) y Configuración GIT."
+  (interactive "sNombre del Proyecto (Sin espacios): ")
+  (let* ((root-dir (expand-file-name name (concat (my/mu-projects-base) "unreal/")))
+         (source-dir (concat root-dir "/Source/"))
+         (mod-dir (concat source-dir name "/"))
+         (public-dir (concat mod-dir "Public/"))
+         (private-dir (concat mod-dir "Private/")))
+
+    ;; 1. Crear directorios
+    (make-directory root-dir t)
+    (make-directory public-dir t)
+    (make-directory private-dir t)
+
+    ;; 2. Archivo .uproject
+    (with-temp-file (concat root-dir "/" name ".uproject")
+      (insert "{\n")
+      (insert "	\"FileVersion\": 3,\n")
+      (insert "	\"EngineAssociation\": \"4.27\",\n") ;; Ajusta versión
+      (insert "	\"Category\": \"\",\n")
+      (insert "	\"Description\": \"\",\n")
+      (insert "	\"Modules\": [\n")
+      (insert "		{\n")
+      (insert (format "			\"Name\": \"%s\",\n" name))
+      (insert "			\"Type\": \"Runtime\",\n")
+      (insert "			\"LoadingPhase\": \"Default\"\n")
+      (insert "		}\n")
+      (insert "	]\n")
+      (insert "}\n"))
+
+    ;; 3. Targets (.cs)
+    (with-temp-file (concat source-dir name ".Target.cs")
+      (insert "using UnrealBuildTool;\n\n")
+      (insert (format "public class %sTarget : TargetRules\n" name))
+      (insert "{\n")
+      (insert (format "	public %sTarget(TargetInfo Target) : base(Target)\n" name))
+      (insert "	{\n")
+      (insert "		Type = TargetType.Game;\n")
+      (insert "		DefaultBuildSettings = BuildSettingsVersion.V2;\n")
+      (insert (format "		ExtraModuleNames.AddRange( new string[] { \"%s\" } );\n" name))
+      (insert "	}\n")
+      (insert "}\n"))
+
+    (with-temp-file (concat source-dir name "Editor.Target.cs")
+      (insert "using UnrealBuildTool;\n\n")
+      (insert (format "public class %sEditorTarget : TargetRules\n" name))
+      (insert "{\n")
+      (insert (format "	public %sEditorTarget(TargetInfo Target) : base(Target)\n" name))
+      (insert "	{\n")
+      (insert "		Type = TargetType.Editor;\n")
+      (insert "		DefaultBuildSettings = BuildSettingsVersion.V2;\n")
+      (insert (format "		ExtraModuleNames.AddRange( new string[] { \"%s\" } );\n" name))
+      (insert "	}\n")
+      (insert "}\n"))
+
+    ;; 4. Build.cs
+    (with-temp-file (concat mod-dir name ".Build.cs")
+      (insert "using UnrealBuildTool;\n\n")
+      (insert (format "public class %s : ModuleRules\n" name))
+      (insert "{\n")
+      (insert (format "	public %s(ReadOnlyTargetRules Target) : base(Target)\n" name))
+      (insert "	{\n")
+      (insert "		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;\n")
+      (insert "		PublicDependencyModuleNames.AddRange(new string[] { \"Core\", \"CoreUObject\", \"Engine\", \"InputCore\" });\n")
+      (insert "	}\n")
+      (insert "}\n"))
+
+    ;; 5. Código C++ (.h y .cpp con Log)
+    (with-temp-file (concat public-dir name ".h")
+      (insert "#pragma once\n\n")
+      (insert "#include \"CoreMinimal.h\"\n")
+      (insert "#include \"Modules/ModuleInterface.h\"\n\n")
+      (insert (format "class F%s : public IModuleInterface\n" name))
+      (insert "{\n")
+      (insert "public:\n")
+      (insert (format "	static inline F%s& Get()\n" name))
+      (insert "	{\n")
+      (insert (format "		return FModuleManager::LoadModuleChecked<F%s>(\"%s\");\n" name name))
+      (insert "	}\n\n")
+      (insert "	static inline bool IsAvailable()\n")
+      (insert "	{\n")
+      (insert (format "		return FModuleManager::Get().IsModuleLoaded(\"%s\");\n" name))
+      (insert "	}\n\n")
+      (insert "	virtual void StartupModule() override;\n")
+      (insert "	virtual void ShutdownModule() override;\n")
+      (insert "};\n"))
+
+    (with-temp-file (concat private-dir name ".cpp")
+      (insert (format "#include \"%s.h\"\n" name))
+      (insert "#include \"Modules/ModuleManager.h\"\n\n")
+      (insert (format "void F%s::StartupModule()\n" name))
+      (insert "{\n")
+      (insert (format "	UE_LOG(LogTemp, Warning, TEXT(\"¡Hola Mundo desde %s! 🦖\"));\n" name))
+      (insert "}\n\n")
+      (insert (format "void F%s::ShutdownModule()\n" name))
+      (insert "{\n")
+      (insert (format "	UE_LOG(LogTemp, Warning, TEXT(\"%s se ha detenido.\"));\n" name))
+      (insert "}\n\n")
+      (insert (format "IMPLEMENT_PRIMARY_GAME_MODULE( F%s, %s, \"%s\" );\n" name name name)))
+
+    ;; 6. Marcador Projectile
+    (with-temp-file (concat root-dir "/.projectile")
+      (insert ""))
+
+    ;; =======================================================
+    ;; 7. CONFIGURACIÓN GIT (AUTOMÁTICA) 🐙
+    ;; =======================================================
+
+    ;; .gitignore (Estándar de Unreal)
+    (with-temp-file (concat root-dir "/.gitignore")
+      (insert "Binaries/\n")
+      (insert "Intermediate/\n")
+      (insert "Saved/\n")
+      (insert "DerivedDataCache/\n")
+      (insert "Build/\n")
+      (insert ".vscode/\n")
+      (insert ".idea/\n")
+      (insert ".vs/\n")
+      (insert "*.sln\n")
+      (insert "*.suo\n")
+      (insert "*.opensdf\n")
+      (insert "*.sdf\n")
+      (insert "*.xcodeproj\n")
+      (insert "*.xcworkspace\n"))
+
+    ;; .gitattributes (Soporte LFS para binarios)
+    (with-temp-file (concat root-dir "/.gitattributes")
+      (insert "# Git LFS para binarios de Unreal\n")
+      (insert "*.uasset filter=lfs diff=lfs merge=lfs -text\n")
+      (insert "*.umap filter=lfs diff=lfs merge=lfs -text\n")
+      (insert "*.mb filter=lfs diff=lfs merge=lfs -text\n")
+      (insert "*.fbx filter=lfs diff=lfs merge=lfs -text\n")
+      (insert "*.png filter=lfs diff=lfs merge=lfs -text\n")
+      (insert "*.tga filter=lfs diff=lfs merge=lfs -text\n")
+      (insert "\n# Archivos de texto\n")
+      (insert "*.cpp text\n")
+      (insert "*.h text\n")
+      (insert "*.cs text\n"))
+
+    ;; =======================================================
+    ;; 8. SCRIPTS DE AUTOMATIZACIÓN 🤖
+    ;; =======================================================
+
+    ;; vars.sh
+    (with-temp-file (concat root-dir "/vars.sh")
+      (insert "#!/bin/bash\n")
+      (insert (format "export PROJECT=\"%s\"\n" name))
+      (insert (format "export UE4_DIR=\"%s\"\n" (expand-file-name my/ue4-root)))
+      (insert "export ROOTDIR=\"$( cd \"$( dirname \"${BASH_SOURCE[0]}\" )\" && pwd )\"\n")
+      (insert "export UPROJECT_PATH=\"$ROOTDIR/$PROJECT.uproject\"\n")
+      (insert "export BUILD_BAT=\"$UE4_DIR/Engine/Build/BatchFiles/Linux/Build.sh\"\n")
+      (insert "export EDITOR_EXE=\"$UE4_DIR/Engine/Binaries/Linux/UE4Editor\"\n"))
+    (set-file-modes (concat root-dir "/vars.sh") #o755)
+
+    ;; build.sh
+    (with-temp-file (concat root-dir "/build.sh")
+      (insert "#!/bin/bash\n")
+      (insert "source \"$(dirname \"$0\")/vars.sh\"\n")
+      (insert "echo \"🔨 Compilando $PROJECT...\"\n")
+      (insert "\"$BUILD_BAT\" \"${PROJECT}Editor\" Linux Development \"$UPROJECT_PATH\" -waitmutex -NoHotReload\n"))
+    (set-file-modes (concat root-dir "/build.sh") #o755)
+
+    ;; editor.sh
+    (with-temp-file (concat root-dir "/editor.sh")
+      (insert "#!/bin/bash\n")
+      (insert "source \"$(dirname \"$0\")/vars.sh\"\n")
+      (insert "echo \"🚀 Lanzando Editor...\"\n")
+      (insert "\"$EDITOR_EXE\" \"$UPROJECT_PATH\" \"$@\"\n"))
+    (set-file-modes (concat root-dir "/editor.sh") #o755)
+
+    ;; cook.sh
+    (with-temp-file (concat root-dir "/cook.sh")
+      (insert "#!/bin/bash\n")
+      (insert "source \"$(dirname \"$0\")/vars.sh\"\n")
+      (insert "echo \"🍳 Cocinando Assets...\"\n")
+      (insert "\"$EDITOR_EXE\" \"$UPROJECT_PATH\" -run=cook -targetplatform=LinuxNoEditor\n"))
+    (set-file-modes (concat root-dir "/cook.sh") #o755)
+
+    ;; package.sh
+    (with-temp-file (concat root-dir "/package.sh")
+      (insert "#!/bin/bash\n")
+      (insert "source \"$(dirname \"$0\")/vars.sh\"\n")
+      (insert "echo \"📦 Empaquetando Juego para Linux...\"\n")
+      (insert "output_dir=\"$ROOTDIR/Dist\"\n")
+      (insert "\"$UE4_DIR/Engine/Build/BatchFiles/RunUAT.sh\" BuildCookRun \\\n")
+      (insert "    -project=\"$UPROJECT_PATH\" \\\n")
+      (insert "    -noP4 -platform=Linux -clientconfig=Shipping -serverconfig=Shipping \\\n")
+      (insert "    -cook -allmaps -build -stage -pak -archive \\\n")
+      (insert "    -archivedirectory=\"$output_dir\"\n")
+      (insert "echo \"✅ Juego empaquetado en: $output_dir\"\n"))
+    (set-file-modes (concat root-dir "/package.sh") #o755)
+
+    (message "🦖 Proyecto '%s' listo: Código, Scripts y Git configurados." name)
+    (find-file (concat private-dir name ".cpp"))))
+
+;; Atajo para crearlo: C-c n u
+(global-set-key (kbd "C-c n u") 'my/new-ue-project)
+#+end_src
+
+** Automatización de Build & Cook
+
+#+begin_src emacs-lisp
+;; Run Unreal Project
+(defun my/ue-run ()
+  "Lanza scripts de Unreal. Intenta adivinar la raíz si Projectile falla."
+  (interactive)
+  ;; 1. INTELIGENCIA DE RUTAS
+  ;; Si Projectile devuelve nil, usamos el directorio actual (default-directory)
+  ;; También intentamos buscar hacia arriba un archivo .uproject manualmente
+  (let* ((root (or (projectile-project-root)
+                   (locate-dominating-file default-directory ".uproject")
+                   default-directory))
+         ;; Aseguramos que la ruta termine en / para evitar errores de concatenación
+         (clean-root (file-name-as-directory root))
+         (editor-script (expand-file-name "editor.sh" clean-root))
+         (package-script (expand-file-name "package.sh" clean-root))
+         (cook-script (expand-file-name "cook.sh" clean-root)))
+
+    ;; 2. DIAGNÓSTICO
+    (if (not (file-exists-p editor-script))
+        (progn
+          (message "❌ ERROR: No encuentro 'editor.sh'.")
+          (message "   Busqué en: %s" clean-root)
+          (message "   💡 Pista: Abre un archivo .cpp de tu juego y prueba otra vez."))
+
+      ;; 3. EJECUCIÓN SEGURA
+      ;; Forzamos el directorio de trabajo para que los scripts encuentren sus dependencias
+      (let ((default-directory clean-root)
+            (mode (completing-read (format "🚀 Unreal (%s): " (file-name-nondirectory (directory-file-name clean-root)))
+                                   '("Editor (-log)"
+                                     "Editor (Sin log)"
+                                     "Juego (-game)"
+                                     "Cook Assets"
+                                     "Package Project"))))
+
+        (cond
+         ;; Editor con Log (Usamos shell-command para robustez)
+         ((string-equal mode "Editor (-log)")
+          (message "🚀 Editor con Log...")
+          (start-process-shell-command "UE4-Editor" "*UE4-Log*" (concat "bash " editor-script " -log")))
+
+         ;; Editor Silencioso
+         ((string-equal mode "Editor (Sin log)")
+          (message "🚀 Editor Silencioso...")
+          (start-process-shell-command "UE4-Editor" nil (concat "bash " editor-script)))
+
+         ;; Juego
+         ((string-equal mode "Juego (-game)")
+          (message "🎮 Juego Standalone...")
+          (start-process-shell-command "UE4-Game" "*UE4-Game-Log*"
+                                       (concat "bash " editor-script " -game -log -windowed -resX=1280 -resY=720")))
+
+         ;; Package (Usa compile)
+         ((string-equal mode "Package Project")
+          (compile (concat "bash " package-script)))
+
+         ;; Cook (Usa compile)
+         ((string-equal mode "Cook Assets")
+          (compile (concat "bash " cook-script))))))))
+
+(global-set-key (kbd "C-c u r") 'my/ue-run)
+#+end_src
+
+** Generación de Contexto LSP (Estrategia CMake)
+Esta función automatiza la creación del archivo `compile_commands.json`, necesario para que Clangd entienda tu proyecto.
+#+begin_src emacs-lisp
+(defun my/ue-generate-compile-commands ()
+  "Genera compile_commands.json usando la Estrategia CMake (Robusta)."
+  (interactive)
+  (let* ((project-root (projectile-project-root))
+         (uproject-file (car (directory-files project-root t ".*\\.uproject$")))
+         (project-name (file-name-base uproject-file))
+         ;; Aseguramos rutas absolutas sin trailing slashes
+         (engine-root (expand-file-name (directory-file-name my/ue4-root)))
+         (toolchain-root (expand-file-name
+                          "Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v19_clang-11.0.1-centos7"
+                          engine-root))
+         (gen-script (expand-file-name "GenerateProjectFiles.sh" engine-root)))
+
+    (if (not uproject-file)
+        (message "❌ Error: No encuentro archivo .uproject.")
+
+      (message "🧠 Iniciando Estrategia CMake para %s..." project-name)
+
+      ;; Construimos el comando encadenado para Bash:
+      ;; 1. Export ENV
+      ;; 2. cd Engine -> Generar CMakeLists.txt
+      ;; 3. cd Project -> Generar JSON con cmake
+      (let ((cmd (format
+                  "export LINUX_MULTIARCH_ROOT='%s' && cd '%s' && '%s' -project='%s' -game -engine -cmakefile && cd '%s' && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ."
+                  toolchain-root
+                  engine-root
+                  gen-script
+                  uproject-file
+                  project-root)))
+
+        ;; Usamos async-shell-command para ver el output en tiempo real
+        ;; (Útil porque GenerateProjectFiles tarda un poco)
+        (async-shell-command cmd "*UE4-CMake-Gen*")))))
+
+;;Unreal Generate Compile commands
+(global-set-key (kbd "C-c u g") 'my/ue-generate-compile-commands)
+#+end_src

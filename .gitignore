@@ -1,0 +1,65 @@
+# --- Emacs Garbage Collection ---
+
+# Archivos de respaldo y auto-guardado
+*~
+\#*\#
+.#*
+
+# --- IMPORTANTE: Archivos Generados ---
+config.el
+modules/*.el
+# --- Directorios que NO deben versionarse ---
+# Proyectos de prueba (NO son parte de la config)
+**/Programming/
+**/projects/
+**/probe/
+
+# Directorios de Paquetes
+**/elpa/
+**/straight/
+
+# Compilación Nativa
+**/eln-cache/
+**/*.elc
+
+# Datos de sesión, historial y caché
+**/auto-save-list/
+**/transient/
+**/url/
+**/.cache/
+
+# Backups y auto-guardado
+**/tmp/
+**/backups/
+**/auto-saves/
+**/var/
+
+# Archivos específicos de estado
+**/history
+**/recentf
+**/bookmarks
+**/projects
+**/projectile-bookmarks.eld
+**/projectile.cache
+
+# Archivo de personalización automática
+**/custom.el
+**/.mc-lists.el
+# Servidor
+**/server/
+
+# Base de datos de seguridad
+**/network-security.data
+
+# --- LSP y Tree-sitter ---
+**/.lsp-session-*
+**/tree-sitter/
+
+# --- Logs ---
+**/*.log
+**/warnings.log
+**/lsp-log/
+
+# --- Sistema Operativo ---
+.DS_Store
+Thumbs.db

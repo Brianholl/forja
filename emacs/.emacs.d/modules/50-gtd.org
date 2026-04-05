@@ -1,0 +1,610 @@
+#+TITLE: Módulo GTD - Asistencia Operativa (Autogestión)
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-infraestructura-gtd-directorios-y-archivos][10. Infraestructura GTD (Directorios y Archivos)]]
+- [[#20-estados-y-workflow-de-tareas][20. Estados y Workflow de Tareas]]
+- [[#30-sistema-de-captura-rápida-inbox][30. Sistema de Captura Rápida (Inbox)]]
+- [[#40-agenda-y-vistas-personalizadas][40. Agenda y Vistas Personalizadas]]
+- [[#50-matriz-eisenhower-priorización][50. Matriz Eisenhower (Priorización)]]
+- [[#60-revisión-semanal-gtd][60. Revisión Semanal GTD]]
+- [[#70-hábitos-y-recurrencias][70. Hábitos y Recurrencias]]
+- [[#80-calendario-e-integración-externa][80. Calendario e Integración Externa]]
+- [[#90-ia-local-para-organización-gptel--ollama][90. IA Local para Organización (gptel + Ollama)]]
+- [[#100-atajos-y-hydra-de-productividad][100. Atajos y Hydra de Productividad]]
+
+* 10. Infraestructura GTD (Directorios y Archivos)
+Crea la estructura de directorios y archivos org que sostienen todo el sistema.
+El directorio base es =~/org/gtd/=. Si no existe, se crea automáticamente.
+
+Filosofía (David Allen): "Tu mente es para tener ideas, no para retenerlas."
+Cada archivo cumple un rol específico en el flujo GTD.
+
+#+begin_src emacs-lisp
+;; --- Directorio base GTD ---
+(defvar my/gtd-dir (expand-file-name "gtd/" org-directory)
+  "Directorio raíz del sistema GTD.")
+
+(unless (file-directory-p my/gtd-dir)
+  (make-directory my/gtd-dir t)
+  (message "📁 Directorio GTD creado en: %s" my/gtd-dir))
+
+;; --- Archivos del sistema ---
+(defvar my/gtd-inbox    (expand-file-name "inbox.org"      my/gtd-dir))
+(defvar my/gtd-projects (expand-file-name "proyectos.org"  my/gtd-dir))
+(defvar my/gtd-someday  (expand-file-name "algun-dia.org"  my/gtd-dir))
+(defvar my/gtd-tickler  (expand-file-name "tickler.org"    my/gtd-dir))
+(defvar my/gtd-archivo  (expand-file-name "archivo.org"    my/gtd-dir))
+(defvar my/gtd-habitos  (expand-file-name "habitos.org"    my/gtd-dir))
+(defvar my/gtd-calendar (expand-file-name "calendario.org" my/gtd-dir))
+(defvar my/gtd-soporte  (expand-file-name "soporte.org"    my/gtd-dir))
+
+;; --- Función para crear archivos semilla si no existen ---
+(defun my/gtd-ensure-file (filepath title &optional content)
+  "Crea FILEPATH con TITLE y CONTENT opcional si no existe."
+  (unless (file-exists-p filepath)
+    (with-temp-file filepath
+      (insert (format "#+TITLE: %s\n" title))
+      (insert "#+FILETAGS: :gtd:\n")
+      (insert "#+STARTUP: indent overview\n\n")
+      (when content (insert content)))
+    (message "📄 Creado: %s" filepath)))
+
+(my/gtd-ensure-file my/gtd-inbox "Inbox - Captura Rápida"
+  "* Bandeja de Entrada\nTodo lo que capturas cae aquí. Procesar diariamente.\n\n")
+
+(my/gtd-ensure-file my/gtd-projects "Proyectos Activos"
+  "* Enseñanza\n* Personal\n* Técnico\n")
+
+(my/gtd-ensure-file my/gtd-someday "Algún Día / Tal Vez"
+  "* Ideas\n* Cursos por hacer\n* Proyectos futuros\n")
+
+(my/gtd-ensure-file my/gtd-tickler "Tickler - Recordatorios Programados"
+  "* Recordatorios\n")
+
+(my/gtd-ensure-file my/gtd-archivo "Archivo de Referencia"
+  "* Material Completado\n")
+
+(my/gtd-ensure-file my/gtd-habitos "Hábitos y Rutinas"
+  "* Rutina Diaria\n* Rutina Semanal\n")
+
+(my/gtd-ensure-file my/gtd-calendar "Calendario"
+  "* Compromisos con Fecha Fija\n")
+
+(my/gtd-ensure-file my/gtd-soporte "Tickets de Soporte"
+  "* Abiertos\n* En Progreso\n* Resueltos\n")
+#+end_src
+
+* 20. Estados y Workflow de Tareas
+Los estados reflejan el flujo GTD completo:
+- INBOX: recién capturado, sin procesar
+- TODO: próxima acción identificada
+- NEXT: es lo siguiente que voy a hacer (contexto listo)
+- WAITING: delegado o esperando respuesta externa
+- SOMEDAY: algún día, no es urgente ni comprometido
+- DONE: completado (se loguea timestamp)
+- CANCELLED: descartado (se loguea motivo)
+
+Los tags de contexto responden a "¿dónde puedo hacer esto?":
+@pc, @telefono, @escuela, @casa, @errand (trámite fuera)
+
+#+begin_src emacs-lisp
+(setq org-todo-keywords
+      '((sequence "INBOX(i)" "TODO(t)" "NEXT(n)" "WAITING(w@/!)" "SOMEDAY(s)"
+                  "|" "DONE(d!)" "CANCELLED(c@/!)")))
+
+;; --- Colores por estado ---
+(setq org-todo-keyword-faces
+      '(("INBOX"     . (:foreground "#ff9800" :weight bold))   ; Naranja
+        ("TODO"      . (:foreground "#42a5f5" :weight bold))   ; Azul
+        ("NEXT"      . (:foreground "#ff5252" :weight bold))   ; Rojo (acción inmediata)
+        ("WAITING"   . (:foreground "#ab47bc" :weight bold))   ; Púrpura
+        ("SOMEDAY"   . (:foreground "#78909c" :weight bold))   ; Gris
+        ("DONE"      . (:foreground "#66bb6a" :weight bold))   ; Verde
+        ("CANCELLED" . (:foreground "#616161" :weight bold)))) ; Gris oscuro
+
+;; --- Tags de contexto GTD ---
+(setq org-tag-alist
+      '((:startgroup)
+        ("@pc"       . ?p)
+        ("@telefono" . ?f)
+        ("@escuela"  . ?e)
+        ("@casa"     . ?h)
+        ("@errand"   . ?r)
+        (:endgroup)
+        ;; Tags de energía (Allen: adaptar la tarea al estado mental)
+        ("alta_energia"  . ?A)
+        ("baja_energia"  . ?B)
+        ;; Tags de módulo (para clasificar tareas docentes)
+        ("mod1" . ?1) ("mod2" . ?2) ("mod3" . ?3) ("mod4" . ?4)))
+
+;; --- Loguear cambios de estado en un drawer ---
+(setq org-log-into-drawer t)
+(setq org-log-done 'time)
+(setq org-log-reschedule 'note)
+(setq org-log-redeadline 'note)
+#+end_src
+
+* 30. Sistema de Captura Rápida (Inbox)
+La captura es la fase 1 de GTD: sacar todo de la cabeza al sistema externo.
+Con =C-c c= se abre una ventana de captura rápida desde cualquier buffer.
+
+Plantillas disponibles:
+- =t= Tarea rápida → inbox.org (lo más común)
+- =n= Nota de referencia → inbox.org
+- =p= Nueva tarea de proyecto → proyectos.org
+- =c= Compromiso con fecha → calendario.org
+- =s= Ticket de soporte → soporte.org (Módulo 4)
+- =h= Nuevo hábito → habitos.org
+
+#+begin_src emacs-lisp
+(setq org-capture-templates
+      `(
+        ;; --- Captura GTD básica ---
+        ("t" "Tarea rápida (Inbox)"
+         entry (file+headline ,my/gtd-inbox "Bandeja de Entrada")
+         "* INBOX %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n"
+         :empty-lines 1)
+
+        ("n" "Nota de referencia"
+         entry (file+headline ,my/gtd-inbox "Bandeja de Entrada")
+         "* %? :nota:\n:PROPERTIES:\n:CREATED: %U\n:SOURCE: %a\n:END:\n"
+         :empty-lines 1)
+
+        ;; --- Proyectos y planificación ---
+        ("p" "Tarea de proyecto"
+         entry (file+olp ,my/gtd-projects)
+         "* TODO %? \n:PROPERTIES:\n:CREATED: %U\n:END:\nContexto: %a\n"
+         :empty-lines 1)
+
+        ("c" "Compromiso con fecha"
+         entry (file+headline ,my/gtd-calendar "Compromisos con Fecha Fija")
+         "* TODO %?\nSCHEDULED: %^t\n:PROPERTIES:\n:CREATED: %U\n:END:\n"
+         :empty-lines 1)
+
+        ;; --- Soporte (Módulo 4 de Asistencia Operativa) ---
+        ("s" "Ticket de soporte"
+         entry (file+headline ,my/gtd-soporte "Abiertos")
+         ,(concat "* INBOX [#B] %^{Título del ticket}\n"
+                  ":PROPERTIES:\n"
+                  ":CREATED:    %U\n"
+                  ":REPORTADO:  %^{Quién reporta}\n"
+                  ":EQUIPO:     %^{PC/Equipo afectado}\n"
+                  ":PRIORIDAD:  %^{Prioridad|Baja|Media|Alta|Crítica}\n"
+                  ":SLA:        %^{SLA en horas|24|8|4|1}\n"
+                  ":END:\n"
+                  "** Descripción\n%?\n"
+                  "** Diagnóstico\n"
+                  "** Resolución\n")
+         :empty-lines 1)
+
+        ;; --- Hábitos ---
+        ("h" "Nuevo hábito"
+         entry (file+headline ,my/gtd-habitos "Rutina Diaria")
+         ,(concat "* TODO %?\n"
+                  "SCHEDULED: %t\n"
+                  ":PROPERTIES:\n"
+                  ":STYLE: habit\n"
+                  ":REPEAT_TO_STATE: TODO\n"
+                  ":END:\n")
+         :empty-lines 1)
+        ))
+
+;; --- Refile: mover tareas procesadas a su destino ---
+(setq org-refile-targets
+      `((,my/gtd-projects . (:maxlevel . 3))
+        (,my/gtd-someday  . (:maxlevel . 2))
+        (,my/gtd-tickler  . (:maxlevel . 2))
+        (,my/gtd-archivo  . (:maxlevel . 2))
+        (,my/gtd-soporte  . (:maxlevel . 2))))
+
+(setq org-refile-use-outline-path 'file)
+(setq org-outline-path-complete-in-steps nil) ; Completar ruta completa en ivy/counsel
+(setq org-refile-allow-creating-parent-nodes 'confirm)
+#+end_src
+
+* 40. Agenda y Vistas Personalizadas
+La agenda es el "tablero de mandos" del sistema GTD.
+Org Agenda escanea todos los archivos de la lista y genera vistas filtradas.
+
+Vistas incluidas:
+- =d= Dashboard principal (lo que importa HOY)
+- =n= Todas las acciones NEXT
+- =w= Todo lo que está en WAITING
+- =i= Inbox sin procesar
+- =r= Vista de Revisión Semanal
+- =s= Dashboard de Soporte (tickets)
+
+#+begin_src emacs-lisp
+;; --- Archivos que alimentan la agenda ---
+(setq org-agenda-files
+      (list my/gtd-inbox
+            my/gtd-projects
+            my/gtd-calendar
+            my/gtd-habitos
+            my/gtd-tickler
+            my/gtd-soporte))
+
+;; --- Vistas personalizadas ---
+(setq org-agenda-custom-commands
+      '(
+        ;; DASHBOARD PRINCIPAL: lo que importa hoy
+        ("d" "Dashboard GTD"
+         ((agenda "" ((org-agenda-span 'day)
+                      (org-agenda-start-on-weekday nil)
+                      (org-deadline-warning-days 7)))
+          (todo "NEXT"
+                ((org-agenda-overriding-header "Próximas Acciones")))
+          (todo "WAITING"
+                ((org-agenda-overriding-header "Esperando Respuesta")))
+          (todo "INBOX"
+                ((org-agenda-overriding-header "Inbox Sin Procesar")))))
+
+        ;; NEXT: todas las acciones inmediatas por contexto
+        ("n" "Acciones NEXT"
+         ((todo "NEXT"
+                ((org-agenda-overriding-header "Todas las Próximas Acciones")
+                 (org-agenda-sorting-strategy '(priority-down category-keep))))))
+
+        ;; WAITING: seguimiento de delegaciones
+        ("w" "En Espera (WAITING)"
+         ((todo "WAITING"
+                ((org-agenda-overriding-header "Esperando Respuesta")))))
+
+        ;; INBOX: lo que falta procesar
+        ("i" "Inbox Sin Procesar"
+         ((todo "INBOX"
+                ((org-agenda-overriding-header "Capturado - Pendiente de Procesar")))))
+
+        ;; REVISIÓN SEMANAL
+        ("r" "Revisión Semanal GTD"
+         ((agenda "" ((org-agenda-span 7)
+                      (org-agenda-start-on-weekday 1)))
+          (todo "INBOX"
+                ((org-agenda-overriding-header "1. Procesar Inbox")))
+          (todo "NEXT"
+                ((org-agenda-overriding-header "2. Revisar Próximas Acciones")))
+          (todo "WAITING"
+                ((org-agenda-overriding-header "3. Seguimiento de Delegaciones")))
+          (todo "SOMEDAY"
+                ((org-agenda-overriding-header "4. Revisar Algún Día/Tal Vez")))
+          (stuck ""
+                 ((org-agenda-overriding-header "5. Proyectos Estancados")))))
+
+        ;; SOPORTE: dashboard de tickets (Módulo 4)
+        ("s" "Dashboard de Soporte"
+         ((todo "INBOX"
+                ((org-agenda-files (list my/gtd-soporte))
+                 (org-agenda-overriding-header "Tickets Nuevos")))
+          (todo "NEXT"
+                ((org-agenda-files (list my/gtd-soporte))
+                 (org-agenda-overriding-header "Tickets en Trabajo")))
+          (todo "WAITING"
+                ((org-agenda-files (list my/gtd-soporte))
+                 (org-agenda-overriding-header "Tickets Esperando")))
+          (todo "DONE"
+                ((org-agenda-files (list my/gtd-soporte))
+                 (org-agenda-overriding-header "Tickets Resueltos (recientes)")
+                 (org-agenda-sorting-strategy '(timestamp-down))))))
+
+        ;; FILTRO POR CONTEXTO
+        ("@" "Filtrar por Contexto"
+         ((tags-todo "@pc"
+                     ((org-agenda-overriding-header "Tareas en la PC")))
+          (tags-todo "@escuela"
+                     ((org-agenda-overriding-header "Tareas en la Escuela")))
+          (tags-todo "@casa"
+                     ((org-agenda-overriding-header "Tareas en Casa")))
+          (tags-todo "@telefono"
+                     ((org-agenda-overriding-header "Llamadas/Mensajes")))
+          (tags-todo "@errand"
+                     ((org-agenda-overriding-header "Trámites Fuera")))))
+        ))
+
+;; --- Proyectos estancados: proyectos sin NEXT ---
+(setq org-stuck-projects
+      '("+LEVEL=2/-DONE-CANCELLED" ("NEXT") nil ""))
+#+end_src
+
+* 50. Matriz Eisenhower (Priorización)
+Mapeo directo entre la Matriz de Eisenhower y las prioridades de Org:
+
+| Org Priority | Eisenhower     | Significado                          |
+|--------------+----------------+--------------------------------------|
+| [#A]         | Urgente+Import | Hacer YA (crisis, deadline inminente)|
+| [#B]         | Import, no Urg | Planificar (lo que mueve la aguja)   |
+| [#C]         | Urg, no Import | Delegar (interrupciones, pedidos)    |
+| [#D]         | Ni Urg ni Imp  | Eliminar o Algún Día                 |
+
+#+begin_src emacs-lisp
+;; --- Prioridades tipo Eisenhower ---
+(setq org-priority-highest ?A)
+(setq org-priority-lowest  ?D)
+(setq org-priority-default ?B)  ; "Importante, no urgente" como default (zona productiva)
+
+;; --- Colores de prioridad ---
+(setq org-priority-faces
+      '((?A . (:foreground "#ff1744" :weight bold))   ; Rojo: HACER YA
+        (?B . (:foreground "#2979ff" :weight bold))   ; Azul: PLANIFICAR
+        (?C . (:foreground "#ff9100" :weight bold))   ; Naranja: DELEGAR
+        (?D . (:foreground "#78909c"))))               ; Gris: ELIMINAR
+
+;; --- Función interactiva: asignar cuadrante Eisenhower ---
+(defun my/gtd-eisenhower-classify ()
+  "Clasifica la tarea actual según la Matriz Eisenhower con preguntas."
+  (interactive)
+  (let* ((urgente    (y-or-n-p "¿Es URGENTE? (tiene deadline próximo o consecuencias inmediatas) "))
+         (importante (y-or-n-p "¿Es IMPORTANTE? (contribuye a tus metas u objetivos clave) ")))
+    (cond
+     ((and urgente importante)
+      (org-priority ?A)
+      (message "🔴 Cuadrante I: HACER YA"))
+     ((and (not urgente) importante)
+      (org-priority ?B)
+      (message "🔵 Cuadrante II: PLANIFICAR (zona productiva)"))
+     ((and urgente (not importante))
+      (org-priority ?C)
+      (message "🟠 Cuadrante III: DELEGAR si es posible"))
+     (t
+      (org-priority ?D)
+      (message "⚪ Cuadrante IV: ELIMINAR o mover a Algún Día")))))
+#+end_src
+
+* 60. Revisión Semanal GTD
+La revisión semanal es el ritual más importante de GTD.
+Sin ella, el sistema se degrada en ~2 semanas.
+
+Esta función guía paso a paso por el proceso completo.
+
+#+begin_src emacs-lisp
+(defun my/gtd-revision-semanal ()
+  "Guía interactiva para la revisión semanal GTD.
+   Basado en el capítulo 8 de 'Organízate con Eficacia' (David Allen)."
+  (interactive)
+  (let ((steps '("PASO 1: Recopilar — ¿Tenés notas sueltas, papeles, o ideas sin capturar? Volcalas al inbox con C-c c t"
+                 "PASO 2: Procesar Inbox — Abrí el inbox (C-c g i) y procesá CADA item: ¿requiere acción? → TODO/NEXT. ¿No? → Archivo o Algún Día"
+                 "PASO 3: Revisar Próximas Acciones — ¿Siguen vigentes? ¿Falta alguna? Vista: C-c a n"
+                 "PASO 4: Revisar WAITING — ¿Alguien te debe algo? ¿Necesitás hacer follow-up? Vista: C-c a w"
+                 "PASO 5: Revisar Proyectos — ¿Cada proyecto tiene al menos un NEXT? Si no, está estancado. Vista: C-c a r"
+                 "PASO 6: Revisar Algún Día — ¿Algo se activó? ¿Algo se puede descartar?"
+                 "PASO 7: Revisar Calendario — ¿Qué compromisos tenés la próxima semana?"
+                 "PASO 8: Planificar — Elegí tus 3 prioridades de la semana. Marcalas como NEXT.")))
+    ;; Abrir la vista de revisión semanal
+    (org-agenda nil "r")
+    ;; Mostrar pasos uno por uno
+    (dolist (step steps)
+      (unless (y-or-n-p (format "%s\n¿Completado?" step))
+        (message "Revisión pausada. Retomá con M-x my/gtd-revision-semanal")
+        (cl-return)))
+    (message "✅ Revisión semanal completada. Sistema GTD actualizado.")))
+#+end_src
+
+* 70. Hábitos y Recurrencias
+Org-habit permite trackear hábitos recurrentes con una barra visual de consistencia.
+Ideal para la rutina diaria del Módulo 1 (revisión de inbox, time-blocking).
+
+#+begin_src emacs-lisp
+;; --- Activar módulo de hábitos ---
+(require 'org-habit)
+(add-to-list 'org-modules 'org-habit t)
+
+;; --- Configuración visual ---
+(setq org-habit-graph-column 50)         ; Columna donde empieza el gráfico
+(setq org-habit-preceding-days 21)       ; Mostrar 3 semanas de historial
+(setq org-habit-following-days 7)        ; Mostrar 1 semana futura
+(setq org-habit-show-all-today t)        ; Mostrar todos los hábitos del día
+
+;; --- Crear hábitos semilla si el archivo está vacío ---
+(defun my/gtd-seed-habits ()
+  "Genera hábitos iniciales de productividad si el archivo está vacío."
+  (interactive)
+  (when (and (file-exists-p my/gtd-habitos)
+             (< (file-attribute-size (file-attributes my/gtd-habitos)) 200))
+    (with-current-buffer (find-file-noselect my/gtd-habitos)
+      (goto-char (point-max))
+      (insert "\n* Rutina Diaria\n")
+      (insert "** TODO Procesar Inbox (vaciar bandeja de entrada)\n")
+      (insert "SCHEDULED: <" (format-time-string "%Y-%m-%d %a") " .+1d>\n")
+      (insert ":PROPERTIES:\n:STYLE: habit\n:REPEAT_TO_STATE: TODO\n:END:\n\n")
+      (insert "** TODO Revisar agenda del día\n")
+      (insert "SCHEDULED: <" (format-time-string "%Y-%m-%d %a") " .+1d>\n")
+      (insert ":PROPERTIES:\n:STYLE: habit\n:REPEAT_TO_STATE: TODO\n:END:\n\n")
+      (insert "* Rutina Semanal\n")
+      (insert "** TODO Revisión semanal GTD\n")
+      (insert "SCHEDULED: <" (format-time-string "%Y-%m-%d %a") " .+1w>\n")
+      (insert ":PROPERTIES:\n:STYLE: habit\n:REPEAT_TO_STATE: TODO\n:END:\n\n")
+      (save-buffer)
+      (message "🔄 Hábitos semilla creados"))))
+#+end_src
+
+* 80. Calendario e Integración Externa
+Vista de calendario gráfico con calfw + integración con org-agenda.
+Si necesitás sincronizar con Google Calendar, descomenta la sección de org-caldav.
+
+#+begin_src emacs-lisp
+;; --- Calendario visual (calfw) ---
+(use-package calfw
+  :defer t
+  :config
+  (setq cfw:fchar-junction ?╋
+        cfw:fchar-vertical-line ?┃
+        cfw:fchar-horizontal-line ?━
+        cfw:fchar-left-junction ?┣
+        cfw:fchar-right-junction ?┫
+        cfw:fchar-top-junction ?┳
+        cfw:fchar-top-left-corner ?┏
+        cfw:fchar-top-right-corner ?┓))
+
+(use-package calfw-org
+  :defer t
+  :after calfw)
+
+(defun my/gtd-calendar ()
+  "Abrir vista de calendario mensual con todos los eventos GTD."
+  (interactive)
+  (cfw:open-calendar-buffer
+   :contents-sources
+   (list (cfw:org-create-source "medium purple"))))
+
+;; --- org-caldav (Google Calendar sync) ---
+;; Descomentar cuando se necesite sincronización bidireccional.
+;; Requiere: crear credenciales OAuth en Google Cloud Console.
+;;
+;; (use-package org-caldav
+;;   :defer t
+;;   :config
+;;   (setq org-caldav-url "https://www.googleapis.com/caldav/v2")
+;;   (setq org-caldav-calendar-id "TU_CALENDAR_ID@group.calendar.google.com")
+;;   (setq org-caldav-inbox my/gtd-calendar)
+;;   (setq org-caldav-files (list my/gtd-calendar)))
+#+end_src
+
+* 90. IA Local para Organización (gptel + Ollama)
+Usa tu Ollama local para asistencia dentro de Org Mode:
+- Procesar inbox: "¿esto es accionable? ¿cuál sería el NEXT?"
+- Generar checklists DO-CONFIRM / READ-DO desde notas sueltas
+- Resumir notas largas en ítems accionables
+- Clasificar tareas según Eisenhower
+
+Esto se conecta con el mismo Ollama que usa Aider (33-aider.org).
+
+#+begin_src emacs-lisp
+(use-package gptel
+  :defer t
+  :config
+  ;; Usar el Ollama local que ya tenés corriendo
+  (setq gptel-backend
+        (gptel-make-ollama "Ollama-Local"
+          :host "localhost:11434"
+          :stream t
+          :models '("qwen2.5-coder:0.5b")))
+
+  (setq gptel-model "qwen2.5-coder:0.5b")
+  (setq gptel-default-mode 'org-mode))
+
+;; --- Funciones de IA para GTD ---
+(defun my/gtd-ai-procesar-item ()
+  "Pide a la IA que analice el item bajo el cursor y sugiera la clasificación GTD."
+  (interactive)
+  (let* ((heading (org-get-heading t t t t))
+         (body (org-get-entry))
+         (prompt (format
+                  "Sos un asistente GTD. Analizá esta tarea capturada y respondé BREVEMENTE:
+1. ¿Es accionable? (sí/no)
+2. Si sí: ¿cuál es la próxima acción concreta (NEXT)?
+3. Prioridad Eisenhower sugerida (A=urgente+importante, B=importante, C=urgente, D=ninguna)
+4. Contexto sugerido (@pc, @telefono, @escuela, @casa, @errand)
+
+Tarea: %s
+Detalles: %s"
+                  heading (or body ""))))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (message "🤖 GTD-IA: %s" response)
+                    (message "❌ Error IA: %s" (plist-get info :error)))))))
+
+(defun my/gtd-ai-generar-checklist ()
+  "Genera un checklist DO-CONFIRM o READ-DO a partir de la descripción bajo el cursor."
+  (interactive)
+  (let* ((heading (org-get-heading t t t t))
+         (body (org-get-entry))
+         (tipo (completing-read "Tipo de checklist: "
+                                '("DO-CONFIRM (ejecutar de memoria, luego verificar)"
+                                  "READ-DO (leer cada paso y ejecutar)")
+                                nil t))
+         (prompt (format
+                  "Generá un checklist tipo %s en formato Org Mode (usando - [ ] para cada item).
+El checklist debe ser para: %s
+Contexto adicional: %s
+Respondé SOLO con el checklist, sin explicación."
+                  tipo heading (or body ""))))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (progn
+                        (org-end-of-subtree)
+                        (insert "\n** Checklist Generado por IA\n" response "\n")
+                        (message "✅ Checklist insertado"))
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+
+(defun my/gtd-ai-resumir-notas ()
+  "Resume el contenido del subtree actual en ítems accionables."
+  (interactive)
+  (let* ((content (buffer-substring-no-properties
+                   (org-entry-beginning-position)
+                   (org-entry-end-position)))
+         (prompt (format
+                  "Resumí este contenido en una lista de acciones concretas (máximo 5).
+Formato Org Mode con TODO al inicio de cada línea.
+Contenido:\n%s" content)))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (progn
+                        (org-end-of-subtree)
+                        (insert "\n** Acciones Extraídas por IA\n" response "\n")
+                        (message "✅ Acciones insertadas"))
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+#+end_src
+
+* 100. Atajos y Hydra de Productividad
+Todos los atajos GTD bajo el prefijo =C-c g= (g de GTD).
+El hydra permite navegación rápida sin recordar cada combinación.
+
+#+begin_src emacs-lisp
+;; --- Funciones de navegación rápida ---
+(defun my/gtd-open-inbox ()    (interactive) (find-file my/gtd-inbox))
+(defun my/gtd-open-projects () (interactive) (find-file my/gtd-projects))
+(defun my/gtd-open-someday ()  (interactive) (find-file my/gtd-someday))
+(defun my/gtd-open-soporte ()  (interactive) (find-file my/gtd-soporte))
+(defun my/gtd-open-habitos ()  (interactive) (find-file my/gtd-habitos))
+
+;; --- Hydra: menú visual de GTD ---
+(use-package hydra
+  :defer t)
+
+(defhydra my/hydra-gtd (:color blue :hint nil)
+  "
+   SISTEMA GTD
+  --------------------------------------------------
+   ARCHIVOS         AGENDA          HERRAMIENTAS
+   _i_: Inbox        _d_: Dashboard    _c_: Capturar
+   _p_: Proyectos    _n_: Next         _e_: Eisenhower
+   _s_: Soporte      _w_: Waiting      _r_: Revision
+   _h_: Habitos      _@_: Contextos    _k_: Calendario
+   _m_: Algun dia    _R_: Rev.Semanal  _q_: Salir
+
+   IA LOCAL
+   _a p_: Procesar item  _a c_: Gen.Checklist
+   _a r_: Resumir notas
+"
+  ;; Archivos
+  ("i" my/gtd-open-inbox)
+  ("p" my/gtd-open-projects)
+  ("s" my/gtd-open-soporte)
+  ("h" my/gtd-open-habitos)
+  ("m" my/gtd-open-someday)
+  ;; Agenda
+  ("d" (org-agenda nil "d"))
+  ("n" (org-agenda nil "n"))
+  ("w" (org-agenda nil "w"))
+  ("@" (org-agenda nil "@"))
+  ("R" (org-agenda nil "r"))
+  ;; Herramientas
+  ("c" org-capture)
+  ("e" my/gtd-eisenhower-classify)
+  ("r" my/gtd-revision-semanal)
+  ("k" my/gtd-calendar)
+  ;; IA
+  ("a p" my/gtd-ai-procesar-item)
+  ("a c" my/gtd-ai-generar-checklist)
+  ("a r" my/gtd-ai-resumir-notas)
+  ;; Salir
+  ("q" nil))
+
+;; --- Atajo global ---
+(global-set-key (kbd "C-c g") #'my/hydra-gtd/body)
+#+end_src

@@ -1,0 +1,219 @@
+#+TITLE: Módulo Web - JS, TS, HTML & CSS
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-entorno-de-desarrollo-web-full-stack][10. Entorno de Desarrollo Web (Full Stack)]]
+  - [[#live-server--hot-reload][Live Server & Hot Reload]]
+  - [[#compilar-y-ejecutar-nodejs][Compilar y Ejecutar (Node.js)]]
+
+* 10. Entorno de Desarrollo Web (Full Stack)
+Stack completo para desarrollo Full Stack.
+
+#+begin_src emacs-lisp
+;; --- 1. Tree-Sitter (Sintaxis Moderna) ---
+(use-package emacs
+  :ensure nil
+  :config
+  ;; Instalar gramáticas automáticamente
+  (setq treesit-language-source-alist
+        '((javascript "https://github.com/tree-sitter/tree-sitter-javascript")
+          (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+          (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+          (json "https://github.com/tree-sitter/tree-sitter-json")
+          (css "https://github.com/tree-sitter/tree-sitter-css")
+          (html "https://github.com/tree-sitter/tree-sitter-html")))
+
+  (dolist (lang '(javascript typescript tsx json css html))
+    (unless (treesit-language-available-p lang)
+      (condition-case err
+          (treesit-install-language-grammar lang)
+        (error (message "⚠️ No se pudo instalar gramática %s: %s" lang err)))))
+
+  ;; Remapear modos antiguos a Tree-sitter
+  (add-to-list 'major-mode-remap-alist '(js-mode . js-ts-mode))
+  (add-to-list 'major-mode-remap-alist '(javascript-mode . js-ts-mode))
+  (add-to-list 'major-mode-remap-alist '(typescript-mode . typescript-ts-mode))
+  (add-to-list 'major-mode-remap-alist '(json-mode . json-ts-mode))
+  (add-to-list 'major-mode-remap-alist '(css-mode . css-ts-mode))
+  (add-to-list 'major-mode-remap-alist '(html-mode . html-ts-mode))
+  (add-to-list 'major-mode-remap-alist '(mhtml-mode . html-ts-mode))
+
+  ;; Asociar extensiones ANTES de web-mode
+  (add-to-list 'auto-mode-alist '("\\.js\\'" . js-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.mjs\\'" . js-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.ts\\'" . typescript-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.json\\'" . json-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.css\\'" . css-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.html\\'" . html-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.tsx\\'" . tsx-ts-mode)))
+
+;; Activar LSP
+(add-hook 'js-ts-mode-hook 'lsp-deferred)
+(add-hook 'typescript-ts-mode-hook 'lsp-deferred)
+(add-hook 'json-ts-mode-hook 'lsp-deferred)
+(add-hook 'css-ts-mode-hook 'lsp-deferred)
+(add-hook 'html-ts-mode-hook 'lsp-deferred)
+
+;; --- 2. Prettier (Formateo Automático) ---
+(use-package prettier-js
+  :hook ((js-ts-mode . prettier-js-mode)
+         (typescript-ts-mode . prettier-js-mode)
+         (web-mode . prettier-js-mode)
+         (css-ts-mode . prettier-js-mode)))
+
+;; --- 3. Web-Mode (Solo para JSX/TSX) ---
+(use-package web-mode
+  :mode (("\\.jsx\\'" . web-mode)
+         ;; ("\\.tsx\\'" . web-mode)
+         ("\\.vue\\'" . web-mode))
+  :config
+  (setq web-mode-markup-indent-offset 2)
+  (setq web-mode-css-indent-offset 2)
+  (setq web-mode-code-indent-offset 2)
+  (setq web-mode-enable-css-colorization t)
+  (setq web-mode-enable-auto-pairing t)
+  (setq web-mode-enable-current-element-highlight t))
+
+(add-hook 'web-mode-hook 'lsp-deferred)
+
+;; --- 4. Emmet (HTML rápido) ---
+(use-package emmet-mode
+  :hook ((html-ts-mode . emmet-mode)
+         (css-ts-mode . emmet-mode)
+         (web-mode . emmet-mode))
+  :bind (:map emmet-mode-keymap
+              ("TAB" . emmet-expand-line)
+              ("<tab>" . emmet-expand-line)))
+
+;; --- 5. Node.js REPL ---
+(use-package nodejs-repl
+  :bind ("C-c C-n" . nodejs-repl))
+
+;; --- 6. Utilidades Visuales ---
+(use-package rainbow-mode
+  :hook (prog-mode . rainbow-mode))
+
+;; Resaltar pares de paréntesis
+(use-package rainbow-delimiters
+  :hook (prog-mode . rainbow-delimiters-mode))
+#+end_src
+
+** Live Server & Hot Reload
+
+#+begin_src emacs-lisp
+(defun my/run-live-server ()
+  "Lanza live-server npm para el proyecto actual o el directorio del archivo.
+En Termux no abre browser (no hay Firefox); en PC abre Firefox."
+  (interactive)
+  (ignore-errors (kill-process (get-process "live-server-proc")))
+  (let ((default-directory
+         ;; Usa la raíz del proyecto si existe, sino usa el directorio del archivo actual
+         (or (and (bound-and-true-p projectile-mode) (projectile-project-root))
+             (file-name-directory buffer-file-name))))
+    (if default-directory
+        (let ((args (if (bound-and-true-p my/is-termux)
+                        '("--quiet" "--no-browser")
+                      '("--quiet" "--browser=firefox"))))
+          (apply #'start-process "live-server-proc"
+                 "*live-server-log*" "live-server" args)
+          (message "🚀 Live server iniciado en: %s%s"
+                   default-directory
+                   (if (bound-and-true-p my/is-termux)
+                       " (abrí http://localhost:8080 en el navegador)"
+                     "")))
+      (message "❌ No se pudo determinar el directorio para live-server"))))
+#+end_src
+
+** Compilar y Ejecutar (Node.js)
+
+#+begin_src emacs-lisp
+(defun my/node-run ()
+  "Ejecuta el proyecto Node.js actual.
+Detecta Express/package.json (npm start), o ejecuta el archivo directamente."
+  (interactive)
+  (let* ((project-root (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+                           (locate-dominating-file default-directory "package.json")
+                           default-directory))
+         (default-directory project-root)
+         (pkg-json (expand-file-name "package.json" project-root)))
+    (cond
+     ;; Proyecto con package.json y script "start" o "dev"
+     ((file-exists-p pkg-json)
+      (let* ((pkg-content (with-temp-buffer
+                            (insert-file-contents pkg-json)
+                            (buffer-string)))
+             (has-dev (string-match-p "\"dev\"" pkg-content))
+             (has-start (string-match-p "\"start\"" pkg-content)))
+        (cond
+         (has-dev   (compile "npm run dev"))
+         (has-start (compile "npm start"))
+         ;; package.json sin scripts → buscar entry point
+         (t (my/node--run-file project-root)))))
+     ;; Archivo suelto
+     ((buffer-file-name)
+      (save-buffer)
+      (compile (format "node %s" (file-name-nondirectory buffer-file-name))))
+     (t (message "❌ No se encontró archivo JS para ejecutar")))))
+
+(defun my/node--run-file (project-root)
+  "Busca y ejecuta el entry point del proyecto Node.js."
+  (let ((candidates '("index.js" "app.js" "server.js" "src/index.js" "src/app.js")))
+    (catch 'found
+      (dolist (file candidates)
+        (when (file-exists-p (expand-file-name file project-root))
+          (compile (format "node %s" file))
+          (throw 'found t)))
+      ;; Fallback: ejecutar archivo actual
+      (if (buffer-file-name)
+          (compile (format "node %s" (file-name-nondirectory buffer-file-name)))
+        (message "❌ No se encontró entry point Node.js")))))
+
+(defun my/node-test ()
+  "Ejecuta tests del proyecto Node.js.
+Detecta jest, mocha, o npm test."
+  (interactive)
+  (let* ((project-root (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+                           (locate-dominating-file default-directory "package.json")
+                           default-directory))
+         (default-directory project-root))
+    (cond
+     ;; Jest
+     ((file-exists-p (expand-file-name "jest.config.js" project-root))
+      (compile "npx jest --verbose"))
+     ((file-exists-p (expand-file-name "jest.config.ts" project-root))
+      (compile "npx jest --verbose"))
+     ;; package.json con script "test"
+     ((and (file-exists-p (expand-file-name "package.json" project-root))
+           (with-temp-buffer
+             (insert-file-contents (expand-file-name "package.json" project-root))
+             (string-match-p "\"test\"" (buffer-string))))
+      (compile "npm test"))
+     ;; Fallback
+     (t (compile "npm test")))))
+
+(defun my/node-format-buffer ()
+  "Formatea el buffer JS/TS con prettier (si disponible) o lsp."
+  (interactive)
+  (if (and (fboundp 'prettier-js) (executable-find "prettier"))
+      (prettier-js)
+    (lsp-format-buffer)))
+
+(defun my/node-keybindings ()
+  "Atajos locales para desarrollo en Node.js/Express."
+  (local-set-key (kbd "<f5>") #'my/node-run)
+  (local-set-key (kbd "C-c C-t") #'my/node-test)
+  (local-set-key (kbd "C-c C-f") #'my/node-format-buffer))
+
+;; F5 en JS/TS usa my/node-run (detecta proyecto Node.js)
+(add-hook 'js-ts-mode-hook #'my/node-keybindings)
+(add-hook 'typescript-ts-mode-hook #'my/node-keybindings)
+
+;; HTML/CSS sigue usando live-server
+(add-hook 'html-ts-mode-hook
+          (lambda () (local-set-key (kbd "<f5>") 'my/run-live-server)))
+(add-hook 'css-ts-mode-hook
+          (lambda () (local-set-key (kbd "<f5>") 'my/run-live-server)))
+#+end_src
+

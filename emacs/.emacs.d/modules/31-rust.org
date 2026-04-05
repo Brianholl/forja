@@ -1,0 +1,112 @@
+#+TITLE: Módulo Rust - Cargo, Clippy & rust-analyzer
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* 10. Tree-Sitter para Rust
+
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :config
+  (add-to-list 'treesit-language-source-alist
+               '(rust "https://github.com/tree-sitter/tree-sitter-rust"))
+  (unless (treesit-language-available-p 'rust)
+    (condition-case err
+        (treesit-install-language-grammar 'rust)
+      (error (message "⚠️ No se pudo instalar gramática rust: %s" err))))
+  (add-to-list 'major-mode-remap-alist '(rust-mode . rust-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-ts-mode)))
+#+end_src
+
+* 20. Rust Mode y LSP
+
+#+begin_src emacs-lisp
+(use-package rust-mode
+  :mode "\\.rs\\'"
+  :config
+  (setq rust-format-on-save t)
+  (setq rust-indent-offset 4))
+
+(add-hook 'rust-mode-hook   #'lsp-deferred)
+(add-hook 'rust-ts-mode-hook #'lsp-deferred)
+
+(with-eval-after-load 'lsp-mode
+  (setq lsp-rust-analyzer-cargo-watch-command "clippy")
+  (setq lsp-rust-analyzer-server-display-inlay-hints t)
+  (setq lsp-rust-analyzer-display-chaining-hints t)
+  (setq lsp-rust-analyzer-display-parameter-hints t))
+#+end_src
+
+* 30. Cargo
+
+#+begin_src emacs-lisp
+(use-package cargo
+  :hook (rust-mode . cargo-minor-mode)
+  :bind (:map cargo-minor-mode-map
+              ("C-c C-c C-b" . cargo-process-build)
+              ("C-c C-c C-r" . cargo-process-run)
+              ("C-c C-c C-t" . cargo-process-test)
+              ("C-c C-c C-c" . cargo-process-check)))
+
+(use-package flycheck-rust
+  :after flycheck
+  :hook (rust-mode . flycheck-rust-setup))
+#+end_src
+
+* 40. Compilar y Ejecutar
+
+#+begin_src emacs-lisp
+(defun my/rust-run ()
+  "Compila y ejecuta el proyecto Rust actual con cargo run."
+  (interactive)
+  (let* ((project-root
+          (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+              (locate-dominating-file default-directory "Cargo.toml")
+              default-directory))
+         (default-directory project-root))
+    (if (file-exists-p (expand-file-name "Cargo.toml" project-root))
+        (compile "cargo run")
+      (message "❌ No se encontró Cargo.toml. ¿Estás en un proyecto Rust?"))))
+
+(defun my/rust-build ()
+  "Compila el proyecto Rust sin ejecutar."
+  (interactive)
+  (let* ((project-root
+          (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+              (locate-dominating-file default-directory "Cargo.toml")
+              default-directory))
+         (default-directory project-root))
+    (if (file-exists-p (expand-file-name "Cargo.toml" project-root))
+        (compile "cargo build")
+      (message "❌ No se encontró Cargo.toml."))))
+
+(defun my/rust-test ()
+  "Ejecuta tests del proyecto."
+  (interactive)
+  (let ((default-directory
+         (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+             (locate-dominating-file default-directory "Cargo.toml")
+             default-directory)))
+    (compile "cargo test")))
+
+(defun my/debug-rust ()
+  "Compila con debug symbols y lanza GDB."
+  (interactive)
+  (let* ((project-root (projectile-project-root))
+         (target-dir (concat project-root "target/debug/"))
+         (exe-name (file-name-nondirectory (directory-file-name project-root))))
+    (compile "cargo build")
+    (sit-for 2)
+    (gdb (format "rust-gdb -i=mi %s%s" target-dir exe-name))))
+
+(defun my/rust-keybindings ()
+  "Atajos locales para desarrollo en Rust."
+  (local-set-key (kbd "<f5>") #'my/rust-run)
+  (local-set-key (kbd "C-c C-b") #'my/rust-build)
+  (local-set-key (kbd "C-c C-t") #'my/rust-test)
+  (local-set-key (kbd "C-c d") #'my/debug-rust))
+
+(add-hook 'rust-mode-hook    #'my/rust-keybindings)
+(add-hook 'rust-ts-mode-hook #'my/rust-keybindings)
+#+end_src

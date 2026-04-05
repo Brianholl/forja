@@ -1,0 +1,139 @@
+#+begin_src emacs-lisp
+;; ─── Godot executable ────────────────────────────────────────
+(defcustom godot-executable "godot"
+  "Ruta al binario de Godot. Cambiar si no está en el PATH."
+  :type 'string
+  :group 'gdscript)
+
+;; ─── Funciones de Godot (siempre disponibles) ───────────────
+(defun gdscript-godot-run-project ()
+  "Ejecuta el proyecto Godot actual con F5."
+  (interactive)
+  (let ((project-root (locate-dominating-file default-directory "project.godot")))
+    (if project-root
+        (start-process "godot-run" "*godot-output*" godot-executable
+                       "--path" (expand-file-name project-root))
+      (user-error "No se encontró project.godot en ningún directorio padre"))))
+
+(defun gdscript-godot-run-current-scene ()
+  "Ejecuta la escena (.tscn) asociada al script actual."
+  (interactive)
+  (let ((file-path (buffer-file-name)))
+    (if (not file-path)
+        (user-error "Este buffer no está asociado a un archivo físico")
+      (let* ((project-root (locate-dominating-file default-directory "project.godot"))
+             (base-name (file-name-sans-extension file-path))
+             (tscn-file (concat base-name ".tscn")))
+        (if (not project-root)
+            (user-error "No se encontró project.godot")
+          (if (file-exists-p tscn-file)
+              (start-process "godot-run-scene" "*godot-output*" godot-executable
+                             "--path" (expand-file-name project-root)
+                             tscn-file)
+            (user-error "No se encontró la escena asociada: %s.tscn" (file-name-nondirectory base-name))))))))
+
+(defun godot-start-headless-lsp ()
+  "Arranca Godot en modo headless para el LSP (sin ventana)."
+  (interactive)
+  (let ((project-root (locate-dominating-file default-directory "project.godot")))
+    (if project-root
+        (progn
+          (message "🚀 Iniciando Godot Headless LSP en puerto 6005...")
+          (start-process "godot-lsp-headless" "*godot-lsp*" godot-executable
+                         "--headless" "--editor" "--path" (expand-file-name project-root)))
+      (user-error "No se encontró project.godot"))))
+
+(defun godot-search-docs ()
+  "Abre la documentación web oficial de Godot para el símbolo bajo el cursor."
+  (interactive)
+  (let* ((symbol (thing-at-point 'symbol))
+         (url (format "https://docs.godotengine.org/en/stable/search.html?q=%s" symbol)))
+    (if symbol
+        (progn
+          (message "Buscando '%s' en Docs..." symbol)
+          (browse-url url))
+      (message "No hay símbolo bajo el cursor para buscar."))))
+
+(defun godot-open-editor ()
+  "Abre el editor de Godot en el proyecto actual.
+Busca project.godot hacia arriba desde el archivo actual."
+  (interactive)
+  (let ((project-root (locate-dominating-file default-directory "project.godot")))
+    (if project-root
+        (progn
+          (message "Abriendo Godot en %s..." project-root)
+          (start-process "godot-editor" nil godot-executable
+                         "--editor" "--path" (expand-file-name project-root)))
+      (user-error "No se encontró project.godot en ningún directorio padre"))))
+
+(defun godot-create-project (name)
+  "Crea un proyecto Godot nuevo en la carpeta del alumno (o ~/projects/).
+Genera project.godot mínimo, inicializa git y abre el directorio."
+  (interactive "sNombre del proyecto: ")
+  (let* ((project-dir (expand-file-name name (concat (my/mu-projects-base) "godot/")))
+         (project-file (expand-file-name "project.godot" project-dir)))
+    (if (file-exists-p project-file)
+        (user-error "Ya existe un proyecto en %s" project-dir)
+      (make-directory project-dir t)
+      (with-temp-file project-file
+        (insert (format "; Engine configuration file.\n")
+                (format "; It's best edited using the editor UI and not directly,\n")
+                (format "; since the parameters that go here are not all obvious.\n\n")
+                (format "[application]\n\n")
+                (format "config/name=\"%s\"\n" name)
+                (format "config/features=PackedStringArray(\"4.4\")\n")))
+      ;; .gitignore para Godot
+      (with-temp-file (expand-file-name ".gitignore" project-dir)
+        (insert ".godot/\n"))
+      ;; Marcador Projectile
+      (with-temp-file (expand-file-name ".projectile" project-dir)
+        (insert ""))
+      ;; Inicializar git
+      (my/git-init-and-commit project-dir name)
+      (message "Proyecto Godot creado: %s" project-dir)
+      (find-file project-dir))))
+
+;; ─── Atajo GLOBAL para crear proyecto ───────────────────────
+(global-set-key (kbd "C-c n 4") #'godot-create-project)
+
+;; ─── gdscript-mode (protegido contra errores de instalación) ─
+(condition-case err
+    (progn
+      (use-package gdscript-mode
+        :ensure t
+        :hook (gdscript-mode . lsp-deferred)
+        :init
+        (setq gdscript-lsp-port 6005)
+        :config
+        (setq gdscript-godot-executable godot-executable)
+        (setq gdscript-gdformat-save-and-format t)
+        ;; Atajos locales a archivos .gd
+        (define-key gdscript-mode-map (kbd "C-c C-c") #'gdscript-hydra/body)
+        (define-key gdscript-mode-map (kbd "<f5>") #'gdscript-godot-run-project)
+        (define-key gdscript-mode-map (kbd "<f6>") #'gdscript-godot-run-current-scene)
+        (define-key gdscript-mode-map (kbd "C-c K") #'godot-search-docs)
+        (define-key gdscript-mode-map (kbd "C-c l") #'godot-start-headless-lsp)
+        ;; Company backend para completions del LSP
+        (add-hook 'gdscript-mode-hook
+                  (lambda ()
+                    (setq-local company-backends '(company-capf company-dabbrev-code))))))
+  (error (message "41-godot: gdscript-mode no se pudo cargar: %s" err)))
+
+;; ─── DAP MODO (Depurador de Godot) ──────────────────────────
+(condition-case err
+    (use-package dap-mode
+      :ensure t
+      :after lsp-mode
+      :config
+      (require 'dap-gdscript)
+      (dap-auto-configure-mode)
+      (dap-ui-mode 1)
+      ;; Atajos compartidos para Debugger en Godot
+      (with-eval-after-load 'gdscript-mode
+        (define-key gdscript-mode-map (kbd "<f9>") #'dap-breakpoint-toggle)
+        (define-key gdscript-mode-map (kbd "<f8>") #'dap-continue)
+        (define-key gdscript-mode-map (kbd "<f10>") #'dap-next)
+        (define-key gdscript-mode-map (kbd "<f11>") #'dap-step-in)
+        (define-key gdscript-mode-map (kbd "C-c d") #'dap-debug)))
+  (error (message "41-godot: dap-mode no se pudo cargar: %s" err)))
+#+end_src

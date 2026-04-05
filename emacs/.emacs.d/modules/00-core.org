@@ -1,0 +1,1765 @@
+#+TITLE: Módulo Core - Sistema Base y UX
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-infraestructura-del-sistema-dependencias][10. Infraestructura del Sistema (Dependencias)]]
+- [[#20-motor-de-paquetes-y-repositorios][20. Motor de Paquetes y Repositorios]]
+- [[#30-interfaz-gráfica-y-experiencia-de-usuario-uiux][30. Interfaz Gráfica y Experiencia de Usuario (UI/UX)]]
+- [[#40-suite-de-edición-avanzada-multicursor--paredit][40. Suite de Edición Avanzada (Multicursor & Paredit)]]
+- [[#50-inteligencia-de-código-lsp--autocompletado][50. Inteligencia de Código (LSP & Autocompletado)]]
+- [[#60-sistema-de-plantillas-snippets][60. Sistema de Plantillas (Snippets)]]
+- [[#70-utilidades-globales-y-atajos-custom][70. Utilidades Globales y Atajos Custom]]
+- [[#80-rendimiento-del-motor-gc--mantenimiento][80. Rendimiento del Motor (GC & Mantenimiento)]]
+
+* 10. Infraestructura del Sistema (Dependencias)
+Este bloque documenta todas las dependencias necesarias para el entorno completo.
+Ejecuta esto en tu terminal ANTES de iniciar Emacs por primera vez.
+
+#+begin_src bash :tangle no
+# --- 1. Sistema Base y Compilación ---
+sudo pacman -Syu
+sudo pacman -S git base-devel ripgrep fd unzip cmake ninja astyle
+
+# --- 2. Emacs y Fuentes ---
+# emacs-nativecomp para mejor rendimiento de los paquetes de Elisp
+sudo pacman -S emacs-nativecomp ttf-jetbrains-mono-nerd ttf-iosevka-nerd inter-font
+
+# --- 3. Toolchain C/C++ y Low Level ---
+# Incluye compiladores, debuggers y herramientas de análisis
+sudo pacman -S clang llvm lldb gdb benchmark fasm binutils
+
+# --- 4. Lenguajes y Runtimes (LSP Ready) ---
+# Web Dev
+sudo pacman -S nodejs npm firefox
+# Rust
+sudo pacman -S rustup
+rustup default stable
+rustup component add rust-analyzer rust-src rustfmt clippy
+# Go
+sudo pacman -S go gopls
+
+# --- 5. Game Dev y Multimedia ---
+sudo pacman -S raylib sdl2 sdl2_image sdl2_mixer sdl2_ttf zathura zathura-pdf-mupdf godot
+# gdtoolkit: formatter/linter para GDScript (gdformat, gdlint)
+pip install --user gdtoolkit
+
+# --- 6. IA y Terminal ---
+sudo pacman -S alacritty ollama
+
+# --- 7. Paquetes de AUR (Requiere yay) ---
+# vterm: terminal rápida para Emacs
+# cppman: manuales C++ offline
+# esp-idf: SDK para microcontroladores ESP32
+yay -S vterm-git cppman-git esp-idf
+
+# --- 8. Configuración Final de Herramientas ---
+# Instalación global de LSPs para Web
+sudo npm install -g typescript typescript-language-server vscode-langservers-extracted live-server prettier
+
+# Configuración de Cppman (C++ docs)
+sudo pacman -S man-pages
+cppman -s cppreference
+cppman -c
+# --- 9. Aider (Code Agent con Ollama) ---
+# uv: gestor de paquetes Python moderno y aislado (recomendado sobre pip)
+sudo pacman -S uv
+
+# Instalar Aider en entorno aislado con Python 3.12
+uv tool install --force --python python3.12 aider-chat@latest
+
+# Crear symlink para que sea accesible globalmente
+sudo ln -s ~/.local/bin/aider /usr/local/bin/aider
+
+# Verificar instalación
+aider --version
+
+# Bajar modelo de código para Ollama
+ollama pull qwen2.5-coder:7b
+
+# Instalar aider.el (integración con Emacs)
+mkdir -p ~/.emacs.d/site-lisp
+git clone https://github.com/tninja/aider.el ~/.emacs.d/site-lisp/aider.el
+
+# --- 10. Asistencia Operativa (Módulos 50-53) ---
+# Diagramas: Graphviz (dot) y Mermaid (VSM, flujos de proceso)
+sudo pacman -S graphviz
+sudo npm install -g @mermaid-js/mermaid-cli
+
+# Visualización de datos: gnuplot (gráficos de KPIs, Pareto)
+sudo pacman -S gnuplot
+
+# Exportación de documentos a PDF profesional (SOPs, checklists)
+sudo pacman -S texlive-basic texlive-latexrecommended texlive-fontsrecommended texlive-langspanish
+
+# Diagnóstico de redes (CompTIA Network+)
+sudo pacman -S traceroute bind-tools
+
+# org-roam requiere sqlite para la base de conocimiento
+sudo pacman -S sqlite
+
+# --- Crear directorio base de organización ---
+mkdir -p ~/org/gtd ~/org/docs/{sops,checklists,templates,kb,exports} ~/org/procesos/diagramas
+#+end_src
+
+* 20. Motor de Paquetes y Repositorios
+Configuración del gestor de paquetes y repositorios.
+
+#+begin_src emacs-lisp
+(require 'package)
+
+;; Repositorios en orden de prioridad
+(setq package-archives
+      '(("gnu" . "https://elpa.gnu.org/packages/")
+        ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+        ("melpa" . "https://melpa.org/packages/")))
+
+;; Priorizar GNU ELPA para paquetes estables
+(setq package-archive-priorities
+      '(("gnu" . 10)
+        ("nongnu" . 5)
+        ("melpa" . 0)))
+
+(package-initialize)
+
+;; Refrescar contenido de paquetes
+(unless package-archive-contents
+  (package-refresh-contents))
+
+;; Instalar use-package si no existe
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+
+;; Configuración de use-package
+(require 'use-package)
+(setq use-package-always-ensure t)    ; Auto-descargar paquetes
+(setq use-package-always-pin nil)     ; No fijar versiones (evita "Not found" en MELPA)
+(setq use-package-verbose t)          ; Mensajes de carga (útil para debug)
+
+;; Reintentar con refresh si un paquete no se encuentra en MELPA
+(defadvice package-install (around refresh-on-fail activate)
+  "Si falla la instalación, refrescar el índice de paquetes y reintentar."
+  (condition-case err
+      ad-do-it
+    (error
+     (package-refresh-contents)
+     ad-do-it)))
+
+;; Sincronizar PATH con la shell (Optimizado)
+(use-package exec-path-from-shell
+  :ensure t
+  :if (memq window-system '(mac ns x pgtk)) ; Solo en modo gráfico
+  :config
+  ;; OPTIMIZACIÓN CRÍTICA:
+  ;; En macOS (mac/ns), necesitamos "-l" "-i" para leer todas las variables.
+  ;; En Linux (x/pgtk), usar "-i" es MUY LENTO. Lo quitamos aquí.
+  (if (memq window-system '(mac ns))
+      (setq exec-path-from-shell-arguments '("-l" "-i"))
+    ;; En Linux, por defecto no usamos argumentos pesados, o solo "-l" si es necesario
+    (setq exec-path-from-shell-arguments '("-l")))
+
+  (exec-path-from-shell-initialize))
+#+end_src
+
+* 30. Interfaz Gráfica y Experiencia de Usuario (UI/UX)
+Configuración visual y comportamiento general.
+
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :config
+  ;; --- Limpieza Visual ---
+  (tool-bar-mode -1)
+  (menu-bar-mode -1)
+  (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))  ; No existe en terminal/Termux
+  (setq inhibit-startup-screen t)
+  (setq initial-scratch-message ";; ¡Bienvenido, Brian! Happy Hacking 🚀\n\n")
+
+  ;; --- Modeline Informativo ---
+  (column-number-mode +1)
+  (line-number-mode +1)
+  (size-indication-mode +1)
+
+  ;; --- Ventanas ---
+  (setq frame-resize-pixelwise t)
+  (setq window-combination-resize t)  ; Redimensionar ventanas inteligentemente
+
+  ;; --- Tipografía ---
+  ;; Lista de fuentes en orden de preferencia
+  (defvar my/fonts
+    ;; CAMBIA ESTO: Haz la fuente Nerd Font la primera opción explícita
+    '("Jetbrains Mono Nerd Font" "Iosevka Nerd Font" "JetBrains Mono" "Fira Code" "Hack" "Monaco" "Consolas" "DejaVu Sans Mono")
+    "Lista de fuentes monospace preferidas.")
+
+  (defun my/set-font ()
+    "Establece la primera fuente disponible de la lista."
+    (catch 'found
+      (dolist (font my/fonts)
+        (when (member font (font-family-list))
+          (set-face-attribute 'default nil :font font :height 140)
+          (set-face-attribute 'fixed-pitch nil :font font :height 140)
+          (message "✅ Fuente establecida: %s" font)
+          (throw 'found font)))
+      (message "⚠️  Usando fuente por defecto del sistema")))
+
+  ;; Solo establecer fuente en modo gráfico (en Termux/terminal no hay fuentes GUI)
+  (when (display-graphic-p)
+    (my/set-font))
+
+  ;; --- Números de Línea ---
+  (setq display-line-numbers-type (if (bound-and-true-p my/is-termux) t 'relative))
+  (global-display-line-numbers-mode t)
+  ;; Desactivar en modos que no los necesitan
+  (dolist (mode '(org-mode-hook
+                  term-mode-hook
+                  shell-mode-hook
+                  eshell-mode-hook
+                  vterm-mode-hook))
+    (add-hook mode (lambda () (display-line-numbers-mode 0))))
+
+  ;; --- Gestión de Backups ---
+  ;; Crear directorios si no existen
+  (let ((backup-dir (expand-file-name "tmp/backups/" user-emacs-directory))
+        (auto-save-dir (expand-file-name "tmp/auto-saves/" user-emacs-directory)))
+    (unless (file-exists-p backup-dir)
+      (make-directory backup-dir t))
+    (unless (file-exists-p auto-save-dir)
+      (make-directory auto-save-dir t))
+
+    (setq backup-directory-alist `(("." . ,backup-dir)))
+    (setq auto-save-file-name-transforms `((".*" ,auto-save-dir t)))
+    (setq vc-follow-symlinks t))
+
+  ;; --- Comportamiento de Edición ---
+  (setq-default indent-tabs-mode nil)   ; Usar espacios, no tabs
+  (setq-default tab-width 4)
+  (setq require-final-newline t)        ; Siempre newline al final
+  (delete-selection-mode 1)             ; Borrar selección al escribir
+  (global-auto-revert-mode 1)           ; Auto-recargar archivos cambiados externamente
+
+  ;; --- Silenciar Ruido ---
+  (setq warning-minimum-level :error)
+  (setq native-comp-async-report-warnings-errors nil)
+  (setq ring-bell-function 'ignore)     ; Sin sonidos molestos
+
+  ;; --- Performance ---
+  ;; GC menos agresivo durante startup; Termux usa menos RAM
+  (setq gc-cons-threshold (if (bound-and-true-p my/is-termux)
+                              (* 16 1024 1024)    ; 16MB en Termux
+                            (* 50 1024 1024)))    ; 50MB en PC
+  (setq read-process-output-max (* 1024 1024))) ; 1MB para LSP
+;; Limpieza automática de espacios al guardar (Rexim)
+(defun my/set-up-whitespace-handling ()
+  (interactive)
+  ;; Configuración visual:
+  ;; 'face'     -> permite colorear
+  ;; 'trailing' -> marca espacios innecesarios al final de línea
+  ;; 'tabs'     -> marca tabuladores (para no mezclarlos con espacios)
+  ;; NOTA: Al quitar 'lines-tail' de esta lista, eliminamos lo ROJO del largo de línea.
+  (setq whitespace-style '(face trailing tabs))
+
+  (whitespace-mode 1)
+  (add-hook 'before-save-hook 'delete-trailing-whitespace nil t))
+
+(add-hook 'prog-mode-hook 'my/set-up-whitespace-handling)
+
+;; Configuración de Dired (Rexim)
+(use-package dired
+  :ensure nil
+  :config
+  (setq dired-listing-switches "-alh") ; Formato detallado y humano
+  (setq dired-dwim-target t)           ; Sugerir destino inteligente
+  (require 'dired-x)
+  (setq dired-omit-files (concat dired-omit-files "\\|^\\..+$")) ; Ocultar archivos ocultos
+  (add-hook 'dired-mode-hook 'dired-omit-mode))
+
+;; Doom Themes: Excelente soporte Tree-sitter
+(use-package doom-themes
+  :config
+  (setq doom-themes-enable-bold t
+        doom-themes-enable-italic t)
+  (load-theme 'doom-one t)
+  (doom-themes-org-config)
+
+  ;; --- CAMBIO DE COLOR DE COMENTARIOS ---
+  ;; Aquí usamos un azul claro (#51afef), pero puedes usar "#98be65" para verde
+  (set-face-attribute 'font-lock-comment-face nil :foreground "#da8548" :slant 'italic))
+
+;; Modeline moderna y limpia
+(use-package doom-modeline
+  :ensure t
+  :init
+  ;; Configuración PREVIA a la carga para evitar errores de arranque
+  (setq doom-modeline-icon nil)               ; Desactivar iconos para evitar el error 'stringp, nil' si faltan fuentes
+  (setq doom-modeline-height 30)
+  (setq doom-modeline-bar-width 4)
+  (setq doom-modeline-project-detection 'projectile)
+  (setq doom-modeline-buffer-file-name-style 'truncate-upto-project)
+  
+  ;; Activar el modo DESPUÉS de configurar
+  (doom-modeline-mode 1))
+
+;; Iconos (necesario para doom-modeline)
+(use-package all-the-icons
+  :if (display-graphic-p)
+  :config
+  ;; Instalar fuentes de iconos automáticamente si no existen
+  (unless (member "all-the-icons" (font-family-list))
+    (all-the-icons-install-fonts t)))
+#+end_src
+* 40. Suite de Edición Avanzada (Multicursor & Paredit)
+
+#+begin_src emacs-lisp
+;; Multiple Cursors: Edición multilínea (Rexim)
+(use-package multiple-cursors
+  :bind (("C-S-c C-S-c" . mc/edit-lines)
+         ("C->"         . mc/mark-next-like-this)
+         ("C-<"         . mc/mark-previous-like-this)
+         ("C-c C-<"     . mc/mark-all-like-this)))
+
+;; Paredit: Edición estructural para Lisp (Rexim)
+(use-package paredit
+  :hook ((emacs-lisp-mode lisp-mode clojure-mode scheme-mode) . paredit-mode)
+  :config
+  ;; Restaurar C-j para evaluar Lisp (paredit lo sobreescribe con paredit-newline)
+  (define-key paredit-mode-map (kbd "C-j") #'eval-print-last-sexp))
+#+end_src
+* 50. Inteligencia de Código (LSP & Autocompletado)
+Company + Flycheck + LSP = Experiencia de IDE moderna.
+
+#+begin_src emacs-lisp
+;; 1. Company: Autocompletado visual
+(use-package company
+  :hook (after-init . global-company-mode)
+  :config
+  (setq company-minimum-prefix-length 1)
+  (setq company-idle-delay (if (bound-and-true-p my/is-termux) 0.3 0.0))
+  (setq company-selection-wrap-around t)
+  ;; --- NUEVO: Ignorar mayúsculas/minúsculas ---
+  (setq company-dabbrev-downcase nil)       ; No convertir a minúsculas automáticamente
+  (setq company-dabbrev-ignore-case t)      ; Ignorar caso en texto
+  (setq company-dabbrev-code-ignore-case t) ; Ignorar caso en código
+  ;; --- IMPORTANTE: La corrección para C++/LSP ---
+  (setq-default completion-ignore-case t)  ; <--- ESTA ES LA CLAVE
+  :bind (:map company-active-map
+              ("C-n" . company-select-next)
+              ("C-p" . company-select-previous)
+              ("TAB" . company-complete-selection)))
+
+;; Company mejorado con iconos
+(use-package company-box
+  :hook (company-mode . company-box-mode))
+
+;; 2. Flycheck: Errores en tiempo real
+(use-package flycheck
+  :init (global-flycheck-mode)
+  :config
+  (setq flycheck-idle-change-delay (if (bound-and-true-p my/is-termux) 2.0 0.5))
+  (when (bound-and-true-p my/is-termux)
+    (setq flycheck-check-syntax-automatically '(save mode-enabled)))
+  (setq-default flycheck-disabled-checkers '(emacs-lisp-checkdoc)))
+
+;; 3. LSP Mode: Configuración GENÉRICA solamente
+;; Los hooks de lenguajes viven en sus módulos respectivos
+(use-package lsp-mode
+  :commands (lsp lsp-deferred)
+  :init
+  (setq lsp-keymap-prefix "C-c L")
+  :config
+  (setq lsp-headerline-breadcrumb-enable nil)
+  (setq lsp-log-io nil)
+  ;; En Termux: más conservador para ahorrar RAM y CPU
+  (if (bound-and-true-p my/is-termux)
+      (progn
+        (setq lsp-idle-delay 1.0)                 ; Menos responsivo pero más liviano
+        (setq lsp-enable-symbol-highlighting nil)  ; Menos overhead visual
+        (setq lsp-lens-enable nil)                 ; Sin code lens (pesado)
+        (setq lsp-enable-file-watchers nil)        ; Sin file watchers (ahorra batería)
+        (setq lsp-enable-folding nil)              ; Sin folding via LSP
+        (setq lsp-enable-on-type-formatting nil)   ; Sin formateo automático al teclear
+        (setq lsp-enable-indentation nil)          ; Dejar que tree-sitter maneje indent
+        (setq lsp-modeline-diagnostics-enable nil) ; Sin diagnostics en modeline
+        (setq lsp-modeline-code-actions-enable nil)) ; Sin code actions en modeline
+    (progn
+      (setq lsp-idle-delay 0.500)
+      (setq lsp-enable-symbol-highlighting t)
+      (setq lsp-lens-enable t)))
+  ;; F12 registrado ACÁ, una sola vez, de forma robusta
+  :hook
+  (lsp-mode . lsp-enable-which-key-integration)
+  (lsp-mode . (lambda ()
+                (local-set-key (kbd "<f12>") #'lsp-find-definition)
+                (local-set-key (kbd "S-<f12>") #'lsp-find-references))))
+
+;; 4. LSP UI
+(use-package lsp-ui
+  :commands lsp-ui-mode
+  :config
+  (setq lsp-ui-doc-enable nil)
+  (setq lsp-ui-doc-position 'at-point)
+  ;; En Termux desactivar sideline completamente
+  (if (bound-and-true-p my/is-termux)
+      (setq lsp-ui-sideline-enable nil)
+    (progn
+      (setq lsp-ui-sideline-enable nil)
+      (setq lsp-ui-sideline-show-hover t))))
+#+end_src
+
+* 60. Sistema de Plantillas (Snippets)
+Yasnippet: Templates de código como en VS Code.
+
+#+begin_src emacs-lisp
+(use-package yasnippet
+  :config
+  (yas-global-mode 1)
+  ;; USAR RUTA RELATIVA: Esto busca "snippets" dentro de tu carpeta de configuración actual
+  (setq yas-snippet-dirs (list (expand-file-name "snippets" user-emacs-directory))))
+
+(use-package yasnippet-snippets
+  :after yasnippet)
+
+;; Consejo: Crea snippets personalizados con M-x yas-new-snippet
+#+end_src
+* 70. Utilidades Globales y Atajos Custom
+Comandos custom para mejorar productividad.
+
+#+begin_src emacs-lisp
+;; --- Compilación Asíncrona en VTerm (Nativo) ---
+;; Reemplazamos el paquete inexistente en MELPA por una función propia
+(defun my/vterm-compile (cmd)
+  "Ejecuta compilaciones asíncronas bloqueando menos UI usando el emulador nativo."
+  (interactive "sComando a ejecutar en VTerm: ")
+  (let* ((vterm-buffer-name "*vterm-compilation*")
+         (buf (get-buffer vterm-buffer-name)))
+    (when (buffer-live-p buf)
+      (kill-buffer buf))
+    (with-current-buffer (vterm vterm-buffer-name)
+      (vterm-send-string (concat cmd "\n")))))
+
+;; --- Aislamiento por Directorio (Direnv) ---
+(use-package envrc
+  :ensure t
+  :config
+  ;; En Termux, direnv bloquea Emacs porque los subprocesos tardan mucho.
+  ;; Como no usamos venv local aquí, es mejor apagarlo.
+  (unless (bound-and-true-p my/is-termux)
+    (envrc-global-mode)))
+
+;; --- Git: Inicializar repo y hacer primer commit ---
+(defun my/git-init-and-commit (project-dir &optional project-name)
+  "Inicializa git en PROJECT-DIR y hace el primer commit con todo el scaffolding.
+   PROJECT-NAME es opcional, se usa en el mensaje del commit."
+  (let ((name (or project-name
+                  (file-name-nondirectory (directory-file-name project-dir))))
+        (default-directory project-dir))
+    (if (not (executable-find "git"))
+        (message "⚠️ Git no encontrado en el PATH")
+      (let ((result (shell-command-to-string
+                     (format
+                      "git init && git add -A && git commit -m \"init: scaffolding inicial de %s\""
+                      (shell-quote-argument name)))))
+        (if (string-match-p "master\\|main" result)
+            (message "✅ Git inicializado y primer commit listo en: %s" project-dir)
+          (message "⚠️ Algo falló con git: %s" result))))))
+
+(defun my/projectile-switch-project-fresh ()
+  "Limpia la caché, descubre proyectos nuevos y abre la lista de selección."
+  (interactive)
+  (message "🔍 Refrescando proyectos...")
+  (projectile-cleanup-known-projects) ;; Borra proyectos que ya no existen
+  (projectile-discover-projects-in-search-path) ;; Busca nuevos
+  (projectile-switch-project)) ;; Abre la lista (Ivy)
+(defvar my/c-compiler "gcc" "Compilador de C por defecto")
+(defvar my/cpp-compiler "g++" "Compilador de C++ por defecto")
+;; --- Copiar ruta del archivo actual ---
+(defun my/copy-file-path ()
+  "Copia la ruta completa del archivo actual al clipboard."
+  (interactive)
+  (when buffer-file-name
+    (kill-new buffer-file-name)
+    (message "📋 Ruta copiada: %s" buffer-file-name)))
+
+(global-set-key (kbd "C-c y") 'my/copy-file-path)
+
+;; --- Abrir terminal en directorio del proyecto ---
+(defun my/open-terminal-here ()
+  "Abre terminal externa en el directorio actual.
+En Termux sugiere usar vterm; en PC usa alacritty."
+  (interactive)
+  (let ((dir (expand-file-name (or (projectile-project-root) default-directory))))
+    (cond
+     ((bound-and-true-p my/is-termux)
+      (message "📱 En Termux, usá C-c t (vterm) para terminal"))
+     ((executable-find "alacritty")
+      (start-process "terminal" nil "alacritty" "--working-directory" dir))
+     (t
+      (message "⚠️ No se encontró terminal externa (alacritty)")))))
+(global-set-key (kbd "C-c o t") 'my/open-terminal-here)
+
+;; --- Recargar configuración sin reiniciar ---
+(defun my/reload-config ()
+  "Recarga la configuración completa desde el init.el modular."
+  (interactive)
+  (load-file user-init-file) ; <--- LA SOLUCIÓN: Carga el orquestador principal
+  (message "🔄 Configuración modular recargada correctamente"))
+
+(global-set-key (kbd "C-c C-r") 'my/reload-config)
+
+;; --- Abre el directorio de módulos para editar la configuración ---
+(defun my/open-config ()
+  (interactive)
+  ;; Ahora apuntamos a la carpeta 'modules/', no al archivo 'config.org'
+  (find-file (expand-file-name "modules/" user-emacs-directory)))
+
+(global-set-key (kbd "C-c e") 'my/open-config)
+
+;; --- Hydra de Compilación Universal (C-c c) ---
+;; Alternativa a F5/F7/F12 — funciona en Termux y en terminal sin F-keys
+(defun my/stop-server ()
+  "Para el proceso corriendo en *compilation* o *live-server-log*.
+Si hay un proceso de compilación activo, lo mata."
+  (interactive)
+  (let ((stopped nil))
+    ;; Matar proceso de live-server si existe
+    (when (get-process "live-server-proc")
+      (ignore-errors (kill-process (get-process "live-server-proc")))
+      (message "🛑 Live server detenido")
+      (setq stopped t))
+    ;; Matar proceso de *compilation* si existe
+    (when (get-buffer-process "*compilation*")
+      (ignore-errors (kill-process (get-buffer-process "*compilation*")))
+      (message "🛑 Proceso de compilación detenido")
+      (setq stopped t))
+    ;; Matar proceso de vterm si existe
+    (when (and (get-buffer "*vterm*") (get-buffer-process "*vterm*"))
+      (message "ℹ️ Para detener un proceso en vterm, usa C-c C-c en el buffer"))
+    (unless stopped
+      (message "⚠️ No hay ningún servidor o proceso corriendo"))))
+
+(defhydra my/hydra-build (:color blue :hint nil)
+  "
+------ Compilar / Ejecutar ------
+ _r_: Run (F5)        _b_: Build
+ _t_: Test            _k_: Stop server
+------ Navegación ------
+ _7_: Treemacs (F7)   _._: Definición (F12)
+ _,_: Referencias     _e_: Errores
+------ Formato ------
+ _f_: Format          _d_: Debug (PC)
+                      _q_: Salir
+"
+  ("r" (cond
+        ((derived-mode-p 'c-mode 'c++-mode)    (my/find-and-compile))
+        ((derived-mode-p 'rust-ts-mode 'rust-mode)
+         (if (fboundp 'my/rust-run) (my/rust-run) (compile "cargo run")))
+        ((derived-mode-p 'go-ts-mode 'go-mode)
+         (if (fboundp 'my/go-run) (my/go-run) (compile "go run .")))
+        ((derived-mode-p 'python-ts-mode 'python-mode)
+         (if (fboundp 'my/python-run) (my/python-run) (compile "python main.py")))
+        ((derived-mode-p 'php-ts-mode 'php-mode)
+         (if (fboundp 'my/php-run) (my/php-run) (compile "php -S localhost:8000")))
+        ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode)
+         (if (fboundp 'my/node-run) (my/node-run) (compile "node .")))
+        ((derived-mode-p 'html-ts-mode 'css-ts-mode 'web-mode 'mhtml-mode)
+         (if (fboundp 'my/run-live-server) (my/run-live-server) (message "live-server no disponible")))
+        (t (compile (read-string "Comando: ")))))
+  ("b" (cond
+        ((derived-mode-p 'c-mode 'c++-mode)    (my/find-and-compile))
+        ((derived-mode-p 'rust-ts-mode 'rust-mode)
+         (if (fboundp 'my/rust-build) (my/rust-build) (compile "cargo build")))
+        ((derived-mode-p 'go-ts-mode 'go-mode)
+         (if (fboundp 'my/go-build) (my/go-build) (compile "go build ./...")))
+        ((derived-mode-p 'python-ts-mode 'python-mode)
+         (compile "pip install -r requirements.txt"))
+        ((derived-mode-p 'php-ts-mode 'php-mode)
+         (compile "composer install"))
+        ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode)
+         (compile "npm install"))
+        (t (compile (read-string "Build cmd: ")))))
+  ("t" (cond
+        ((derived-mode-p 'rust-ts-mode 'rust-mode)
+         (if (fboundp 'my/rust-test) (my/rust-test) (compile "cargo test")))
+        ((derived-mode-p 'go-ts-mode 'go-mode)
+         (if (fboundp 'my/go-test) (my/go-test) (compile "go test ./...")))
+        ((derived-mode-p 'python-ts-mode 'python-mode)
+         (if (fboundp 'my/python-test) (my/python-test) (compile "python -m pytest -v")))
+        ((derived-mode-p 'php-ts-mode 'php-mode)
+         (if (fboundp 'my/php-test) (my/php-test) (compile "php artisan test")))
+        ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode)
+         (if (fboundp 'my/node-test) (my/node-test) (compile "npm test")))
+        (t (compile (read-string "Test cmd: ")))))
+  ("d" (if (bound-and-true-p my/is-termux)
+           (message "Debug no disponible en Termux")
+         (if (fboundp 'my/debug-current-file) (my/debug-current-file) (gdb (read-string "GDB: ")))))
+  ("7" treemacs)
+  ("." lsp-find-definition)
+  ("," lsp-find-references)
+  ("e" flycheck-list-errors)
+  ("f" (cond
+        ((derived-mode-p 'c-mode 'c++-mode) (clang-format-buffer))
+        ((derived-mode-p 'rust-ts-mode 'rust-mode) (lsp-format-buffer))
+        ((derived-mode-p 'go-ts-mode 'go-mode) (lsp-format-buffer))
+        ((derived-mode-p 'python-ts-mode 'python-mode) (lsp-format-buffer))
+        ((derived-mode-p 'php-ts-mode 'php-mode)
+         (if (fboundp 'my/php-format-buffer) (my/php-format-buffer) (lsp-format-buffer)))
+        ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode
+                         'css-ts-mode 'html-ts-mode) (prettier-js))
+        (t (lsp-format-buffer))))
+  ("k" (my/stop-server))
+  ("q" nil))
+
+(global-set-key (kbd "C-c x") #'my/hydra-build/body)  ; x = eXecute/compilar
+
+;; --- Base de proyectos (fallback si 49-multiusuario no está cargado) ---
+(unless (fboundp 'my/mu-projects-base)
+  (defun my/mu-projects-base ()
+    "Fallback: retorna ~/projects/ cuando el módulo multiusuario no está activo."
+    (expand-file-name "projects/" "~/")))
+
+;; --- Crear proyecto C/C++ genérico ---
+(defun my/new-c-project (name)
+  "Crea estructura básica para un proyecto C/C++ genérico."
+  (interactive "sNombre del proyecto: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "c/"))))
+    (make-directory project-dir t)
+    (make-directory (concat project-dir "/src") t)
+    (make-directory (concat project-dir "/include") t)
+    (make-directory (concat project-dir "/build") t)
+
+    ;; Crear build.sh
+    (with-temp-file (concat project-dir "/build.sh")
+      (insert "#!/bin/bash\n")
+      (insert "set -e\n\n")
+      (insert (format "CC=%s\n" my/c-compiler))
+      (insert "CFLAGS=\"-Wall -Wextra -std=c11 -g -Iinclude\"\n")
+      (insert "SRC=\"src/*.c\"\n")
+      (insert (format "OUT=\"build/%s\"\n\n" name))
+      (insert "echo \"🔨 Compilando $OUT...\"\n")
+      (insert "$CC $CFLAGS $SRC -o $OUT\n\n")
+      (insert "echo \"✅ Compilación exitosa!\"\n")
+      (insert "echo \"▶️  Ejecutando...\"\n")
+      (insert "./$OUT\n"))
+
+    (set-file-modes (concat project-dir "/build.sh") #o755)
+    (with-temp-file (concat project-dir "/compile_flags.txt")
+      (insert "-Iinclude\n"))
+    ;; Crear main.c básico
+    (with-temp-file (concat project-dir "/src/main.c")
+      (insert "#include <stdio.h>\n\n")
+      (insert "int main(void) {\n")
+      (insert "    printf(\"¡Hola desde C!\\n\");\n")
+      (insert "    return 0;\n")
+      (insert "}\n"))
+
+    ;; Crear .gitignore
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "build/\n")
+      (insert "*.o\n")
+      (insert "*.out\n"))
+    (with-temp-file (concat project-dir "/.projectile")
+      (insert ""))
+    ;; NUEVO: Inicializar git
+    (my/git-init-and-commit project-dir name)
+    
+    (message "🛠️  Proyecto C creado: %s" project-dir)
+    (find-file (concat project-dir "/src/main.c"))))
+
+(global-set-key (kbd "C-c n c") 'my/new-c-project)
+
+;; --- Crear proyecto C++ genérico ---
+(defun my/new-cpp-project (name)
+  "Crea estructura básica para un proyecto C++ genérico."
+  (interactive "sNombre del proyecto: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "cpp/"))))
+    (make-directory project-dir t)
+    (make-directory (concat project-dir "/src") t)
+    (make-directory (concat project-dir "/include") t)
+    (make-directory (concat project-dir "/build") t)
+
+    ;; Crear build.sh (ACTUALIZADO CON BENCHMARK)
+    (with-temp-file (concat project-dir "/build.sh")
+      (insert "#!/bin/bash\n")
+      (insert "set -e\n\n")
+      (insert (format "CXX=%s\n" my/cpp-compiler))
+      (insert "CXXFLAGS=\"-Wall -Wextra -std=c++17 -g -Iinclude\"\n")
+      (insert "SRC=\"src/*.cpp\"\n")
+      (insert (format "OUT=\"build/%s\"\n\n" name))
+
+      (insert "# --- MODOS DE COMPILACIÓN ---\n")
+      (insert "# 1. Debug (Por defecto)\n")
+      (insert "CMD=\"$CXX $CXXFLAGS $SRC -o $OUT\"\n\n")
+
+      (insert "# 2. Release (Optimizado)\n")
+      (insert "# CMD=\"$CXX -O3 -DNDEBUG $SRC -o $OUT\"\n\n")
+
+      (insert "# 3. Google Benchmark (Requiere 'pacman -S benchmark')\n")
+      (insert "# CMD=\"$CXX $SRC -o build/bench -lbenchmark -lpthread -O3\"\n\n")
+
+      (insert "echo \"🔨 Compilando...\"\n")
+      (insert "eval $CMD\n\n")  ; Usamos eval para ejecutar el comando seleccionado
+
+      (insert "echo \"✅ Compilación exitosa!\"\n")
+      (insert "echo \"▶️  Ejecutando...\"\n")
+      (insert "if [[ \"$CMD\" == *\"bench\"* ]]; then\n")
+      (insert "    ./build/bench\n")
+      (insert "else\n")
+      (insert "    ./$OUT\n")
+      (insert "fi\n"))
+
+    (set-file-modes (concat project-dir "/build.sh") #o755)
+    (with-temp-file (concat project-dir "/compile_flags.txt")
+      (insert "-Iinclude\n"))
+    ;; Crear main.cpp básico
+    (with-temp-file (concat project-dir "/src/main.cpp")
+      (insert "#include <iostream>\n\n")
+      (insert "int main() {\n")
+      (insert "    std::cout << \"¡Hola desde C++!\" << std::endl;\n")
+      (insert "    return 0;\n")
+      (insert "}\n"))
+    (with-temp-file (concat project-dir "/.projectile")
+      (insert ""))
+    ;; Crear .gitignore
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "build/\n")
+      (insert "*.o\n")
+      (insert "*.out\n"))
+    ;; NUEVO: Inicializar git
+    (my/git-init-and-commit project-dir name)
+    
+    (message "🛠️  Proyecto C++ creado: %s" project-dir)
+    (find-file (concat project-dir "/src/main.cpp"))))
+
+(global-set-key (kbd "C-c n C") 'my/new-cpp-project)
+
+;; --- 1. Generador Game Dev en C (Clean Loop) ---
+(defun my/new-gamedev-project (name)
+  "Crea proyecto Raylib en C puro con arquitectura limpia (Input/Update/Draw)."
+  (interactive "sNombre del proyecto (C): ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "gamedev/c/"))))
+    (make-directory project-dir t)
+    (make-directory (concat project-dir "/src") t)
+    (make-directory (concat project-dir "/assets") t)
+
+    ;; Build.sh para C
+    (with-temp-file (concat project-dir "/build.sh")
+      (insert "#!/bin/bash\nset -e\n\n")
+      (insert (format "CC=%s\n" my/c-compiler))
+      (insert "CFLAGS=\"-Wall -Wextra -std=c11 -g\"\n")
+      (insert "LIBS=\"-lraylib -lm\"\n")
+      (insert "SRC=\"src/*.c\"\n")
+      (insert (format "OUT=\"%s\"\n\n" name))
+      (insert "echo \"🔨 Compilando (C)...\"\n")
+      (insert "$CC $CFLAGS $SRC -o $OUT $LIBS\n")
+      (insert "./$OUT\n"))
+    (set-file-modes (concat project-dir "/build.sh") #o755)
+
+    (with-temp-file (concat project-dir "/compile_flags.txt")
+      (insert "-Iinclude\n"))
+    ;; Main.c (Arquitectura Limpia)
+    (with-temp-file (concat project-dir "/src/main.c")
+      (insert "#include <raylib.h>\n\n")
+      (insert "int main(void) {\n")
+      (insert "    // --- Configuración ---\n")
+      (insert "    const int screenWidth = 800;\n")
+      (insert "    const int screenHeight = 600;\n")
+      (insert (format "    InitWindow(screenWidth, screenHeight, \"%s (C)\");\n" name))
+      (insert "    SetTargetFPS(60);\n\n")
+      (insert "    // --- Estado del Juego ---\n")
+      (insert "    int ballX = 400;\n")
+      (insert "    int ballY = 300;\n")
+      (insert "    int ballSpeed = 5;\n")
+      (insert "    Color myGreen = {20, 160, 133, 255};\n\n")
+      (insert "    // --- Game Loop ---\n")
+      (insert "    while (!WindowShouldClose()) {\n")
+      (insert "        // 1. Input (Intención)\n")
+      (insert "        int moveX = 0;\n")
+      (insert "        int moveY = 0;\n")
+      (insert "        if (IsKeyDown(KEY_RIGHT)) moveX = ballSpeed;\n")
+      (insert "        if (IsKeyDown(KEY_LEFT))  moveX = -ballSpeed;\n")
+      (insert "        if (IsKeyDown(KEY_UP))    moveY = -ballSpeed;\n")
+      (insert "        if (IsKeyDown(KEY_DOWN))  moveY = ballSpeed;\n\n")
+      (insert "        // 2. Update (Físicas)\n")
+      (insert "        ballX += moveX;\n")
+      (insert "        ballY += moveY;\n\n")
+      (insert "        // 3. Draw (Renderizado)\n")
+      (insert "        BeginDrawing();\n")
+      (insert "        ClearBackground(myGreen);\n")
+      (insert "        DrawText(\"Modo: C Clean Loop\", 10, 10, 20, WHITE);\n")
+      (insert "        DrawCircle(ballX, ballY, 50, WHITE);\n")
+      (insert "        EndDrawing();\n")
+      (insert "    }\n\n")
+      (insert "    CloseWindow();\n")
+      (insert "    return 0;\n")
+      (insert "}\n"))
+
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    ;; NUEVO: Inicializar git
+    (my/git-init-and-commit project-dir name)
+    
+    (message "🎮 Proyecto C creado: %s" project-dir)
+    (find-file (concat project-dir "/src/main.c"))))
+
+;; Atajo: C-c n g (Game C)
+(global-set-key (kbd "C-c n g") 'my/new-gamedev-project)
+
+
+;; --- 2. Generador Game Dev en C++ (Clean Loop) ---
+(defun my/new-gamedev-cpp-project (name)
+  "Crea proyecto Raylib en C++ con arquitectura limpia (Input/Update/Draw)."
+  (interactive "sNombre del proyecto (C++): ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "gamedev/cpp/"))))
+    (make-directory project-dir t)
+    (make-directory (concat project-dir "/src") t)
+    (make-directory (concat project-dir "/include") t)
+    (make-directory (concat project-dir "/assets") t)
+
+    ;; Build.sh para C++
+    (with-temp-file (concat project-dir "/build.sh")
+      (insert "#!/bin/bash\nset -e\n\n")
+      (insert (format "CXX=%s\n" my/cpp-compiler))
+      (insert "CXXFLAGS=\"-Wall -Wextra -std=c++17 -g\"\n")
+      (insert "LIBS=\"-lraylib -lm\"\n")
+      (insert "SRC=\"src/*.cpp\"\n")
+      (insert (format "OUT=\"%s\"\n\n" name))
+      (insert "echo \"🔨 Compilando (C++)...\"\n")
+      (insert "$CXX $CXXFLAGS $SRC -o $OUT $LIBS\n")
+      (insert "./$OUT\n"))
+    (set-file-modes (concat project-dir "/build.sh") #o755)
+
+    ;; Main.cpp (Arquitectura Limpia + OOP Friendly)
+    (with-temp-file (concat project-dir "/src/main.cpp")
+      (insert "#include <raylib.h>\n")
+      (insert "#include <iostream>\n\n")
+      (insert "using namespace std;\n\n")
+      (insert "int main() {\n")
+      (insert "    // --- Inicialización ---\n")
+      (insert "    cout << \"Comenzando el juego\" << endl;\n")
+      (insert "    // --- Configuración ---\n")
+      (insert "    const int screenWidth = 800;\n")
+      (insert "    const int screenHeight = 600;\n")
+      (insert (format "    InitWindow(screenWidth, screenHeight, \"%s (C++)\");\n" name))
+      (insert "    SetTargetFPS(60);\n\n")
+      (insert "    // --- Estado del Juego ---\n")
+      (insert "    int ballX = 400;\n")
+      (insert "    int ballY = 300;\n")
+      (insert "    int ballSpeed = 5;\n")
+      (insert "    Color myGreen = {20, 160, 133, 255};\n\n")
+      (insert "    // --- Game Loop ---\n")
+      (insert "    while (!WindowShouldClose()) {\n")
+      (insert "        // 1. Input (Intención)\n")
+      (insert "        int moveX = 0;\n")
+      (insert "        int moveY = 0;\n")
+      (insert "        if (IsKeyDown(KEY_RIGHT)) moveX = ballSpeed;\n")
+      (insert "        if (IsKeyDown(KEY_LEFT))  moveX = -ballSpeed;\n")
+      (insert "        if (IsKeyDown(KEY_UP))    moveY = -ballSpeed;\n")
+      (insert "        if (IsKeyDown(KEY_DOWN))  moveY = ballSpeed;\n\n")
+      (insert "        // 2. Update (Físicas)\n")
+      (insert "        ballX += moveX;\n")
+      (insert "        ballY += moveY;\n\n")
+      (insert "        // 3. Draw (Renderizado)\n")
+      (insert "        BeginDrawing();\n")
+      (insert "        ClearBackground(myGreen);\n")
+      (insert "        DrawText(\"Modo: C++ Clean Loop\", 10, 10, 20, WHITE);\n")
+      (insert "        DrawCircle(ballX, ballY, 50, WHITE);\n")
+      (insert "        EndDrawing();\n")
+      (insert "    }\n\n")
+      (insert "    CloseWindow();\n")
+      (insert "    return 0;\n")
+      (insert "}\n"))
+
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+
+    ;; NUEVO: Inicializar git
+    (my/git-init-and-commit project-dir name)
+    
+    (message "🎮 Proyecto C++ creado: %s" project-dir)
+    (find-file (concat project-dir "/src/main.cpp"))))
+
+;; Atajo: C-c n + (Plus/C++)
+(global-set-key (kbd "C-c n +") 'my/new-gamedev-cpp-project)
+
+;; --- Crear proyecto Rust nuevo ---
+(defun my/new-rust-project (name)
+  "Crea un nuevo proyecto Rust con cargo."
+  (interactive "sNombre del proyecto: ")
+  (let ((base-dir (concat (my/mu-projects-base) "rust/"))
+        (project-dir (expand-file-name name (concat (my/mu-projects-base) "rust/"))))
+    (make-directory base-dir t)
+    ;; CORRECCIÓN: pararse en base-dir y pasar solo el nombre
+    (let ((default-directory base-dir))
+      (shell-command (format "cargo new %s" name)))
+    ;; NUEVO: Marcador Projectile
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    ;; NUEVO: Inicializar git
+    (my/git-init-and-commit project-dir name)
+    (message "🦀 Proyecto Rust creado: %s" project-dir)
+    (find-file (concat project-dir "/src/main.rs"))))
+
+(global-set-key (kbd "C-c n r") #'my/new-rust-project)
+
+;; --- Crear proyecto Rust REST API (Actix-web) ---
+(defun my/new-rust-api-project (name)
+  "Crea un nuevo proyecto Rust con Actix-web para REST API."
+  (interactive "sNombre del proyecto: ")
+  (let* ((base-dir (concat (my/mu-projects-base) "rust/"))
+         (project-dir (expand-file-name name base-dir)))
+    (make-directory base-dir t)
+
+    ;; Crear proyecto con cargo
+    (let ((default-directory base-dir))
+      (shell-command (format "cargo new %s" name)))
+
+    ;; Sobreescribir Cargo.toml con dependencias para API
+    (with-temp-file (concat project-dir "/Cargo.toml")
+      (insert "[package]\n")
+      (insert (format "name = \"%s\"\n" name))
+      (insert "version = \"0.1.0\"\n")
+      (insert "edition = \"2021\"\n\n")
+      (insert "[dependencies]\n")
+      (insert "actix-web = \"4\"\n")
+      (insert "actix-cors = \"0.7\"\n")
+      (insert "serde = { version = \"1\", features = [\"derive\"] }\n")
+      (insert "serde_json = \"1\"\n")
+      (insert "dotenv = \"0.15\"\n")
+      (insert "tokio = { version = \"1\", features = [\"full\"] }\n")
+      (insert "env_logger = \"0.11\"\n")
+      (insert "log = \"0.4\"\n"))
+
+    ;; Crear src/main.rs con Actix-web
+    (with-temp-file (concat project-dir "/src/main.rs")
+      (insert "use actix_cors::Cors;\n")
+      (insert "use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};\n")
+      (insert "use serde::{Deserialize, Serialize};\n\n")
+      (insert "#[derive(Serialize)]\n")
+      (insert "struct ApiResponse {\n")
+      (insert "    message: String,\n")
+      (insert "}\n\n")
+      (insert "#[derive(Deserialize)]\n")
+      (insert "struct CreateItem {\n")
+      (insert "    name: String,\n")
+      (insert "}\n\n")
+      (insert "#[get(\"/\")]\n")
+      (insert "async fn index() -> impl Responder {\n")
+      (insert (format "    HttpResponse::Ok().json(ApiResponse {\n        message: \"Hola desde %s\".to_string(),\n    })\n" name))
+      (insert "}\n\n")
+      (insert "#[get(\"/health\")]\n")
+      (insert "async fn health() -> impl Responder {\n")
+      (insert "    HttpResponse::Ok().json(serde_json::json!({\"status\": \"ok\"}))\n")
+      (insert "}\n\n")
+      (insert "#[get(\"/api/items\")]\n")
+      (insert "async fn get_items() -> impl Responder {\n")
+      (insert "    HttpResponse::Ok().json(serde_json::json!({\"items\": []}))\n")
+      (insert "}\n\n")
+      (insert "#[post(\"/api/items\")]\n")
+      (insert "async fn create_item(item: web::Json<CreateItem>) -> impl Responder {\n")
+      (insert "    HttpResponse::Created().json(serde_json::json!({\n")
+      (insert "        \"message\": format!(\"Item {} creado\", item.name)\n")
+      (insert "    }))\n")
+      (insert "}\n\n")
+      (insert "#[actix_web::main]\n")
+      (insert "async fn main() -> std::io::Result<()> {\n")
+      (insert "    dotenv::dotenv().ok();\n")
+      (insert "    env_logger::init();\n\n")
+      (insert "    let port = std::env::var(\"PORT\").unwrap_or_else(|_| \"8080\".to_string());\n")
+      (insert "    let addr = format!(\"0.0.0.0:{}\", port);\n\n")
+      (insert "    println!(\"🦀 Server corriendo en http://localhost:{}\", port);\n\n")
+      (insert "    HttpServer::new(|| {\n")
+      (insert "        let cors = Cors::permissive();\n")
+      (insert "        App::new()\n")
+      (insert "            .wrap(cors)\n")
+      (insert "            .service(index)\n")
+      (insert "            .service(health)\n")
+      (insert "            .service(get_items)\n")
+      (insert "            .service(create_item)\n")
+      (insert "    })\n")
+      (insert "    .bind(&addr)?\n")
+      (insert "    .run()\n")
+      (insert "    .await\n")
+      (insert "}\n"))
+
+    ;; Crear .env
+    (with-temp-file (concat project-dir "/.env")
+      (insert "# Variables de entorno\n")
+      (insert "PORT=8080\n")
+      (insert "RUST_LOG=info\n"))
+
+    ;; Actualizar .gitignore (cargo new ya crea uno con /target)
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "/target\n")
+      (insert ".env\n")
+      (insert "*.log\n"))
+
+    ;; Marcador Projectile + git
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+
+    (message "🦀 Proyecto Rust API (Actix-web) creado: %s" project-dir)
+    (find-file (concat project-dir "/src/main.rs"))))
+
+(global-set-key (kbd "C-c n R") #'my/new-rust-api-project)
+
+;; --- Crear proyecto Go nuevo ---
+(defun my/new-go-project (name)
+  "Crea un nuevo proyecto Go con go mod init."
+  (interactive "sNombre del proyecto: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "go/"))))
+    (make-directory project-dir t)
+    ;; Inicializar módulo de Go
+    (let ((default-directory project-dir))
+      (shell-command (format "go mod init %s" name)))
+    ;; Crear main.go básico
+    (with-temp-file (concat project-dir "/main.go")
+      (insert "package main\n\n")
+      (insert "import \"fmt\"\n\n")
+      (insert "func main() {\n")
+      (insert "    fmt.Println(\"¡Hola desde Go! 🐹\")\n")
+      (insert "}\n"))
+    ;; Crear .gitignore
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "# Binarios\n")
+      (insert "*.exe\n")
+      (insert "*.test\n")
+      (insert "*.out\n\n")
+      (insert "# Dependencias\n")
+      (insert "vendor/\n"))
+    ;; NUEVO: Marcador Projectile
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    ;; NUEVO: Inicializar git
+    (my/git-init-and-commit project-dir name)
+    (message "🐹 Proyecto Go creado: %s" project-dir)
+    (find-file (concat project-dir "/main.go"))))
+
+(global-set-key (kbd "C-c n G") #'my/new-go-project)
+
+;; --- Crear proyecto Go REST API (Gin) ---
+(defun my/new-go-api-project (name)
+  "Crea un nuevo proyecto Go con Gin para REST API."
+  (interactive "sNombre del proyecto: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "go/"))))
+    (make-directory project-dir t)
+    (make-directory (concat project-dir "/handlers") t)
+    (make-directory (concat project-dir "/models") t)
+
+    ;; Inicializar módulo Go
+    (let ((default-directory project-dir))
+      (shell-command (format "go mod init %s" name)))
+
+    ;; Crear main.go con Gin
+    (with-temp-file (concat project-dir "/main.go")
+      (insert "package main\n\n")
+      (insert "import (\n")
+      (insert "\t\"log\"\n")
+      (insert "\t\"os\"\n\n")
+      (insert (format "\t\"%s/handlers\"\n\n" name))
+      (insert "\t\"github.com/gin-contrib/cors\"\n")
+      (insert "\t\"github.com/gin-gonic/gin\"\n")
+      (insert ")\n\n")
+      (insert "func main() {\n")
+      (insert "\tport := os.Getenv(\"PORT\")\n")
+      (insert "\tif port == \"\" {\n")
+      (insert "\t\tport = \"8080\"\n")
+      (insert "\t}\n\n")
+      (insert "\tr := gin.Default()\n")
+      (insert "\tr.Use(cors.Default())\n\n")
+      (insert "\t// Rutas\n")
+      (insert "\tr.GET(\"/\", handlers.Index)\n")
+      (insert "\tr.GET(\"/health\", handlers.Health)\n\n")
+      (insert "\tapi := r.Group(\"/api\")\n")
+      (insert "\t{\n")
+      (insert "\t\tapi.GET(\"/items\", handlers.GetItems)\n")
+      (insert "\t\tapi.POST(\"/items\", handlers.CreateItem)\n")
+      (insert "\t}\n\n")
+      (insert (format "\tlog.Printf(\"🐹 Server corriendo en http://localhost:%%s\", port)\n"))
+      (insert "\tr.Run(\":\" + port)\n")
+      (insert "}\n"))
+
+    ;; Crear handlers/api.go
+    (with-temp-file (concat project-dir "/handlers/api.go")
+      (insert "package handlers\n\n")
+      (insert "import (\n")
+      (insert "\t\"net/http\"\n\n")
+      (insert "\t\"github.com/gin-gonic/gin\"\n")
+      (insert ")\n\n")
+      (insert "func Index(c *gin.Context) {\n")
+      (insert (format "\tc.JSON(http.StatusOK, gin.H{\"message\": \"Hola desde %s\"})\n" name))
+      (insert "}\n\n")
+      (insert "func Health(c *gin.Context) {\n")
+      (insert "\tc.JSON(http.StatusOK, gin.H{\"status\": \"ok\"})\n")
+      (insert "}\n\n")
+      (insert "func GetItems(c *gin.Context) {\n")
+      (insert "\tc.JSON(http.StatusOK, gin.H{\"items\": []string{}})\n")
+      (insert "}\n\n")
+      (insert "type CreateItemInput struct {\n")
+      (insert "\tName string `json:\"name\" binding:\"required\"`\n")
+      (insert "}\n\n")
+      (insert "func CreateItem(c *gin.Context) {\n")
+      (insert "\tvar input CreateItemInput\n")
+      (insert "\tif err := c.ShouldBindJSON(&input); err != nil {\n")
+      (insert "\t\tc.JSON(http.StatusBadRequest, gin.H{\"error\": err.Error()})\n")
+      (insert "\t\treturn\n")
+      (insert "\t}\n")
+      (insert "\tc.JSON(http.StatusCreated, gin.H{\"message\": \"Item \" + input.Name + \" creado\"})\n")
+      (insert "}\n"))
+
+    ;; Crear .env
+    (with-temp-file (concat project-dir "/.env")
+      (insert "# Variables de entorno\n")
+      (insert "PORT=8080\n")
+      (insert "GIN_MODE=debug\n"))
+
+    ;; Crear .gitignore
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "# Binarios\n")
+      (insert "*.exe\n")
+      (insert "*.test\n")
+      (insert "*.out\n")
+      (insert (format "%s\n\n" name))
+      (insert "# Dependencias\n")
+      (insert "vendor/\n\n")
+      (insert "# Config\n")
+      (insert ".env\n"))
+
+    ;; Descargar dependencias
+    (let ((default-directory project-dir))
+      (message "Descargando dependencias con go mod tidy...")
+      (shell-command "go get github.com/gin-gonic/gin github.com/gin-contrib/cors")
+      (shell-command "go mod tidy"))
+
+    ;; Marcador Projectile + git
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+
+    (message "🐹 Proyecto Go API (Gin) creado: %s" project-dir)
+    (find-file (concat project-dir "/main.go"))))
+
+(global-set-key (kbd "C-c n a") #'my/new-go-api-project)
+
+;; --- Crear proyecto Web (HTML/CSS/JS) ---
+(defun my/new-web-project (name)
+  "Crea estructura básica para un proyecto web frontend."
+  (interactive "sNombre del proyecto: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "web/"))))
+    (make-directory project-dir t)
+    (make-directory (concat project-dir "/css") t)
+    (make-directory (concat project-dir "/js") t)
+    (make-directory (concat project-dir "/assets") t)
+    (make-directory (concat project-dir "/assets/images") t)
+
+    ;; Crear index.html
+    (with-temp-file (concat project-dir "/index.html")
+      (insert "<!DOCTYPE html>\n")
+      (insert "<html lang=\"es\">\n")
+      (insert "<head>\n")
+      (insert "    <meta charset=\"UTF-8\">\n")
+      (insert "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+      (insert (format "    <title>%s</title>\n" name))
+      (insert "    <link rel=\"stylesheet\" href=\"css/style.css\">\n")
+      (insert "</head>\n")
+      (insert "<body>\n")
+      (insert (format "    <h1>¡Bienvenido a %s!</h1>\n" name))
+      (insert "    <p>Proyecto creado desde Emacs 🚀</p>\n\n")
+      (insert "    <script src=\"js/script.js\"></script>\n")
+      (insert "</body>\n")
+      (insert "</html>\n"))
+
+    ;; Crear css/style.css
+    (with-temp-file (concat project-dir "/css/style.css")
+      (insert "/* Estilos Generales */\n")
+      (insert "* {\n")
+      (insert "    margin: 0;\n")
+      (insert "    padding: 0;\n")
+      (insert "    box-sizing: border-box;\n")
+      (insert "}\n\n")
+      (insert "body {\n")
+      (insert "    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\n")
+      (insert "    line-height: 1.6;\n")
+      (insert "    padding: 2rem;\n")
+      (insert "    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n")
+      (insert "    color: #333;\n")
+      (insert "    min-height: 100vh;\n")
+      (insert "    display: flex;\n")
+      (insert "    flex-direction: column;\n")
+      (insert "    align-items: center;\n")
+      (insert "    justify-content: center;\n")
+      (insert "}\n\n")
+      (insert "h1 {\n")
+      (insert "    color: white;\n")
+      (insert "    font-size: 3rem;\n")
+      (insert "    margin-bottom: 1rem;\n")
+      (insert "    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);\n")
+      (insert "}\n\n")
+      (insert "p {\n")
+      (insert "    color: white;\n")
+      (insert "    font-size: 1.2rem;\n")
+      (insert "}\n"))
+
+    ;; Crear js/script.js
+    (with-temp-file (concat project-dir "/js/script.js")
+      (insert "// Script principal\n")
+      (insert (format "console.log('¡%s cargado correctamente!');\n\n" name))
+      (insert "// Evento DOMContentLoaded\n")
+      (insert "document.addEventListener('DOMContentLoaded', () => {\n")
+      (insert "    console.log('DOM cargado y listo');\n")
+      (insert "    \n")
+      (insert "    // Tu código aquí\n")
+      (insert "    \n")
+      (insert "});\n"))
+
+    ;; Crear .gitignore
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "# Dependencias\n")
+      (insert "node_modules/\n")
+      (insert "package-lock.json\n\n")
+      (insert "# Archivos del sistema\n")
+      (insert ".DS_Store\n")
+      (insert "Thumbs.db\n\n")
+      (insert "# Editores\n")
+      (insert ".vscode/\n")
+      (insert ".idea/\n"))
+
+    ;; Crear README.md
+    (with-temp-file (concat project-dir "/README.md")
+      (insert (format "# %s\n\n" name))
+      (insert "Proyecto web creado con Emacs.\n\n")
+      (insert "## Estructura\n\n")
+      (insert "```\n")
+      (insert ".\n")
+      (insert "├── index.html\n")
+      (insert "├── css/\n")
+      (insert "│   └── style.css\n")
+      (insert "├── js/\n")
+      (insert "│   └── script.js\n")
+      (insert "└── assets/\n")
+      (insert "    └── images/\n")
+      (insert "```\n\n")
+      (insert "## Desarrollo\n\n")
+      (insert "Para iniciar el servidor de desarrollo:\n\n")
+      (insert "1. Abre `index.html` en Emacs\n")
+      (insert "2. Presiona `F5` para iniciar live-server\n")
+      (insert "3. El navegador se abrirá automáticamente\n"))
+
+    ;; Marcador Projectile + git
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+
+    (message "🌐 Proyecto web creado: %s" project-dir)
+    (find-file (concat project-dir "/index.html"))))
+
+(global-set-key (kbd "C-c n w") 'my/new-web-project)
+;; --- Crear proyecto Web con Tailwind CSS ---
+(defun my/new-web-tailwind-project (name)
+  "Crea proyecto web con Tailwind CSS via CDN."
+  (interactive "sNombre del proyecto: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "web/"))))
+    (make-directory project-dir t)
+    (make-directory (concat project-dir "/js") t)
+    (make-directory (concat project-dir "/assets") t)
+
+    ;; Crear index.html con Tailwind
+    (with-temp-file (concat project-dir "/index.html")
+      (insert "<!DOCTYPE html>\n")
+      (insert "<html lang=\"es\">\n")
+      (insert "<head>\n")
+      (insert "    <meta charset=\"UTF-8\">\n")
+      (insert "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+      (insert (format "    <title>%s</title>\n" name))
+      (insert "    <script src=\"https://cdn.tailwindcss.com\"></script>\n")
+      (insert "</head>\n")
+      (insert "<body class=\"bg-gradient-to-br from-purple-600 to-blue-500 min-h-screen flex items-center justify-center\">\n")
+      (insert "    <div class=\"text-center\">\n")
+      (insert (format "        <h1 class=\"text-6xl font-bold text-white mb-4\">%s</h1>\n" name))
+      (insert "        <p class=\"text-xl text-white\">Proyecto creado desde Emacs con Tailwind CSS 🎨</p>\n")
+      (insert "    </div>\n\n")
+      (insert "    <script src=\"js/script.js\"></script>\n")
+      (insert "</body>\n")
+      (insert "</html>\n"))
+
+    ;; Crear js/script.js
+    (with-temp-file (concat project-dir "/js/script.js")
+      (insert "// Script principal\n")
+      (insert (format "console.log('¡%s con Tailwind CSS!');\n" name)))
+
+    ;; Crear .gitignore y README igual que antes
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "node_modules/\n.DS_Store\n"))
+
+    ;; Marcador Projectile + git
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+
+    (message "🎨 Proyecto web con Tailwind creado: %s" project-dir)
+    (find-file (concat project-dir "/index.html"))))
+
+(global-set-key (kbd "C-c n W") 'my/new-web-tailwind-project)
+
+;; --- Crear proyecto Node.js (Express REST API) ---
+(defun my/new-express-project (name)
+  "Crea un nuevo proyecto Node.js con Express para REST API."
+  (interactive "sNombre del proyecto: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "node/"))))
+    (make-directory project-dir t)
+
+    ;; Crear package.json
+    (with-temp-file (concat project-dir "/package.json")
+      (insert "{\n")
+      (insert (format "  \"name\": \"%s\",\n" name))
+      (insert "  \"version\": \"1.0.0\",\n")
+      (insert (format "  \"description\": \"REST API %s\",\n" name))
+      (insert "  \"main\": \"src/index.js\",\n")
+      (insert "  \"scripts\": {\n")
+      (insert "    \"start\": \"node src/index.js\",\n")
+      (insert "    \"dev\": \"node --watch src/index.js\",\n")
+      (insert "    \"test\": \"echo \\\"TODO: agregar tests\\\" && exit 0\"\n")
+      (insert "  },\n")
+      (insert "  \"dependencies\": {\n")
+      (insert "    \"express\": \"^4.18.0\",\n")
+      (insert "    \"cors\": \"^2.8.5\",\n")
+      (insert "    \"dotenv\": \"^16.0.0\"\n")
+      (insert "  }\n")
+      (insert "}\n"))
+
+    ;; Crear estructura de directorios
+    (make-directory (concat project-dir "/src/routes") t)
+    (make-directory (concat project-dir "/src/middleware") t)
+
+    ;; Crear src/index.js (entry point)
+    (with-temp-file (concat project-dir "/src/index.js")
+      (insert "require('dotenv').config();\n")
+      (insert "const express = require('express');\n")
+      (insert "const cors = require('cors');\n")
+      (insert "const apiRoutes = require('./routes/api');\n\n")
+      (insert "const app = express();\n")
+      (insert "const PORT = process.env.PORT || 3000;\n\n")
+      (insert "// Middleware\n")
+      (insert "app.use(cors());\n")
+      (insert "app.use(express.json());\n\n")
+      (insert "// Rutas\n")
+      (insert "app.use('/api', apiRoutes);\n\n")
+      (insert "app.get('/', (req, res) => {\n")
+      (insert (format "  res.json({ message: 'Hola desde %s' });\n" name))
+      (insert "});\n\n")
+      (insert "app.get('/health', (req, res) => {\n")
+      (insert "  res.json({ status: 'ok' });\n")
+      (insert "});\n\n")
+      (insert "app.listen(PORT, () => {\n")
+      (insert "  console.log(`🚀 Server corriendo en http://localhost:${PORT}`);\n")
+      (insert "});\n"))
+
+    ;; Crear src/routes/api.js
+    (with-temp-file (concat project-dir "/src/routes/api.js")
+      (insert "const express = require('express');\n")
+      (insert "const router = express.Router();\n\n")
+      (insert "// GET /api/items\n")
+      (insert "router.get('/items', (req, res) => {\n")
+      (insert "  res.json({ items: [] });\n")
+      (insert "});\n\n")
+      (insert "// POST /api/items\n")
+      (insert "router.post('/items', (req, res) => {\n")
+      (insert "  const { name } = req.body;\n")
+      (insert "  res.status(201).json({ message: `Item ${name} creado` });\n")
+      (insert "});\n\n")
+      (insert "module.exports = router;\n"))
+
+    ;; Crear .env
+    (with-temp-file (concat project-dir "/.env")
+      (insert "# Variables de entorno\n")
+      (insert "PORT=3000\n")
+      (insert "NODE_ENV=development\n"))
+
+    ;; Crear .gitignore
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "node_modules/\n")
+      (insert ".env\n")
+      (insert "dist/\n")
+      (insert "*.log\n"))
+
+    ;; Instalar dependencias
+    (let ((default-directory project-dir))
+      (message "Instalando dependencias con npm (asíncrono)...")
+      (async-shell-command "npm install" "*npm-install*"))
+
+    ;; Marcador Projectile + git
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+
+    (message "🟢 Proyecto Express creado: %s" project-dir)
+    (find-file (concat project-dir "/src/index.js"))))
+
+(global-set-key (kbd "C-c n e") #'my/new-express-project)
+
+;; --- Crear proyecto Python (FastAPI) ---
+(defun my/new-python-project (name)
+  "Crea un nuevo proyecto Python con FastAPI.
+En PC crea virtualenv; en Termux usa Python del sistema."
+  (interactive "sNombre del proyecto: ")
+  (let* ((project-dir (expand-file-name name (concat (my/mu-projects-base) "python/")))
+         ;; Suprimir direnv para que no interfiera durante la creación
+         (envrc-mode nil)
+         (process-environment (cons "DIRENV_DIR=" process-environment)))
+    (make-directory project-dir t)
+
+    ;; Crear main.py con FastAPI
+    (with-temp-file (concat project-dir "/main.py")
+      (insert "from fastapi import FastAPI\n\n")
+      (insert "app = FastAPI()\n\n\n")
+      (insert "@app.get(\"/\")\n")
+      (insert "def root():\n")
+      (insert (format "    return {\"message\": \"Hola desde %s\"}\n\n\n" name))
+      (insert "@app.get(\"/health\")\n")
+      (insert "def health():\n")
+      (insert "    return {\"status\": \"ok\"}\n"))
+
+    ;; Crear requirements.txt
+    (with-temp-file (concat project-dir "/requirements.txt")
+      (insert "fastapi\n")
+      (insert "uvicorn[standard]\n")
+      (insert "python-dotenv\n"))
+
+    ;; Crear .env
+    (with-temp-file (concat project-dir "/.env")
+      (insert "# Variables de entorno\n")
+      (insert "DEBUG=true\n")
+      (insert "PORT=8000\n"))
+
+    ;; Crear .gitignore
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "__pycache__/\n")
+      (insert "*.pyc\n")
+      (insert "venv/\n")
+      (insert ".venv/\n")
+      (insert ".env\n")
+      (insert "*.egg-info/\n")
+      (insert "dist/\n")
+      (insert "build/\n"))
+
+    ;; Virtualenv: solo en PC (Termux tiene problemas con venv)
+    (let ((default-directory project-dir))
+      (if (bound-and-true-p my/is-termux)
+          (progn
+            (message "Instalando dependencias (Termux - asíncrono)...")
+            (async-shell-command "export ANDROID_API_LEVEL=24; pkg install -y python-pydantic 2>/dev/null || true; pip install fastapi uvicorn python-dotenv --extra-index-url https://eutalix.github.io/android-pydantic-core/" "*pip-install*"))
+        (message "Creando virtualenv...")
+        (when (= 0 (shell-command "python -m venv venv"))
+          (message "Instalando dependencias en venv (asíncrono)...")
+          (async-shell-command "venv/bin/pip install -r requirements.txt" "*venv-install*"))))
+
+    ;; Marcador Projectile + git
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+
+    (message "🐍 Proyecto Python (FastAPI) creado: %s" project-dir)
+    (find-file (concat project-dir "/main.py"))))
+
+(global-set-key (kbd "C-c n p") #'my/new-python-project)
+
+;; --- Crear proyecto PHP (Laravel) ---
+(defun my/new-php-project (name)
+  "Crea un nuevo proyecto PHP.
+Si composer está disponible, crea un proyecto Laravel.
+Si no, crea estructura básica con index.php."
+  (interactive "sNombre del proyecto: ")
+  (let* ((base-dir (concat (my/mu-projects-base) "php/"))
+         (project-dir (expand-file-name name base-dir)))
+    (make-directory base-dir t)
+
+    (if (executable-find "composer")
+        ;; Laravel via composer
+        (progn
+          (message "Creando proyecto Laravel con composer (puede tardar)...")
+          (let ((default-directory base-dir))
+            (shell-command (format "composer create-project laravel/laravel %s" name)))
+          (when (file-directory-p project-dir)
+            ;; Marcador Projectile + git (Laravel ya incluye git)
+            (with-temp-file (concat project-dir "/.projectile") (insert ""))
+            (message "🐘 Proyecto Laravel creado: %s" project-dir)
+            (find-file (concat project-dir "/routes/web.php"))))
+
+      ;; Sin composer: estructura manual
+      (make-directory project-dir t)
+      (make-directory (concat project-dir "/public") t)
+      (make-directory (concat project-dir "/src") t)
+
+      ;; Crear public/index.php (entry point)
+      (with-temp-file (concat project-dir "/public/index.php")
+        (insert "<?php\n\n")
+        (insert "require_once __DIR__ . '/../src/app.php';\n"))
+
+      ;; Crear src/app.php
+      (with-temp-file (concat project-dir "/src/app.php")
+        (insert "<?php\n\n")
+        (insert "header('Content-Type: application/json');\n\n")
+        (insert "$method = $_SERVER['REQUEST_METHOD'];\n")
+        (insert "$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);\n\n")
+        (insert "// Rutas\n")
+        (insert "if ($path === '/' && $method === 'GET') {\n")
+        (insert (format "    echo json_encode(['message' => 'Hola desde %s']);\n" name))
+        (insert "} elseif ($path === '/health' && $method === 'GET') {\n")
+        (insert "    echo json_encode(['status' => 'ok']);\n")
+        (insert "} else {\n")
+        (insert "    http_response_code(404);\n")
+        (insert "    echo json_encode(['error' => 'Not found']);\n")
+        (insert "}\n"))
+
+      ;; Crear composer.json
+      (with-temp-file (concat project-dir "/composer.json")
+        (insert "{\n")
+        (insert (format "    \"name\": \"brian/%s\",\n" name))
+        (insert "    \"description\": \"REST API project\",\n")
+        (insert "    \"type\": \"project\",\n")
+        (insert "    \"autoload\": {\n")
+        (insert "        \"psr-4\": {\n")
+        (insert (format "            \"App\\\\\": \"src/\"\n"))
+        (insert "        }\n")
+        (insert "    },\n")
+        (insert "    \"require\": {\n")
+        (insert "        \"php\": \">=8.0\"\n")
+        (insert "    }\n")
+        (insert "}\n"))
+
+      ;; Crear .gitignore
+      (with-temp-file (concat project-dir "/.gitignore")
+        (insert "vendor/\n")
+        (insert ".env\n")
+        (insert "composer.lock\n"))
+
+      ;; Marcador Projectile + git
+      (with-temp-file (concat project-dir "/.projectile") (insert ""))
+      (my/git-init-and-commit project-dir name)
+
+      (message "🐘 Proyecto PHP creado: %s (instala composer para usar Laravel)" project-dir)
+      (find-file (concat project-dir "/src/app.php")))))
+
+(global-set-key (kbd "C-c n P") #'my/new-php-project)
+
+;; --- FORMATEO CON ASTYLE (Estilo K&R / Tsoding) ---
+
+(defun my/astyle-region (start end)
+  "Formatea la región seleccionada con Astyle."
+  (interactive "r")
+  (let ((saved-line (line-number-at-pos)))
+    (shell-command-on-region start end "astyle --style=kr" nil t)
+    ;; Intentamos corregir la indentación nativa de Emacs después de Astyle
+    ;; para evitar que el código quede pegado al margen izquierdo.
+    (indent-region start end)
+    (goto-line saved-line)
+    (message "✨ Región formateada con Astyle (K&R)")))
+
+(defun my/astyle-buffer ()
+  "Formatea todo el buffer con Astyle."
+  (interactive)
+  (my/astyle-region (point-min) (point-max))
+  (message "✨ Buffer completo formateado con Astyle (K&R)"))
+
+;; Definimos un prefijo 'C-c a' para Astyle
+(global-set-key (kbd "C-c A b") 'my/astyle-buffer) ; a -> buffer
+(global-set-key (kbd "C-c A r") 'my/astyle-region) ; a -> region
+
+(defun my/kill-other-buffers ()
+  "Cierra todos los buffers abiertos excepto el actual y los de sistema."
+  (interactive)
+  (let ((current-buf (current-buffer)))
+    (dolist (buf (buffer-list))
+      (let ((name (buffer-name buf)))
+        (unless (or (eq buf current-buf)
+                    (string-prefix-p " " name)
+                    (string-prefix-p "*" name))
+          (kill-buffer buf))))
+    (message "Limpieza completada: solo queda este buffer y el sistema.")))
+;; Actualizamos el atajo de teclado
+(global-set-key (kbd "C-c b k") 'my/kill-other-buffers)
+;; --- Función para duplicar línea o región ---
+(defun my/duplicate-line-or-region ()
+  "Duplica la línea actual o la región activa debajo de la posición actual."
+  (interactive)
+  (if (use-region-p)
+      (let ((start (region-beginning))
+            (end (region-end)))
+        (save-excursion
+          (goto-char end)
+          (insert (buffer-substring start end))))
+    (save-excursion
+      (let ((line-text (buffer-substring (line-beginning-position) (line-end-position))))
+        (goto-char (line-end-position))
+        (newline)
+        (insert line-text))))
+  (message "Línea/Región duplicada"))
+
+;; Asignar atajo (por ejemplo, C-c d o M-n)
+;; Nota: C-c d ya lo usas para debug en tu config,
+;; así que usaremos C-c D (D mayúscula) o puedes elegir otro.
+(global-set-key (kbd "C-c D") 'my/duplicate-line-or-region)
+
+;;Invertir lista separada por comas.
+;; Aseguramos que las librerías necesarias estén cargadas
+(require 'cl-lib)
+
+;; --- Función Auxiliar: Divide por comas preservando comillas ---
+(defun my/split-csv-preserve-quotes (text)
+  "Divide TEXT por comas, ignorando las comas dentro de comillas dobles.
+   Retorna una lista de elementos limpios."
+  (let ((items '())
+        (current-item "")
+        (in-quote nil)
+        (len (length text))
+        (i 0))
+    (while (< i len)
+      (let ((char (aref text i)))
+        (cond
+         ((char-equal char ?\")
+          (setq in-quote (not in-quote))
+          (setq current-item (concat current-item (string char))))
+         ((and (char-equal char ?,) (not in-quote))
+          ;; Si es coma y NO estamos en comillas, guardar item
+          (push (string-trim current-item) items)
+          (setq current-item ""))
+         (t
+          (setq current-item (concat current-item (string char))))))
+      (setq i (1+ i)))
+    ;; Agregar el último elemento
+    (push (string-trim current-item) items)
+    (nreverse items)))
+
+;; --- Función Principal: Smart Reverse ---
+(defun my/smart-reverse ()
+  "Rota, transpone o invierte listas CSV de forma inteligente.
+   1. Selección: Mueve lo seleccionado al inicio.
+   2. Cursor en medio: Transpone el elemento actual con el siguiente.
+   3. Cursor al final: Invierte toda la línea."
+  (interactive)
+  (let* ((separator ", ")
+         (eol (line-end-position))
+         (bol (line-beginning-position))
+         (full-text (buffer-substring-no-properties bol eol))
+         (items (my/split-csv-preserve-quotes full-text))
+         (new-text nil))
+
+    (cond
+     ;; --- CASO 1: Región Seleccionada (Rotar) ---
+     ((use-region-p)
+      (let* ((beg (region-beginning))
+             (end (region-end))
+             (sel-text (buffer-substring-no-properties beg end))
+             (sel-items (my/split-csv-preserve-quotes sel-text))
+             (all-items (my/split-csv-preserve-quotes full-text))
+             ;; Filtrar items que NO están en la selección
+             (rest-items (cl-remove-if (lambda (x) (member x sel-items)) all-items)))
+        (setq new-text (string-join (append sel-items rest-items) separator))))
+
+     ;; --- CASO 2: Cursor al final (Invertir Todo) ---
+     ((>= (point) (1- eol))
+      (setq new-text (string-join (nreverse items) separator)))
+
+     ;; --- CASO 3: Transponer (Intercambiar vecino) ---
+     (t
+      (let ((current-len 0)
+            (found-index -1)
+            (cursor-rel (- (point) bol))) ;; Posición relativa al inicio de línea
+
+        ;; Buscar en qué índice cae el cursor sumando longitudes
+        (dotimes (i (length items))
+          (let ((item-len (length (nth i items))))
+            ;; Sumamos largo del item + 2 (por la coma y espacio)
+            (setq current-len (+ current-len item-len 2))
+            ;; Si aún no encontramos y el cursor está antes de este límite
+            (when (and (< found-index 0) (<= cursor-rel current-len))
+              (setq found-index i))))
+
+        ;; Si no encontró (ej: cursor muy al final), asume el último
+        (when (< found-index 0) (setq found-index (1- (length items))))
+
+        ;; Lógica de Transposición
+        (if (and (>= found-index 0) (< found-index (1- (length items))))
+            ;; Si hay un siguiente elemento, intercambiamos A <-> B
+            (let ((elem-a (nth found-index items))
+                  (elem-b (nth (1+ found-index) items)))
+              (let ((rotated-items (append (cl-subseq items 0 found-index)
+                                           (list elem-b elem-a)
+                                           (cl-subseq items (+ found-index 2)))))
+                (setq new-text (string-join rotated-items separator))))
+
+          ;; Si estamos en el último elemento (sin siguiente), invertimos todo por defecto
+          (setq new-text (string-join (reverse items) separator))))))
+
+    ;; --- Aplicar ---
+    (if new-text
+        (progn
+          (delete-region bol eol)
+          (insert new-text))
+      (message "No se pudo procesar la lista."))))
+
+;; --- ARREGLO DE COLORES EN COMPILACIÓN ---
+(require 'ansi-color)
+
+(defun my/colorize-compilation-buffer ()
+  "Interpreta códigos ANSI en el buffer de compilación."
+  (let ((inhibit-read-only t))
+    (ansi-color-apply-on-region compilation-filter-start (point))))
+
+(add-hook 'compilation-filter-hook 'my/colorize-compilation-buffer)
+
+;; Ver lista de errores solo bajo demanda
+(global-set-key (kbd "C-c E") 'flycheck-list-errors)
+#+end_src
+
+* 80. Rendimiento del Motor (GC & Mantenimiento)
+Optimizaciones finales y limpieza.
+
+#+begin_src emacs-lisp
+;; --- Limpieza automática de buffers ---
+(use-package midnight
+  :ensure nil
+  :config
+  (midnight-mode t)
+  (setq midnight-period 7200))  ; Limpiar cada 2 horas
+
+;; --- Optimización Inteligente del GC ---
+;; Mantiene el umbral alto cuando no estás tecleando y bajo cuando sí.
+(use-package gcmh
+  :ensure t
+  :init (gcmh-mode 1)
+  :config
+  (setq gcmh-idle-delay (if (bound-and-true-p my/is-termux) 1.0 0.5)
+        gcmh-high-cons-threshold (if (bound-and-true-p my/is-termux)
+                                     (* 64 1024 1024)      ; 64MB en Termux
+                                   (* 1024 1024 1024))))   ; 1GB en PC
+
+;; --- Mostrar tiempo de carga ---
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (message "🚀 Emacs cargado en %.2f segundos con %d paquetes"
+                     (float-time (time-subtract after-init-time before-init-time))
+                     (length package-activated-list))))
+;; --- MODO ZEN: CERO RUIDO VISUAL DE ERRORES ---
+
+;; 1. Quitar las flechas/puntos rojos de la columna izquierda (Fringe)
+(setq flycheck-indication-mode nil)
+
+;; 2. Quitar el color rojo del PATH del archivo en la barra superior (Headerline)
+;; Esto evita que la ruta "Source > Private > Actor.cpp" se ponga roja.
+(with-eval-after-load 'lsp-mode
+  (setq lsp-headerline-breadcrumb-enable-diagnostics nil))
+
+;; 3. Quitar todos los subrayados del texto (Refuerzo)
+(with-eval-after-load 'flycheck
+  (set-face-attribute 'flycheck-error nil :underline nil)
+  (set-face-attribute 'flycheck-warning nil :underline nil)
+  (set-face-attribute 'flycheck-info nil :underline nil))
+
+;; 4. (Opcional) Si usas lsp-ui, evitar que resalte la línea entera
+(with-eval-after-load 'lsp-ui
+  (set-face-attribute 'lsp-ui-sideline-global nil :background nil))
+
+;; --- ESTILO VISUAL NO INTRUSIVO ---
+;; Hacer que los errores sean sutiles o invisibles en el texto
+(with-eval-after-load 'flycheck
+  ;; Opción A: Quitar subrayado totalmente (solo verás el contador abajo)
+  (set-face-attribute 'flycheck-error nil :underline nil)
+  (set-face-attribute 'flycheck-warning nil :underline nil)
+
+  ;; Opción B: Si prefieres que sea MUY sutil (ej: solo un leve cambio de color de fondo)
+  ;; (set-face-attribute 'flycheck-error nil :background "#2c0e0e" :underline nil)
+  )
+#+end_src
+

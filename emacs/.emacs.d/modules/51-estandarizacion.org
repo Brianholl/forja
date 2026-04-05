@@ -1,0 +1,751 @@
+#+TITLE: Módulo Estandarización - Asistencia Operativa (La Tarea)
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-infraestructura-de-documentación-directorios-y-plantillas][10. Infraestructura de Documentación (Directorios y Plantillas)]]
+- [[#20-sistema-de-checklists-do-confirm--read-do][20. Sistema de Checklists (DO-CONFIRM & READ-DO)]]
+- [[#30-procedimientos-operativos-estándar-sop][30. Procedimientos Operativos Estándar (SOP)]]
+- [[#40-exportación-profesional-pdf-html-odt][40. Exportación Profesional (PDF, HTML, ODT)]]
+- [[#50-control-de-versiones-de-documentos][50. Control de Versiones de Documentos]]
+- [[#60-base-de-conocimiento-org-roam][60. Base de Conocimiento (org-roam)]]
+- [[#70-formularios-y-captura-estructurada][70. Formularios y Captura Estructurada]]
+- [[#80-automatización-con-org-babel][80. Automatización con Org-Babel]]
+- [[#90-ia-local-para-documentación-gptel][90. IA Local para Documentación (gptel)]]
+- [[#100-atajos-y-hydra-de-documentación][100. Atajos y Hydra de Documentación]]
+
+* 10. Infraestructura de Documentación (Directorios y Plantillas)
+Crea la estructura de directorios para documentación técnica profesional.
+El directorio base es =~/org/docs/=. Contiene subcarpetas para SOPs,
+checklists, templates y la base de conocimiento.
+
+Filosofía (Gawande): "Bajo presión, la gente no se eleva a la altura
+de sus expectativas, sino que cae al nivel de su entrenamiento."
+La estandarización ES ese entrenamiento.
+
+#+begin_src emacs-lisp
+;; --- Directorio base de documentación ---
+(defvar my/docs-dir (expand-file-name "docs/" org-directory)
+  "Directorio raíz de documentación estandarizada.")
+
+(defvar my/docs-sops       (expand-file-name "sops/"       my/docs-dir))
+(defvar my/docs-checklists (expand-file-name "checklists/" my/docs-dir))
+(defvar my/docs-templates  (expand-file-name "templates/"  my/docs-dir))
+(defvar my/docs-kb         (expand-file-name "kb/"         my/docs-dir))
+(defvar my/docs-exports    (expand-file-name "exports/"    my/docs-dir))
+
+;; Crear directorios si no existen
+(dolist (dir (list my/docs-dir my/docs-sops my/docs-checklists
+                   my/docs-templates my/docs-kb my/docs-exports))
+  (unless (file-directory-p dir)
+    (make-directory dir t)
+    (message "📁 Creado: %s" dir)))
+#+end_src
+
+* 20. Sistema de Checklists (DO-CONFIRM & READ-DO)
+Gawande distingue dos tipos de checklists:
+
+- *DO-CONFIRM*: Ejecutás de memoria, luego verificás con la lista.
+  Uso: tareas que ya sabés hacer pero donde un olvido es costoso.
+  Ejemplo: preparar el laboratorio antes de clase.
+
+- *READ-DO*: Leés cada paso y lo ejecutás antes de pasar al siguiente.
+  Uso: procedimientos nuevos o críticos donde el orden importa.
+  Ejemplo: reimage de una PC del laboratorio.
+
+Los snippets generan la estructura completa del checklist con metadata.
+
+#+begin_src emacs-lisp
+;; --- Plantilla de checklist como función interactiva ---
+(defun my/docs-nuevo-checklist ()
+  "Crea un nuevo checklist DO-CONFIRM o READ-DO en ~/org/docs/checklists/."
+  (interactive)
+  (let* ((titulo (read-string "Título del checklist: "))
+         (tipo (completing-read "Tipo: "
+                '("DO-CONFIRM" "READ-DO") nil t))
+         (slug (replace-regexp-in-string
+                "[^a-z0-9]" "-"
+                (downcase titulo)))
+         (filepath (expand-file-name
+                    (concat slug ".org") my/docs-checklists))
+         (desc-tipo (if (string= tipo "DO-CONFIRM")
+                        "Ejecutar de memoria, luego verificar cada punto."
+                      "Leer cada paso y ejecutar antes de avanzar.")))
+    (find-file filepath)
+    (insert (format "#+TITLE: %s\n" titulo))
+    (insert (format "#+AUTHOR: %s\n" user-full-name))
+    (insert (format "#+DATE: %s\n" (format-time-string "[%Y-%m-%d]")))
+    (insert "#+FILETAGS: :checklist:\n")
+    (insert "#+STARTUP: indent showall\n\n")
+    (insert (format "* %s — %s\n" titulo tipo))
+    (insert ":PROPERTIES:\n")
+    (insert (format ":TIPO: %s\n" tipo))
+    (insert (format ":INSTRUCCION: %s\n" desc-tipo))
+    (insert (format ":VERSION: 1.0\n"))
+    (insert (format ":ULTIMA_REVISION: %s\n" (format-time-string "[%Y-%m-%d]")))
+    (insert ":END:\n\n")
+    (insert (format "/%s/\n\n" desc-tipo))
+    (insert "** Pre-condiciones\n")
+    (insert "- [ ] \n\n")
+    (insert "** Pasos\n")
+    (insert "- [ ] Paso 1: \n")
+    (insert "- [ ] Paso 2: \n")
+    (insert "- [ ] Paso 3: \n\n")
+    (insert "** Verificación Final\n")
+    (insert "- [ ] Todo completado correctamente\n")
+    (insert "- [ ] Resultado documentado\n\n")
+    (insert "** Notas / Excepciones\n")
+    (insert "Documentar aquí cualquier desviación del procedimiento estándar.\n")
+    (goto-char (point-min))
+    (search-forward "Paso 1: ")
+    (message "📋 Checklist %s creado: %s" tipo filepath)))
+
+;; --- Función para contar progreso de checkboxes ---
+(defun my/docs-checklist-progreso ()
+  "Muestra el progreso del checklist actual (checkboxes marcadas/total)."
+  (interactive)
+  (let ((total 0) (done 0))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "^\\s*- \\[\\([ X]\\)\\]" nil t)
+        (setq total (1+ total))
+        (when (string= (match-string 1) "X")
+          (setq done (1+ done)))))
+    (if (> total 0)
+        (message "📊 Progreso: %d/%d (%d%%)" done total
+                 (round (* 100.0 (/ (float done) total))))
+      (message "No se encontraron checkboxes en este buffer."))))
+
+;; --- Cookie de progreso automática ---
+;; Org ya soporta [/] y [%] en headings.
+;; Activamos el recalculado automático.
+(setq org-checkbox-hierarchical-statistics nil) ; Contar recursivamente
+#+end_src
+
+* 30. Procedimientos Operativos Estándar (SOP)
+Un SOP es un documento que describe paso a paso cómo ejecutar una tarea
+de manera que cualquier persona capacitada pueda hacerla con el mismo resultado.
+
+Estructura estándar de un SOP:
+1. Propósito (¿para qué existe este procedimiento?)
+2. Alcance (¿a qué aplica y a qué no?)
+3. Responsable (¿quién lo ejecuta?)
+4. Prerrequisitos (¿qué necesito antes de empezar?)
+5. Procedimiento (pasos numerados)
+6. Criterios de éxito (¿cómo sé que salió bien?)
+7. Historial de revisiones
+
+#+begin_src emacs-lisp
+(defun my/docs-nuevo-sop ()
+  "Crea un nuevo Procedimiento Operativo Estándar en ~/org/docs/sops/."
+  (interactive)
+  (let* ((titulo (read-string "Título del SOP: "))
+         (codigo (read-string "Código (ej: SOP-IT-001): " "SOP-"))
+         (responsable (read-string "Responsable: "))
+         (slug (replace-regexp-in-string
+                "[^a-z0-9]" "-"
+                (downcase (concat codigo "-" titulo))))
+         (filepath (expand-file-name
+                    (concat slug ".org") my/docs-sops)))
+    (find-file filepath)
+    (insert (format "#+TITLE: %s — %s\n" codigo titulo))
+    (insert (format "#+AUTHOR: %s\n" user-full-name))
+    (insert (format "#+DATE: %s\n" (format-time-string "[%Y-%m-%d]")))
+    (insert "#+FILETAGS: :sop:\n")
+    (insert "#+STARTUP: indent showall\n")
+    (insert "#+OPTIONS: toc:2 num:t\n\n")
+    ;; Metadata del SOP
+    (insert "* Metadata del Documento\n")
+    (insert ":PROPERTIES:\n")
+    (insert (format ":CODIGO:      %s\n" codigo))
+    (insert (format ":VERSION:     1.0\n"))
+    (insert (format ":ESTADO:      Borrador\n"))
+    (insert (format ":RESPONSABLE: %s\n" responsable))
+    (insert (format ":CREADO:      %s\n" (format-time-string "[%Y-%m-%d]")))
+    (insert (format ":REVISADO:    %s\n" (format-time-string "[%Y-%m-%d]")))
+    (insert (format ":PROXIMA_REV: %s\n"
+                    (format-time-string "[%Y-%m-%d]"
+                     (time-add (current-time) (days-to-time 90)))))
+    (insert ":END:\n\n")
+    ;; Cuerpo del SOP
+    (insert "* 1. Propósito\n")
+    (insert "Describir por qué existe este procedimiento y qué problema resuelve.\n\n")
+    (insert "* 2. Alcance\n")
+    (insert "- Aplica a: \n")
+    (insert "- No aplica a: \n\n")
+    (insert "* 3. Prerrequisitos\n")
+    (insert "- [ ] \n\n")
+    (insert "* 4. Procedimiento\n")
+    (insert "** 4.1 \n")
+    (insert "** 4.2 \n")
+    (insert "** 4.3 \n\n")
+    (insert "* 5. Criterios de Éxito\n")
+    (insert "| Criterio | Método de verificación | OK |\n")
+    (insert "|----------+-----------------------+----|\n")
+    (insert "|          |                       |    |\n\n")
+    (insert "* 6. Excepciones y Troubleshooting\n")
+    (insert "| Situación | Acción | Escalar a |\n")
+    (insert "|-----------+--------+-----------|\n")
+    (insert "|           |        |           |\n\n")
+    (insert "* 7. Historial de Revisiones\n")
+    (insert "| Versión | Fecha      | Autor | Cambios           |\n")
+    (insert "|---------+------------+-------+-------------------|\n")
+    (insert (format "| 1.0     | %s | %s | Creación inicial  |\n"
+                    (format-time-string "%Y-%m-%d") user-full-name))
+    (goto-char (point-min))
+    (search-forward "Propósito")
+    (forward-line 1)
+    (message "📝 SOP %s creado: %s" codigo filepath)))
+
+;; --- Función para actualizar versión de SOP ---
+(defun my/docs-sop-nueva-version ()
+  "Incrementa la versión del SOP actual y registra en el historial."
+  (interactive)
+  (save-excursion
+    ;; Buscar la propiedad VERSION
+    (goto-char (point-min))
+    (when (re-search-forward ":VERSION:\\s+\\([0-9]+\\)\\.\\([0-9]+\\)" nil t)
+      (let* ((major (string-to-number (match-string 1)))
+             (minor (string-to-number (match-string 2)))
+             (tipo (completing-read "Tipo de cambio: "
+                     '("menor (corrección)" "mayor (reestructuración)") nil t))
+             (new-version (if (string-prefix-p "mayor" tipo)
+                              (format "%d.0" (1+ major))
+                            (format "%d.%d" major (1+ minor))))
+             (cambios (read-string "Descripción del cambio: ")))
+        ;; Actualizar versión
+        (replace-match (concat ":VERSION:     " new-version))
+        ;; Actualizar fecha de revisión
+        (goto-char (point-min))
+        (when (re-search-forward ":REVISADO:.*" nil t)
+          (replace-match (format ":REVISADO:    %s"
+                          (format-time-string "[%Y-%m-%d]"))))
+        ;; Actualizar próxima revisión (+90 días)
+        (goto-char (point-min))
+        (when (re-search-forward ":PROXIMA_REV:.*" nil t)
+          (replace-match (format ":PROXIMA_REV: %s"
+                          (format-time-string "[%Y-%m-%d]"
+                           (time-add (current-time) (days-to-time 90))))))
+        ;; Cambiar estado a Revisado
+        (goto-char (point-min))
+        (when (re-search-forward ":ESTADO:.*" nil t)
+          (replace-match ":ESTADO:      Vigente"))
+        ;; Agregar entrada al historial
+        (goto-char (point-min))
+        (when (re-search-forward "^| Versión" nil t)
+          (forward-line 2)
+          (end-of-line)
+          ;; Buscar la última fila de la tabla
+          (while (and (not (eobp))
+                      (looking-at-p "^|"))
+            (forward-line 1))
+          (forward-line -1)
+          (end-of-line)
+          (insert (format "\n| %s | %s | %s | %s |"
+                          new-version
+                          (format-time-string "%Y-%m-%d")
+                          user-full-name
+                          cambios)))
+        (save-buffer)
+        (message "📝 SOP actualizado a versión %s" new-version)))))
+#+end_src
+
+* 40. Exportación Profesional (PDF, HTML, ODT)
+Configuración de exportación para generar documentación profesional
+directamente desde Org Mode. Incluye:
+- PDF via LaTeX con portada institucional
+- HTML con estilo limpio para wikis
+- ODT para intercambio con usuarios de Word/LibreOffice
+
+Requisitos del sistema (ya deberían estar en Arch):
+#+begin_src bash :tangle no
+sudo pacman -S texlive-basic texlive-latexrecommended texlive-fontsrecommended texlive-langspanish
+#+end_src
+
+#+begin_src emacs-lisp
+;; --- Exportación PDF via LaTeX ---
+(with-eval-after-load 'ox-latex
+  ;; Compilar con latexmk para resolver referencias automáticamente
+  (setq org-latex-compiler "pdflatex")
+  (setq org-latex-pdf-process
+        '("latexmk -pdf -interaction=nonstopmode -output-directory=%o %f"
+          "latexmk -c -output-directory=%o %f"))
+
+  ;; Clase personalizada para SOPs
+  (add-to-list 'org-latex-classes
+    '("sop-document"
+      "\\documentclass[11pt,a4paper]{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage[spanish]{babel}
+\\usepackage{geometry}
+\\geometry{margin=2.5cm}
+\\usepackage{fancyhdr}
+\\usepackage{graphicx}
+\\usepackage{hyperref}
+\\usepackage{enumitem}
+\\usepackage{booktabs}
+\\usepackage{xcolor}
+\\definecolor{headerblue}{HTML}{1565C0}
+\\pagestyle{fancy}
+\\fancyhf{}
+\\fancyhead[L]{\\textcolor{headerblue}{\\small Procedimiento Operativo Estándar}}
+\\fancyhead[R]{\\textcolor{headerblue}{\\small \\thepage}}
+\\fancyfoot[C]{\\small Documento controlado — Verificar vigencia antes de usar}
+\\renewcommand{\\headrulewidth}{0.4pt}
+[NO-DEFAULT-PACKAGES]
+[PACKAGES]
+[EXTRA]"
+      ("\\section{%s}" . "\\section*{%s}")
+      ("\\subsection{%s}" . "\\subsection*{%s}")
+      ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+  ;; Clase para checklists
+  (add-to-list 'org-latex-classes
+    '("checklist-document"
+      "\\documentclass[11pt,a4paper]{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage[spanish]{babel}
+\\usepackage{geometry}
+\\geometry{margin=2cm}
+\\usepackage{enumitem}
+\\usepackage{amssymb}
+\\newlist{checklist}{itemize}{2}
+\\setlist[checklist]{label=$\\square$}
+[NO-DEFAULT-PACKAGES]
+[PACKAGES]
+[EXTRA]"
+      ("\\section{%s}" . "\\section*{%s}")
+      ("\\subsection{%s}" . "\\subsection*{%s}"))))
+
+;; --- Exportación HTML limpia ---
+(with-eval-after-load 'ox-html
+  (setq org-html-validation-link nil)
+  (setq org-html-head-include-default-style nil)
+  (setq org-html-head
+        "<style>
+body { font-family: 'Inter', system-ui, sans-serif; max-width: 800px;
+       margin: 2rem auto; padding: 0 1rem; color: #1e1e1e; line-height: 1.6; }
+h1 { color: #1565C0; border-bottom: 2px solid #1565C0; padding-bottom: 0.3rem; }
+h2 { color: #1976D2; }
+h3 { color: #1E88E5; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background-color: #1565C0; color: white; }
+tr:nth-child(even) { background-color: #f5f5f5; }
+code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 6px;
+      overflow-x: auto; }
+.checklist li { list-style-type: none; }
+.checklist li::before { content: '☐ '; }
+.tag { font-size: 0.75em; padding: 2px 8px; border-radius: 4px; }
+</style>"))
+
+;; --- Directorio de exportación ---
+(defun my/docs-exportar-a (formato)
+  "Exporta el buffer actual al FORMATO especificado en ~/org/docs/exports/."
+  (interactive
+   (list (completing-read "Formato: " '("pdf" "html" "odt") nil t)))
+  (let ((org-export-directory my/docs-exports)
+        (outfile (expand-file-name
+                  (concat (file-name-base (buffer-file-name)) "." formato)
+                  my/docs-exports)))
+    (pcase formato
+      ("pdf"  (org-latex-export-to-pdf))
+      ("html" (org-html-export-to-html))
+      ("odt"  (org-odt-export-to-odt)))
+    (message "📄 Exportado: %s" outfile)))
+#+end_src
+
+* 50. Control de Versiones de Documentos
+Convenciones de nombres y funciones para mantener el control de versiones
+de los documentos técnicos. Complementa a Magit (10-git.org) con
+funciones específicas para documentación.
+
+Convención de nombres: =CODIGO_Titulo_vMAJOR.MINOR.ext=
+Ejemplo: =SOP-IT-001_Reimage-PC_v1.2.org=
+
+#+begin_src emacs-lisp
+;; --- Insertar bloque de control de cambios en cualquier documento ---
+(defun my/docs-insertar-control-cambios ()
+  "Inserta una tabla de control de cambios al final del documento."
+  (interactive)
+  (goto-char (point-max))
+  (insert "\n* Control de Cambios\n")
+  (insert "| Versión | Fecha      | Autor | Descripción          |\n")
+  (insert "|---------+------------+-------+----------------------|\n")
+  (insert (format "| 1.0     | %s | %s | Versión inicial      |\n"
+                  (format-time-string "%Y-%m-%d")
+                  (or user-full-name "Autor")))
+  (message "📋 Tabla de control de cambios insertada."))
+
+;; --- Renombrar archivo según convención ---
+(defun my/docs-renombrar-con-version ()
+  "Renombra el archivo actual según la convención CODIGO_Titulo_vX.Y.org."
+  (interactive)
+  (when (buffer-file-name)
+    (let* ((codigo (read-string "Código: " "SOP-"))
+           (titulo (read-string "Título corto: "))
+           (version (read-string "Versión: " "1.0"))
+           (ext (file-name-extension (buffer-file-name)))
+           (slug (replace-regexp-in-string
+                  "[^a-zA-Z0-9]" "-" titulo))
+           (nuevo-nombre (format "%s_%s_v%s.%s"
+                                 codigo slug version ext))
+           (nuevo-path (expand-file-name
+                        nuevo-nombre
+                        (file-name-directory (buffer-file-name)))))
+      (rename-file (buffer-file-name) nuevo-path t)
+      (set-visited-file-name nuevo-path t t)
+      (message "📄 Renombrado a: %s" nuevo-nombre))))
+
+;; --- Snapshot: copiar versión congelada antes de editar ---
+(defun my/docs-snapshot ()
+  "Crea una copia de seguridad del archivo actual con timestamp."
+  (interactive)
+  (when (buffer-file-name)
+    (let* ((base (file-name-sans-extension (buffer-file-name)))
+           (ext (file-name-extension (buffer-file-name)))
+           (snapshot (format "%s_SNAPSHOT_%s.%s"
+                            base
+                            (format-time-string "%Y%m%d-%H%M%S")
+                            ext)))
+      (copy-file (buffer-file-name) snapshot)
+      (message "📸 Snapshot creado: %s" (file-name-nondirectory snapshot)))))
+#+end_src
+
+* 60. Base de Conocimiento (org-roam)
+Una base de conocimiento permite que el saber del equipo no se pierda
+cuando alguien se va. Org-roam implementa un sistema tipo Zettelkasten
+con backlinks automáticos: cada nota sabe quién la referencia.
+
+Uso para el taller:
+- Documentar soluciones a problemas recurrentes
+- Crear fichas técnicas de hardware/software
+- Vincular SOPs con los problemas que resuelven
+- Construir un wiki del laboratorio
+
+#+begin_src emacs-lisp
+(use-package org-roam
+  :defer t
+  :ensure t
+  :custom
+  (org-roam-directory (expand-file-name "kb/" my/docs-dir))
+  (org-roam-db-location (expand-file-name "org-roam.db" my/docs-dir))
+  (org-roam-completion-everywhere t)
+  ;; Nota: C-c n está reservado para scaffolding de proyectos (00-core).
+  ;; Usamos C-c K (Knowledge) para org-roam.
+  :bind (("C-c K f" . org-roam-node-find)     ; Buscar/crear nota
+         ("C-c K i" . org-roam-node-insert)    ; Insertar link a nota
+         ("C-c K l" . org-roam-buffer-toggle)   ; Ver backlinks
+         ("C-c K c" . org-roam-capture))        ; Capturar nota nueva
+  :config
+  (org-roam-db-autosync-mode)
+
+  ;; --- Templates de captura para la KB ---
+  (setq org-roam-capture-templates
+        '(;; Nota genérica
+          ("d" "default" plain "%?"
+           :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+                    "#+title: ${title}\n#+date: %U\n#+filetags: :kb:\n\n")
+           :unnarrowed t)
+
+          ;; Ficha técnica de equipo/software
+          ("t" "Ficha técnica" plain
+           "* Descripción\n%?\n\n* Especificaciones\n| Atributo | Valor |\n|----------+-------|\n|          |       |\n\n* Problemas conocidos\n\n* SOPs relacionados\n"
+           :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+                    "#+title: ${title}\n#+date: %U\n#+filetags: :kb:ficha:\n\n")
+           :unnarrowed t)
+
+          ;; Solución a problema (KB article)
+          ("s" "Solución/Fix" plain
+           "* Síntoma\n%?\n\n* Causa raíz\n\n* Solución\n\n* Prevención\n\n* Referencias\n"
+           :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+                    "#+title: FIX: ${title}\n#+date: %U\n#+filetags: :kb:fix:\n\n")
+           :unnarrowed t))))
+#+end_src
+
+* 70. Formularios y Captura Estructurada
+En el Módulo 2 de Asistencia Operativa se usan formularios digitales para
+estandarizar la captura de información (ej: un formulario de reporte de
+incidentes en vez de un mail desestructurado).
+
+Org Mode soporta esto con capture templates avanzados que actúan como
+formularios: preguntas con =%^{prompt}=, fechas, selección múltiple.
+
+#+begin_src emacs-lisp
+;; --- Formularios como capture templates ---
+;; Se agregan a org-capture-templates (definido en 50-gtd.org)
+(with-eval-after-load 'org-capture
+  (dolist (tmpl
+           '(;; Formulario de reporte de incidente (estandarizado)
+             ("f" "Formularios")
+             ("fi" "Reporte de Incidente"
+              entry (file+headline my/gtd-soporte "Abiertos")
+              "* INBOX [#%^{Prioridad|B|A|C|D}] %^{Título del incidente}
+:PROPERTIES:
+:CREATED:        %U
+:REPORTADO_POR:  %^{Nombre de quien reporta}
+:CONTACTO:       %^{Email o teléfono}
+:EQUIPO:         %^{PC/Equipo afectado}
+:UBICACION:      %^{Ubicación|Laboratorio 1|Laboratorio 2|Oficina|Aula}
+:CATEGORIA:      %^{Categoría|Hardware|Software|Red|Cuenta de usuario|Otro}
+:IMPACTO:        %^{Impacto|1 usuario|Grupo|Todo el laboratorio}
+:END:
+
+** Descripción del Problema
+%?
+
+** Pasos para Reproducir
+1.
+2.
+3.
+
+** Mensaje de Error (si aplica)
+#+begin_example
+
+#+end_example
+
+** Intentos de Solución Previos
+-
+"
+              :empty-lines 1)
+
+             ;; Formulario de solicitud de software
+             ("fs" "Solicitud de Software"
+              entry (file+headline my/gtd-soporte "Abiertos")
+              "* INBOX Solicitud: %^{Software solicitado}
+:PROPERTIES:
+:CREATED:       %U
+:SOLICITANTE:   %^{Nombre}
+:EQUIPO:        %^{PC destino}
+:JUSTIFICACION: %^{Para qué lo necesita}
+:LICENCIA:      %^{Tipo de licencia|Libre|Educativa|Comercial|Desconocida}
+:END:
+
+** Detalles
+- Software: %\\1
+- URL oficial: %^{URL de descarga}
+- Requisitos mínimos: %^{Requisitos (RAM, disco, etc.)}
+
+** Aprobación
+- [ ] Verificar que no existe alternativa libre instalada
+- [ ] Verificar compatibilidad con las PCs del laboratorio
+- [ ] Verificar licencia y legalidad
+- [ ] Instalar y testear
+- [ ] Documentar en la base de conocimiento
+"
+              :empty-lines 1)
+
+             ;; Formulario de préstamo de equipamiento
+             ("fp" "Préstamo de Equipamiento"
+              entry (file+headline my/gtd-inbox "Bandeja de Entrada")
+              "* TODO Préstamo: %^{Equipo prestado} → %^{A quién}
+SCHEDULED: %^t
+:PROPERTIES:
+:CREATED:    %U
+:EQUIPO:     %\\1
+:PRESTADO_A: %\\2
+:FECHA_DEVOLUCION: %^{Fecha estimada de devolución}t
+:ESTADO:     Prestado
+:END:
+
+** Condiciones
+- Estado al entregar: %^{Estado del equipo|Bueno|Regular|Con observaciones}
+- Observaciones: %?
+- [ ] Firmado por el receptor
+- [ ] Registrado en inventario
+"
+              :empty-lines 1)))
+    (add-to-list 'org-capture-templates tmpl t)))
+#+end_src
+
+* 80. Automatización con Org-Babel
+Org-babel permite ejecutar código dentro de documentos Org.
+Esto habilita automatización directa en los SOPs y checklists:
+- Scripts de diagnóstico embebidos en el SOP
+- Tablas que se calculan automáticamente
+- Reportes que se regeneran con un keystroke
+
+#+begin_src emacs-lisp
+;; --- Lenguajes habilitados en org-babel ---
+(with-eval-after-load 'org
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (shell      . t)    ; bash/sh scripts en SOPs
+     (python     . t)    ; análisis de datos
+     (calc       . t)    ; cálculos en tablas
+     (gnuplot    . t)))  ; gráficos
+
+  ;; No pedir confirmación al ejecutar bloques de código confiables
+  ;; NOTA: solo habilitar si confiás en tus propios documentos
+  ;; (setq org-confirm-babel-evaluate nil)
+
+  ;; Mostrar imágenes inline después de ejecutar
+  (add-hook 'org-babel-after-execute-hook 'org-display-inline-images))
+
+;; --- Bloques de código útiles para SOPs ---
+;; Ejemplo: bloque de diagnóstico de red embebido en un SOP
+;; Usar dentro de un archivo .org así:
+;;
+;; #+begin_src shell :results output
+;; echo "=== Diagnóstico de Red ==="
+;; echo "Hostname: $(hostname)"
+;; echo "IP: $(ip -4 addr show | grep inet | head -1)"
+;; ping -c 3 8.8.8.8 2>&1 || echo "Sin conexión a internet"
+;; echo "DNS: $(cat /etc/resolv.conf | grep nameserver)"
+;; #+end_src
+;;
+;; El alumno puede ejecutar con C-c C-c y el resultado aparece inline.
+#+end_src
+
+* 90. IA Local para Documentación (gptel)
+Funciones de IA específicas para el Módulo 2:
+generar SOPs desde notas, convertir texto libre en checklists,
+y revisar documentación existente.
+
+Requiere gptel configurado en 50-gtd.org y Ollama corriendo.
+
+#+begin_src emacs-lisp
+(defun my/docs-ai-generar-sop ()
+  "Genera un borrador de SOP a partir de notas sueltas en la región o subtree."
+  (interactive)
+  (let* ((content (if (use-region-p)
+                      (buffer-substring-no-properties (region-beginning) (region-end))
+                    (org-get-entry)))
+         (prompt (format
+                  "Sos un redactor técnico. A partir de estas notas, generá un SOP
+(Procedimiento Operativo Estándar) en formato Org Mode con estas secciones:
+* 1. Propósito
+* 2. Alcance
+* 3. Prerrequisitos (como checklist con - [ ])
+* 4. Procedimiento (pasos numerados como subsecciones **)
+* 5. Criterios de Éxito (tabla org)
+* 6. Troubleshooting (tabla org con Situación | Acción | Escalar a)
+
+Notas de entrada:\n%s
+
+Respondé SOLO con el documento Org, sin explicación." content)))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (let ((buf (generate-new-buffer "*SOP-Borrador*")))
+                        (with-current-buffer buf
+                          (org-mode)
+                          (insert response)
+                          (goto-char (point-min)))
+                        (switch-to-buffer buf)
+                        (message "📝 Borrador de SOP generado. Revisá y guardá con C-x C-w"))
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+
+(defun my/docs-ai-texto-a-checklist ()
+  "Convierte texto libre en un checklist estructurado DO-CONFIRM o READ-DO."
+  (interactive)
+  (let* ((content (if (use-region-p)
+                      (buffer-substring-no-properties (region-beginning) (region-end))
+                    (read-string "Descripción de la tarea: ")))
+         (tipo (completing-read "Tipo: " '("DO-CONFIRM" "READ-DO") nil t))
+         (prompt (format
+                  "Convertí este texto en un checklist tipo %s en formato Org Mode.
+Usá - [ ] para cada item. Agrupá en secciones: Pre-condiciones, Pasos, Verificación Final.
+Sé concreto y específico en cada paso.
+
+Texto: %s
+
+Respondé SOLO con el checklist Org." tipo content)))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (progn
+                        (when (use-region-p)
+                          (delete-region (region-beginning) (region-end)))
+                        (insert response)
+                        (message "📋 Checklist %s generado" tipo))
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+
+(defun my/docs-ai-revisar-documento ()
+  "Pide a la IA que revise el documento actual y sugiera mejoras."
+  (interactive)
+  (let* ((content (buffer-substring-no-properties (point-min) (point-max)))
+         (prompt (format
+                  "Revisá este documento técnico y dá feedback BREVE (máximo 5 puntos):
+1. ¿Los pasos son claros y no ambiguos?
+2. ¿Falta algún paso crítico?
+3. ¿Los criterios de éxito son verificables?
+4. ¿Hay alguna inconsistencia?
+5. Sugerencia de mejora más importante.
+
+Documento:\n%s" content)))
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (message "🔍 Revisión IA:\n%s" response)
+                    (message "❌ Error: %s" (plist-get info :error)))))))
+#+end_src
+
+* 100. Atajos y Hydra de Documentación
+Todos los atajos de documentación bajo el prefijo =C-c S= (S de SOPs/Standard).
+Nota: =C-c d= está reservado para debug en los módulos de programación.
+
+#+begin_src emacs-lisp
+;; --- Funciones de navegación rápida ---
+(defun my/docs-open-sops ()       (interactive) (dired my/docs-sops))
+(defun my/docs-open-checklists () (interactive) (dired my/docs-checklists))
+(defun my/docs-open-kb ()         (interactive) (dired my/docs-kb))
+(defun my/docs-open-exports ()    (interactive) (dired my/docs-exports))
+
+;; --- Hydra: menú visual de documentación ---
+(defhydra my/hydra-docs (:color blue :hint nil)
+  "
+   DOCUMENTACION Y SOPs
+  --------------------------------------------------
+   CREAR              NAVEGAR           EXPORTAR
+   _s_: Nuevo SOP      _S_: Dir SOPs      _e_: Exportar
+   _c_: Checklist      _C_: Dir Checklists _p_: Progreso
+   _f_: Formulario     _k_: Base Conocim.
+   _v_: Nueva version  _E_: Dir Exports
+
+   HERRAMIENTAS       IA LOCAL
+   _h_: Ctrl cambios   _a s_: IA > SOP
+   _r_: Renombrar      _a c_: IA > Checklist
+   _n_: Snapshot        _a r_: IA > Revisar doc
+
+   BASE DE CONOCIMIENTO (org-roam)
+   _K f_: Buscar nota  _K i_: Insertar link
+   _K c_: Nueva nota   _K l_: Ver backlinks
+
+   _q_: Salir
+"
+  ;; Crear
+  ("s" my/docs-nuevo-sop)
+  ("c" my/docs-nuevo-checklist)
+  ("f" (org-capture nil "f"))
+  ("v" my/docs-sop-nueva-version)
+  ;; Navegar
+  ("S" my/docs-open-sops)
+  ("C" my/docs-open-checklists)
+  ("k" my/docs-open-kb)
+  ("E" my/docs-open-exports)
+  ;; Exportar
+  ("e" my/docs-exportar-a)
+  ("p" my/docs-checklist-progreso)
+  ;; Herramientas
+  ("h" my/docs-insertar-control-cambios)
+  ("r" my/docs-renombrar-con-version)
+  ("n" my/docs-snapshot)
+  ;; IA
+  ("a s" my/docs-ai-generar-sop)
+  ("a c" my/docs-ai-texto-a-checklist)
+  ("a r" my/docs-ai-revisar-documento)
+  ;; org-roam (Knowledge base)
+  ("K f" org-roam-node-find)
+  ("K i" org-roam-node-insert)
+  ("K c" org-roam-capture)
+  ("K l" org-roam-buffer-toggle)
+  ;; Salir
+  ("q" nil))
+
+;; --- Atajo global ---
+(global-set-key (kbd "C-c S") #'my/hydra-docs/body)
+#+end_src

@@ -1,0 +1,343 @@
+#+TITLE: Módulo Misc - Docencia, PDF, IA y Atajos
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-estudio-y-documentación-pdf-tools][10. Estudio y Documentación (PDF Tools)]]
+- [[#20-sistema-de-organización-personal-org-mode][20. Sistema de Organización Personal (Org Mode)]]
+- [[#30-suite-de-presentación-y-docencia][30. Suite de Presentación y Docencia]]
+- [[#40-referencia-rápida-de-comandos-cheatsheet][40. Referencia Rápida de Comandos (Cheatsheet)]]
+- [[#50-manual-de-edición-org][50. Manual de Edición Org]]
+  - [[#atajos-de-formateo][Atajos de Formateo]]
+  - [[#workflow-para-formatear-configorg][Workflow para Formatear config.org]]
+  - [[#configuración-adicional][Configuración Adicional]]
+  - [[#comandos-útiles-de-navegación][Comandos Útiles de Navegación]]
+  - [[#tips-adicionales][Tips Adicionales]]
+
+* 10. Estudio y Documentación (PDF Tools)
+Esta configuración permite usar Emacs como un lector de PDF avanzado.
+Necesitas tener instaladas las librerías de compilación (base-devel) que ya tienes en Arch.
+No disponible en Termux (falta poppler-glib).
+
+#+begin_src emacs-lisp
+;; pdf-tools requiere poppler-glib que no existe en Termux
+(unless (bound-and-true-p my/is-termux)
+  (use-package pdf-tools
+    :defer t
+    :config
+    ;; Inicializar el paquete
+    (pdf-tools-install)
+
+    ;; --- Mejoras de UX ---
+    (setq pdf-view-display-size 'fit-page)  ; Ajustar a la página por defecto
+    (setq pdf-view-use-scaling t)           ; Imágenes nítidas
+    (setq pdf-view-midnight-colors '("#ffffff" . "#1e1e1e")) ; Colores para modo noche
+
+    ;; --- Atajos dentro del PDF ---
+    :bind (:map pdf-view-mode-map
+                ("C-s" . isearch-forward)    ; Buscar texto real
+                ("t" . pdf-view-midnight-minor-mode) ; <--- AQUÍ ESTÁ TU TOGGLE COLOR
+                ("h" . pdf-annot-add-highlight-markup-annotation) ; Resaltar texto
+                ("D" . pdf-annot-delete))))   ; Borrar anotación
+#+end_src
+* 20. Sistema de Organización Personal (Org Mode)
+Potenciar Org para documentación, planificación y literate programming.
+
+#+begin_src emacs-lisp
+(use-package org
+  :ensure nil
+  :config
+  ;; --- Apariencia ---
+  (setq org-src-fontify-natively t)
+  (setq org-src-tab-acts-natively t)
+  (setq org-src-preserve-indentation t)
+  (setq org-hide-emphasis-markers t)      ; Ocultar *bold* _italic_
+  (setq org-pretty-entities t)            ; Símbolos matemáticos bonitos
+
+  ;; --- Comportamiento ---
+  (setq org-startup-indented t)
+  (setq org-startup-folded 'content)      ; Iniciar semi-expandido
+  (setq org-log-done 'time)               ; Timestamp al completar TODOs
+
+  ;; --- Directorio de notas ---
+  (setq org-directory "~/org/")
+  (setq org-default-notes-file (concat org-directory "notas.org"))
+
+  ;; --- Atajos ---
+  :bind (("C-c a" . org-agenda)
+         ("C-c c" . org-capture)
+         ("C-c l" . org-store-link)))
+
+;; Bullets bonitas (reemplaza asteriscos por símbolos)
+(use-package org-bullets
+  :hook (org-mode . org-bullets-mode))
+
+;; TOC automática (tabla de contenidos)
+(use-package toc-org
+  :hook (org-mode . toc-org-mode))
+#+end_src
+
+* 30. Suite de Presentación y Docencia
+Herramientas específicas para tus clases en el colegio.
+
+#+begin_src emacs-lisp
+;; --- Modo Presentación ---
+;;(defun my/presentation-mode ()
+;;  "Modo presentación: fuente grande, sin distracciones."
+;;   (interactive)
+;;   (text-scale-set 3)
+;;   (display-line-numbers-mode -1)
+;;   (diff-hl-mode -1)
+;;   (flycheck-mode -1)
+;;   (message "📽️  Modo presentación activado (F12 para salir)"))
+
+;; (defun my/presentation-mode-off ()
+;;   "Desactivar modo presentación."
+;;   (interactive)
+;;   (text-scale-set 0)
+;;   (display-line-numbers-mode 1)
+;;   (diff-hl-mode 1)
+;;   (flycheck-mode 1)
+;;   (message "✅ Modo normal restaurado"))
+
+;; (global-set-key (kbd "<f12>") 'my/presentation-mode)
+;; (global-set-key (kbd "S-<f12>") 'my/presentation-mode-off)
+
+;; --- Zoom rápido ---
+(global-set-key (kbd "C-+") 'text-scale-increase)
+(global-set-key (kbd "C--") 'text-scale-decrease)
+(global-set-key (kbd "C-0") (lambda () (interactive) (text-scale-set 0)))
+
+;; --- Exportar código a HTML (para compartir con alumnos) ---
+(setq org-html-htmlize-output-type 'css)  ; Exportar con colores
+#+end_src
+
+* 40. Referencia Rápida de Comandos (Cheatsheet)
+Cheatsheet para consulta rápida.
+#+begin_src org :tangle no
+╔═══════════════════════════════════════════════════════════════════╗
+║                    🛠️  SISTEMA Y GENERAL                          ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ GESTIÓN DE CONFIGURACIÓN                                          ║
+║   C-c e       → Abrir config.org para editar                     ║
+║   C-c C-r     → Recargar configuración (sin reiniciar)           ║
+║   C-c b k     → Matar otros buffers (limpieza de área de trabajo)║
+║   C-c y       → Copiar ruta del archivo actual al portapapeles   ║
+║   C-c E       → Ver LISTA DE ERRORES (Flycheck)                  ║
+║                                                                   ║
+║ VISUALIZACIÓN                                                     ║
+║   F12         → Modo Presentación (Fuente grande, sin distracc.) ║
+║   S-F12       → Salir Modo Presentación                          ║
+║   C-+ / C--   → Zoom In / Zoom Out                               ║
+║   C-0         → Restaurar Zoom                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                   🚀 PROYECTOS Y NAVEGACIÓN                       ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ NAVEGACIÓN DE ARCHIVOS                                            ║
+║   F7          → Abrir/Cerrar Treemacs (Barra lateral)            ║
+║   M-0         → Poner foco en Treemacs                           ║
+║   C-c p f     → Buscar archivo en proyecto (Find file)           ║
+║   C-c p p     → Cambiar de proyecto (Switch project)             ║
+║   C-c p s g   → Buscar texto en todo el proyecto (Grep)          ║
+║   C-c p D     → Abrir directorio raíz en Dired                   ║
+║                                                                   ║
+║ BÚSQUEDA Y MOVIMIENTO                                             ║
+║   C-s         → Swiper (Buscar texto dentro del archivo)         ║
+║   C-c r       → Counsel Ripgrep (Búsqueda global potente)* ║
+║   C-;         → Avy: Saltar a 2 caracteres                       ║
+║   C-'         → Avy: Saltar a línea                              ║
+║   M-g w       → Avy: Saltar a palabra                            ║
+║                                                                   ║
+║ TERMINALES                                                        ║
+║   C-c t       → Abrir Vterm (Terminal integrada)                 ║
+║   C-c o t     → Abrir Terminal Externa (Alacritty) aquí          ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                      ✍️  EDICIÓN AVANZADA                         ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ CURSORES MÚLTIPLES                                                ║
+║   C-S-c C-S-c → Editar líneas seleccionadas (multilínea)         ║
+║   C->         → Marcar siguiente igual                           ║
+║   C-<         → Marcar anterior igual                            ║
+║   C-c C-<     → Marcar TODOS los iguales                         ║
+║                                                                   ║
+║ MANIPULACIÓN DE TEXTO                                             ║
+║   C-c D       → Duplicar línea o región                          ║
+║   C-c R       → Invertir lista (Smart Reverse)                   ║
+║   C-c f b     → Formatear buffer completo (Astyle)               ║
+║   C-c T       → Traducir selección al español (IA/Ollama)        ║
+║   TAB         → Expandir snippet o completar (Company)           ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                      💻 DESARROLLO C / C++                        ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ COMPILACIÓN Y EJECUCIÓN                                           ║
+║   F5          → Compilar y Ejecutar (Detecta Makefile/CMake/etc) ║
+║   F9          → Iniciar Debugger (GDB)                           ║
+║   C-c d       → Debug rápido del archivo actual                  ║
+║                                                                   ║
+║ INTELLIGENCIA Y ANÁLISIS                                          ║
+║   F12 (LSP)   → Ir a Definición (Go to Definition)               ║
+║   S-F12 (LSP) → Ver Referencias (Find References)                ║
+║   C-c d a     → DISASTER: Ver código C vs Assembly lado a lado   ║
+║   C-c h       → Buscar en manuales Cppman (Offline)              ║
+║   C-c f       → Clang Format (Buffer completo)                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                      🦖 UNREAL ENGINE 4/5                         ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ SCRIPTS DE AUTOMATIZACIÓN                                         ║
+║   C-c u r     → Menú de Ejecución (Editor, Game, Cook, Package)  ║
+║   C-c u g     → Generar compile_commands.json (CMake Strategy)   ║
+║   C-c n u     → Nuevo Proyecto Unreal C++ (Scaffolding)          ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                  🔌 ESP32, GO Y ENSAMBLADOR                       ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ ESP32 (ESP-IDF)                                                   ║
+║   F6          → Flash & Monitor (Detecta proyecto ESP32)         ║
+║   C-c n e     → Nuevo proyecto ESP32                             ║
+║                                                                   ║
+║ ENSAMBLADOR (FASM)                                                ║
+║   F5          → Compilar y Ejecutar (FASM + LD)                  ║
+║   C-c d       → Debug (GDB)                                      ║
+║                                                                   ║
+║ GO (GOLANG)                                                       ║
+║   F5          → Go Run .                                         ║
+║   C-c n G     → Nuevo proyecto Go                                ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                        🦀 DESARROLLO RUST                         ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ CARGO COMMANDS                                                    ║
+║   F5          → Cargo Run (Ejecutar proyecto)                    ║
+║   C-c C-b     → Cargo Build                                      ║
+║   C-c C-t     → Cargo Test                                       ║
+║   C-c d       → Debug Rust Project                               ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                     ✨ GENERADORES (SCAFFOLDING)                  ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ CREAR NUEVOS PROYECTOS                                            ║
+║   C-c n c     → Nuevo proyecto C (Genérico)                      ║
+║   C-c n C     → Nuevo proyecto C++ (Genérico)                    ║
+║   C-c n g     → Nuevo proyecto Game Dev (Raylib + C)             ║
+║   C-c n +     → Nuevo proyecto Game Dev (Raylib + C++)           ║
+║   C-c n u     → Nuevo proyecto Unreal Engine                     ║
+║   C-c n e     → Nuevo proyecto ESP32 (ESP-IDF)                   ║
+║   C-c n r     → Nuevo proyecto Rust                              ║
+║   C-c n G     → Nuevo proyecto Go (Golang)                       ║
+║   C-c n w     → Nuevo proyecto Web (HTML/CSS/JS)                 ║
+║   C-c n W     → Nuevo proyecto Web + Tailwind CSS                ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                     📄 LECTOR PDF (PDF-TOOLS)                     ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ LECTURA                                                           ║
+║   t           → Alternar Modo Noche (Midnight Mode)              ║
+║   h           → Resaltar texto (Highlight)                       ║
+║   D           → Borrar anotación                                 ║
+║   C-s         → Buscar texto dentro del PDF                      ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                        🦄 ORG MODE                                ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ BÁSICOS                                                           ║
+║   TAB         → Ciclar visibilidad (plegar/desplegar)            ║
+║   C-c '       → Editar bloque de código (src block) aparte       ║
+║   C-c C-c     → Ejecutar bloque de código (si está habilitado)   ║
+║   M-RET       → Nuevo encabezado / item                          ║
+╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║                        🌲 GIT (MAGIT)                             ║
+╠═══════════════════════════════════════════════════════════════════╣
+║ COMANDOS PRINCIPALES (Dentro de status: C-x g)                    ║
+║   s           → Stage archivo (preparar)                         ║
+║   c c         → Commit (confirmar)                               ║
+║   P p         → Push (subir cambios)                             ║
+║   F p         → Pull (bajar cambios)                             ║
+║   M a         → Agregar Remote (conectar repo GitHub nuevo)      ║
+║   b c         → Crear nueva rama (Branch checkout)               ║
+║                                                                   ║
+║ UTILIDADES                                                        ║
+║   C-c M-g     → Menú Git para el archivo actual                  ║
+╚═══════════════════════════════════════════════════════════════════╝
+#+end_src
+* 50. Manual de Edición Org
+Comandos útiles para mantener config.org bien formateado.
+
+** Atajos de Formateo
+
+| Atajo           | Acción                                      |
+|-----------------+---------------------------------------------|
+| ~C-x h~         | Seleccionar todo el buffer                  |
+| ~C-M-\~         | Indentar región seleccionada                |
+| ~C-c '~         | Editar bloque de código en buffer separado  |
+| ~TAB~           | Ciclar visibilidad de encabezado            |
+| ~S-TAB~         | Ciclar visibilidad de TODO el documento     |
+| ~C-c C-x C-i~   | Toggle org-indent-mode                      |
+| ~M-x org-indent-region~ | Indentar región actual          |
+
+** Workflow para Formatear config.org
+
+1. Formatear TODO el archivo:
+   #+begin_example
+   C-x h       → Seleccionar todo
+   C-M-\       → Indentar
+   C-x C-s     → Guardar
+   #+end_example
+
+2. Formatear solo un bloque de código:
+   #+begin_example
+   C-c '       → Abrir bloque en modo edición
+   C-x h       → Seleccionar todo
+   C-M-\       → Indentar
+   C-c '       → Volver a Org mode
+   #+end_example
+
+3. Formatear una sección específica:
+   #+begin_example
+   - Selecciona la región (C-SPC y mueve cursor)
+   - C-M-\     → Indentar selección
+   #+end_example
+
+** Configuración Adicional
+
+#+begin_src emacs-lisp
+;; Mejorar comportamiento de indentación en Org
+(use-package org
+  :ensure nil
+  :config
+  ;; Adaptar indentación automáticamente
+  (setq org-adapt-indentation t)
+
+  ;; Indentar contenido de bloques de código
+  (setq org-edit-src-content-indentation 2)
+
+  ;; Preservar indentación al copiar/pegar
+  (setq org-src-preserve-indentation t)
+
+  ;; Activar org-indent-mode automáticamente
+  (add-hook 'org-mode-hook 'org-indent-mode))
+#+end_src
+
+** Comandos Útiles de Navegación
+
+| Comando                    | Acción                           |
+|----------------------------+----------------------------------|
+| ~C-c C-n~                  | Siguiente encabezado             |
+| ~C-c C-p~                  | Encabezado anterior              |
+| ~C-c C-u~                  | Subir un nivel                   |
+| ~C-c C-j~                  | Ir a encabezado (org-goto)       |
+| ~M-RET~                    | Nuevo encabezado del mismo nivel |
+| ~M-left/right~             | Promover/degradar encabezado     |
+| ~M-up/down~                | Mover encabezado arriba/abajo    |
+
+** Tips Adicionales
+
+- Para ver la estructura completa: ~S-TAB~ (varias veces)
+- Para exportar a HTML: ~C-c C-e h o~
+- Para recargar config: ~C-c C-r~ (si configuraste el atajo)
+- Para abrir config rápido: ~C-c e~

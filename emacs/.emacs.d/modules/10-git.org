@@ -1,0 +1,251 @@
+#+TITLE: Módulo Gestión - Git, Proyectos y Navegación
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* TABLA DE CONTENIDOS
+- [[#10-motor-de-búsqueda-y-navegación-ivy-stack][10. Motor de Búsqueda y Navegación (Ivy Stack)]]
+- [[#20-explorador-de-árbol-de-proyecto-treemacs][20. Explorador de Árbol de Proyecto (Treemacs)]]
+- [[#30-orquestación-de-proyectos-projectile][30. Orquestación de Proyectos (Projectile)]]
+- [[#40-cliente-git-avanzado-magit][40. Cliente Git Avanzado (Magit)]]
+- [[#50-emulación-de-terminal-vterm][50. Emulación de Terminal (Vterm)]]
+
+* 10. Motor de Búsqueda y Navegación (Ivy Stack)
+Ivy/Counsel/Swiper + Avy + Which-key = Navegación ultra rápida.
+
+#+begin_src emacs-lisp
+;; 1. Which-key: Muestra atajos disponibles
+(use-package which-key
+  :init (which-key-mode)
+  :config
+  (setq which-key-idle-delay 0.3)
+  (setq which-key-sort-order 'which-key-key-order-alpha))
+
+;; 2. Ivy: Framework de completado
+(use-package ivy
+  :diminish
+  :bind (("C-s" . swiper)
+         :map ivy-minibuffer-map
+         ("TAB" . ivy-alt-done)
+         ("C-j" . ivy-next-line)
+         ("C-k" . ivy-previous-line)
+         :map ivy-switch-buffer-map
+         ("C-k" . ivy-previous-line)
+         ("C-d" . ivy-switch-buffer-kill))
+  :config
+  (ivy-mode 1)
+  (setq ivy-use-virtual-buffers t)
+  (setq ivy-count-format "(%d/%d) ")
+  (setq ivy-wrap t))
+
+;; Ivy mejorado con iconos
+(use-package all-the-icons-ivy-rich
+  :init (all-the-icons-ivy-rich-mode 1))
+
+(use-package ivy-rich
+  :after ivy
+  :init (ivy-rich-mode 1))
+
+;; 3. Counsel: Comandos mejorados con Ivy
+(use-package counsel
+  :bind (("M-x" . counsel-M-x)
+         ("C-x C-f" . counsel-find-file)
+         ("C-x b" . counsel-switch-buffer)
+         ("C-c G" . counsel-git)
+         ("C-c j" . counsel-git-grep)
+         ("C-c r" . counsel-rg)
+         ("C-h f" . counsel-describe-function)
+         ("C-h v" . counsel-describe-variable)))
+
+;; 4. Swiper: Búsqueda en buffer
+(use-package swiper
+  :after ivy)
+
+;; 5. Avy: Saltar a cualquier posición visible
+(use-package avy
+  :bind (("C-;" . avy-goto-char-2)
+         ("C-'" . avy-goto-line)
+         ("M-g w" . avy-goto-word-1)))
+;; Recordar historial y frecuencia de comandos (M-x, find-file, etc.)
+(use-package ivy-prescient
+  :after ivy
+  :config
+  (ivy-prescient-mode 1)
+  (prescient-persist-mode 1)) ; Guardar estadísticas entre sesiones
+#+end_src
+* 20. Explorador de Árbol de Proyecto (Treemacs)
+
+#+begin_src emacs-lisp
+;; Treemacs: Explorador de archivos lateral (estilo VS Code)
+(use-package treemacs
+  :ensure t
+  :defer t
+  :init
+  (with-eval-after-load 'winum
+    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
+  :config
+  (setq treemacs-collapse-dirs                 (if treemacs-python-executable 3 0)
+        treemacs-deferred-git-apply-delay      0.5
+        treemacs-directory-name-transformer    #'identity
+        treemacs-display-in-side-window        t
+        treemacs-eldoc-display                 t
+        treemacs-file-event-delay              5000
+        treemacs-file-extension-regex          treemacs-last-period-regex-value
+        treemacs-file-follow-delay             0.2
+        treemacs-file-name-transformer         #'identity
+        treemacs-follow-after-init             t
+        treemacs-expand-after-init             t
+        treemacs-git-command-pipe              ""
+        treemacs-goto-tag-strategy             'refetch-index
+        treemacs-indentation                   2
+        treemacs-indentation-string            " "
+        treemacs-is-never-other-window         nil
+        treemacs-max-git-entries               5000
+        treemacs-missing-project-action        'ask
+        treemacs-move-forward-on-expand        nil
+        treemacs-no-png-images                 nil
+        treemacs-no-delete-other-windows       t
+        treemacs-project-follow-cleanup        nil
+        treemacs-persist-file                  nil;;(expand-file-name ".cache/treemacs-persist" user-emacs-directory)
+        treemacs-position                      'left
+        treemacs-read-string-input             'from-child-frame
+        treemacs-recenter-distance             0.1
+        treemacs-recenter-after-file-follow    nil
+        treemacs-render-file                   nil
+        treemacs-root-consolidation            'always
+        treemacs-show-cursor                   nil
+        treemacs-show-expanders                t
+        treemacs-show-file-icons-master        t
+        treemacs-show-header-lines             t
+        treemacs-show-hidden-files             nil
+        treemacs-silent-filewatch              nil
+        treemacs-silent-refresh                nil
+        treemacs-sorting                       'alphabetic-case-insensitive-asc
+        treemacs-space-between-root-nodes      t
+        treemacs-tag-follow-cleanup            t
+        treemacs-tag-follow-delay              1.5
+        treemacs-user-mode-line-format         nil
+        treemacs-user-header-line-format       nil
+        treemacs-width                         30
+        treemacs-width-increment               1
+        treemacs-width-is-initially-locked     t
+        treemacs-workspace-switch-cleanup      nil)
+
+  ;; Activar modos útiles
+  (treemacs-follow-mode t)          ; Resaltar archivo actual automáticamente
+  (treemacs-filewatch-mode t)       ; Actualizar al cambiar archivos externamente
+  (treemacs-project-follow-mode t)
+  (treemacs-fringe-indicator-mode 'always) ; Indicador visual lateral
+
+  :bind
+  (:map global-map
+        ("<f7>"      . treemacs-add-and-display-current-project-exclusively)    ; TECLA MAESTRA: F7 para abrir/cerrar
+        ("C-x t t"   . treemacs)    ; Alternativa
+        ("C-x t 1"   . treemacs-delete-other-windows)))
+
+;; Integración con Projectile (para que detecte tus proyectos automáticamente)
+(use-package treemacs-projectile
+  :after (treemacs projectile)
+  :ensure t)
+
+;; Integración con Magit (iconos de estado git)
+(use-package treemacs-magit
+  :after (treemacs magit)
+  :ensure t)
+
+;; Iconos bonitos (usa tu fuente Nerd Font)
+(use-package treemacs-all-the-icons
+  :after (treemacs all-the-icons)
+  :ensure t
+  :config
+  (treemacs-load-theme "all-the-icons"))
+#+end_src
+* 30. Orquestación de Proyectos (Projectile)
+Projectile: Navegación tipo IDE entre proyectos.
+
+#+begin_src emacs-lisp
+(use-package projectile
+  :diminish projectile-mode
+  :demand t
+  :config
+  (projectile-mode +1)
+  ;; Carpetas donde buscar proyectos automáticamente
+  ;; Buscar proyectos en ~/projects/ y también en la carpeta del alumno activo
+  (setq projectile-project-search-path
+        (if (and (boundp 'my/mu-alumno-actual) my/mu-alumno-actual
+                 (boundp 'my/mu-base-dir))
+            `((,(concat (expand-file-name (concat my/mu-alumno-actual "/projects/") my/mu-base-dir)) . 5)
+              ("~/projects/" . 5)
+              "~/dotfiles/")
+          '(("~/projects/" . 5) "~/dotfiles/")))
+  (projectile-discover-projects-in-search-path)
+  (setq projectile-enable-caching t)
+  (setq projectile-indexing-method 'alien)  ; Usa herramientas nativas (fd, rg)
+  (setq projectile-completion-system 'ivy)
+  :bind-keymap
+  ("C-c p" . projectile-command-map))
+
+;; Integración visual con Ivy
+(use-package counsel-projectile
+  :after projectile
+  :config (counsel-projectile-mode))
+#+end_src
+
+* 40. Cliente Git Avanzado (Magit)
+Magit: La mejor interfaz de Git del mundo.
+
+#+begin_src emacs-lisp
+;; Instalar dependencias de Magit primero
+(use-package compat)  ; Compatibilidad
+(use-package seq)     ; Funciones de secuencias
+
+;; Transient (menú de Magit)
+(use-package transient
+  :defer t)
+
+;; Magit
+(use-package magit
+  :defer t
+  :bind (("C-x g" . magit-status)
+         ("C-x M-g" . magit-dispatch)
+         ("C-c M-g" . magit-file-dispatch))
+  :config
+  (when (bound-and-true-p my/is-termux)
+    (remove-hook 'magit-status-sections-hook 'magit-insert-tags-header)
+    (remove-hook 'magit-status-sections-hook 'magit-insert-unpushed-to-upstream)
+    (remove-hook 'magit-status-sections-hook 'magit-insert-unpulled-from-upstream)
+    (remove-hook 'magit-status-sections-hook 'magit-insert-status-headers))
+  (setq magit-diff-refine-hunk 'all)
+  (setq magit-display-buffer-function
+        #'magit-display-buffer-fullframe-status-v1))
+
+;; Diff en el margen (como VS Code)
+(use-package diff-hl
+  :hook ((prog-mode . diff-hl-mode)
+         (org-mode . diff-hl-mode)
+         (dired-mode . diff-hl-dired-mode))
+  :config
+  (global-diff-hl-mode)
+  (add-hook 'magit-pre-refresh-hook 'diff-hl-magit-pre-refresh)
+  (add-hook 'magit-post-refresh-hook 'diff-hl-magit-post-refresh))
+#+end_src
+
+* 50. Emulación de Terminal (Vterm)
+Acceso a shell sin salir de Emacs.
+
+#+begin_src emacs-lisp
+;; Vterm: Terminal emulada completa (mejor rendimiento)
+(use-package vterm
+  :commands vterm
+  :bind ("C-c t" . vterm)
+  :config
+  (setq vterm-max-scrollback 10000)
+  (setq vterm-kill-buffer-on-exit t))
+
+;; Multi-term: Alternativa ligera
+(use-package multi-term
+  ;; :bind ("C-c T" . multi-term) <- Tecla asignada a Traducir.
+  :config
+  (setq multi-term-program "/bin/bash"))
+#+end_src
+

@@ -1,0 +1,116 @@
+#+TITLE: Módulo Aider - Code Agent con Ollama
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* 10. Configuración de Aider
+
+#+begin_src emacs-lisp
+(add-to-list 'load-path "~/.emacs.d/site-lisp/aider.el")
+(require 'aider)
+
+;; --- Configuración principal ---
+(setq aider-args
+      '("--model"          "ollama/qwen2.5-coder:0.5b"
+        "--no-auto-commits"
+        "--no-show-model-warnings"))
+
+;; Resolver warning de OLLAMA_API_BASE
+(setenv "OLLAMA_API_BASE" "http://localhost:11434")
+
+;; Atajo para el menú nativo completo de aider.el
+(global-set-key (kbd "C-c i") #'aider-transient-menu)
+#+end_src
+
+* 15. Autocompletado Inline (Local FIM)
+
+#+begin_src emacs-lisp
+;; --- Minuet AI (Autocompletado predictivo tipo fantasma) ---
+;; Usa un modelo súper ligero (0.5b) corriendo offline en Ollama
+(use-package minuet
+  :ensure t
+  :config
+  ;; Ollama es compatible con el endpoint OpenAI FIM (Fill-In-the-Middle)
+  (setq minuet-provider 'openai-fim)
+  (setq minuet-openai-fim-url "http://localhost:11434/v1/completions")
+  (setq minuet-openai-fim-model "qwen2.5-coder:0.5b")
+  (setq minuet-openai-fim-options '(:temperature 0.1 :max_tokens 128))
+  
+  (global-set-key (kbd "M-i") #'minuet-show-suggestion)
+  (global-set-key (kbd "M-[") #'minuet-dismiss-suggestion)
+  (define-key minuet-active-mode-map (kbd "TAB") #'minuet-accept-suggestion))
+#+end_src
+
+* 20. Funciones de Conveniencia
+
+#+begin_src emacs-lisp
+;; --- Verificar si Aider está corriendo ---
+(defun my/aider-buffer-running-p ()
+  "Verifica si hay un buffer de Aider activo."
+  (let ((buf-name (aider-buffer-name)))
+    (and buf-name
+         (get-buffer buf-name)
+         (comint-check-proc buf-name))))
+
+(defun my/aider-open-project ()
+  "Abre Aider en la raíz del proyecto actual."
+  (interactive)
+  (let ((default-directory
+         (or (and (fboundp 'projectile-project-root)
+                  (projectile-project-root))
+             default-directory)))
+    (aider-run-aider)
+    (message "🤖 Aider iniciado en: %s" default-directory)))
+
+(defun my/aider-add-current-file ()
+  "Agrega el archivo actual al contexto de Aider.
+   Si Aider no está corriendo, lo inicia primero."
+  (interactive)
+  (if (buffer-file-name)
+      (progn
+        (unless (my/aider-buffer-running-p)
+          (my/aider-open-project)
+          (sit-for 2))
+        (aider-add-current-file))
+    (message "❌ Este buffer no tiene archivo asociado")))
+
+(defun my/aider-ask-region ()
+  "Pregunta a Aider sobre la región seleccionada."
+  (interactive)
+  (if (use-region-p)
+      (aider-send-block-or-region)
+    (message "❌ No hay región seleccionada")))
+
+(defun my/aider-fix-flycheck ()
+  "Pide a Aider que corrija los errores de Flycheck del buffer actual."
+  (interactive)
+  (unless (my/aider-buffer-running-p)
+    (my/aider-open-project)
+    (sit-for 2))
+  (my/aider-add-current-file)
+  (aider-flycheck-fix-errors-in-scope))
+
+(defun my/aider-keybindings ()
+  "Atajos de Aider para modos de programación."
+  ;; Sesión
+  (local-set-key (kbd "C-c i o") #'my/aider-open-project)
+  (local-set-key (kbd "C-c i a") #'my/aider-add-current-file)
+  (local-set-key (kbd "C-c i x") #'aider-exit)
+  (local-set-key (kbd "C-c i s") #'aider-switch-to-buffer)
+  ;; Código
+  (local-set-key (kbd "C-c i c") #'aider-function-or-region-change)
+  (local-set-key (kbd "C-c i r") #'my/aider-ask-region)
+  (local-set-key (kbd "C-c i q") #'aider-ask-question)
+  (local-set-key (kbd "C-c i f") #'my/aider-fix-flycheck)
+  ;; Tests y planificación
+  (local-set-key (kbd "C-c i t") #'aider-write-unit-test)
+  (local-set-key (kbd "C-c i p") #'aider-start-software-planning)
+  ;; Utilidades
+  (local-set-key (kbd "C-c i u") #'aider-undo-last-change)
+  (local-set-key (kbd "C-c i h") #'aider-open-history))
+
+(add-hook 'prog-mode-hook #'my/aider-keybindings)
+;; Modos que NO heredan de prog-mode → se agregan explícitamente
+(add-hook 'web-mode-hook      #'my/aider-keybindings)  ; JSX / Vue
+(add-hook 'html-ts-mode-hook  #'my/aider-keybindings)  ; HTML (hereda de text-mode)
+#+end_src

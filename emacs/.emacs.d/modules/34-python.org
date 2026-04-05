@@ -1,0 +1,140 @@
+#+TITLE: Módulo Python - FastAPI, pylsp & Tree-Sitter
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* 10. Tree-Sitter para Python
+
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :config
+  (add-to-list 'treesit-language-source-alist
+               '(python "https://github.com/tree-sitter/tree-sitter-python"))
+  (unless (treesit-language-available-p 'python)
+    (condition-case err
+        (treesit-install-language-grammar 'python)
+      (error (message "⚠️ No se pudo instalar gramática python: %s" err))))
+  (add-to-list 'major-mode-remap-alist '(python-mode . python-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.py\\'" . python-ts-mode)))
+#+end_src
+
+* 20. LSP para Python (pylsp)
+
+#+begin_src emacs-lisp
+(add-hook 'python-ts-mode-hook #'lsp-deferred)
+(add-hook 'python-mode-hook    #'lsp-deferred)
+
+(with-eval-after-load 'lsp-mode
+  ;; pylsp con black (formateo) y mypy (type checking)
+  (setq lsp-pylsp-plugins-black-enabled t)
+  (setq lsp-pylsp-plugins-mypy-enabled t)
+  (setq lsp-pylsp-plugins-flake8-enabled nil)  ; usamos ruff o mypy
+  (setq lsp-pylsp-plugins-pycodestyle-enabled nil)
+  (setq lsp-pylsp-plugins-mccabe-enabled nil))
+#+end_src
+
+* 30. Formateo con Black
+
+#+begin_src emacs-lisp
+(defun my/python-format-setup ()
+  "Formatear con black al guardar (via LSP)."
+  (add-hook 'before-save-hook #'lsp-format-buffer nil t))
+
+(add-hook 'python-ts-mode-hook #'my/python-format-setup)
+#+end_src
+
+* 40. Virtualenv
+
+#+begin_src emacs-lisp
+(defun my/python-find-venv ()
+  "Busca un virtualenv en el proyecto actual.
+Retorna la ruta al directorio del venv, o nil."
+  (let* ((root (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+                   (locate-dominating-file default-directory "requirements.txt")
+                   default-directory))
+         (venv-dirs '("venv" ".venv" "env")))
+    (catch 'found
+      (dolist (dir venv-dirs)
+        (let ((path (expand-file-name dir root)))
+          (when (file-directory-p path)
+            (throw 'found path))))
+      nil)))
+
+(defun my/python-activate-venv ()
+  "Activa el virtualenv del proyecto actual si existe."
+  (interactive)
+  (let ((venv (my/python-find-venv)))
+    (if venv
+        (progn
+          (setenv "VIRTUAL_ENV" venv)
+          (setenv "PATH" (concat venv "/bin:" (getenv "PATH")))
+          (setq python-shell-interpreter (concat venv "/bin/python"))
+          (message "🐍 Virtualenv activado: %s" venv))
+      (message "⚠️ No se encontró virtualenv (venv/.venv/env)"))))
+#+end_src
+
+* 50. Compilar y Ejecutar
+
+#+begin_src emacs-lisp
+(defun my/python-run ()
+  "Ejecuta el archivo Python actual.
+Detecta FastAPI (uvicorn), Django (manage.py) o ejecuta el archivo directamente."
+  (interactive)
+  (let* ((project-root (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+                           (locate-dominating-file default-directory "requirements.txt")
+                           default-directory))
+         (default-directory project-root)
+         (manage-py (expand-file-name "manage.py" project-root))
+         (main-py (expand-file-name "main.py" project-root))
+         (venv (my/python-find-venv))
+         ;; En Termux usar siempre python del sistema (venv problemático)
+         (python (cond
+                  ((bound-and-true-p my/is-termux) "python")
+                  (venv (concat venv "/bin/python"))
+                  (t "python"))))
+    (cond
+     ;; FastAPI: detecta uvicorn en requirements.txt o main.py con FastAPI
+     ((and (file-exists-p main-py)
+           (with-temp-buffer
+             (insert-file-contents main-py)
+             (search-forward "FastAPI" nil t)))
+      (compile (format "%s -m uvicorn main:app --reload --host 0.0.0.0" python)))
+     ;; Django
+     ((file-exists-p manage-py)
+      (compile (format "%s manage.py runserver" python)))
+     ;; Archivo suelto
+     ((buffer-file-name)
+      (save-buffer)
+      (compile (format "%s %s" python (file-name-nondirectory buffer-file-name))))
+     (t (message "❌ No se encontró archivo Python para ejecutar")))))
+
+(defun my/python-test ()
+  "Ejecuta tests del proyecto Python.
+Detecta pytest, Django test o unittest."
+  (interactive)
+  (let* ((project-root (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+                           default-directory))
+         (default-directory project-root)
+         (venv (my/python-find-venv))
+         (python (if venv (concat venv "/bin/python") "python")))
+    (cond
+     ;; pytest
+     ((or (file-exists-p (expand-file-name "pytest.ini" project-root))
+          (file-exists-p (expand-file-name "pyproject.toml" project-root)))
+      (compile (format "%s -m pytest -v" python)))
+     ;; Django
+     ((file-exists-p (expand-file-name "manage.py" project-root))
+      (compile (format "%s manage.py test" python)))
+     ;; unittest fallback
+     (t (compile (format "%s -m unittest discover -v" python))))))
+
+(defun my/python-keybindings ()
+  "Atajos locales para desarrollo en Python."
+  (local-set-key (kbd "<f5>") #'my/python-run)
+  (local-set-key (kbd "C-c C-t") #'my/python-test)
+  (local-set-key (kbd "C-c C-v") #'my/python-activate-venv))
+
+(add-hook 'python-ts-mode-hook #'my/python-keybindings)
+(add-hook 'python-mode-hook    #'my/python-keybindings)
+#+end_src
