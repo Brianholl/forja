@@ -388,7 +388,7 @@ Crea el marcador y hace la primera sincronización."
 #+begin_src emacs-lisp
 (defun my/mu-sync-drive-push ()
   "Sube los datos del alumno actual a Google Drive via rclone.
-Sincroniza solo archivos más nuevos (--update)."
+Comprime toda la carpeta del alumno en un .tar.gz y la sube para mayor velocidad."
   (interactive)
   (unless (my/mu-rclone-available-p)
     (user-error "rclone no está instalado. Ejecuta install.sh o install-wsl.sh"))
@@ -398,31 +398,30 @@ Sincroniza solo archivos más nuevos (--update)."
     (user-error "No hay alumno activo"))
   ;; Guardar buffers org primero
   (org-save-all-org-buffers)
-  (let* ((remote-base (format "%s:%s/%s"
+  (let* ((tmp-tar (expand-file-name (format "backup-%s.tar.gz" my/mu-alumno-actual) temporary-file-directory))
+         (remote-file (format "%s:%s/%s/backup.tar.gz"
                               my/mu-rclone-remote
                               my/mu-rclone-base-path
                               my/mu-alumno-actual))
-         (errors 0))
-    (message "☁️ Subiendo datos de %s a Google Drive..." my/mu-alumno-actual)
-    (dolist (subdir my/mu-sync-subdirs)
-      (let ((local-dir (expand-file-name (concat subdir "/") org-directory))
-            (remote-dir (format "%s/%s/" remote-base subdir)))
-        (when (file-directory-p local-dir)
-          (message "  ↑ Sincronizando %s..." subdir)
-          (let ((exit-code (call-process "rclone" nil nil nil
-                                         "sync" local-dir remote-dir
-                                         "--update"
-                                         "--transfers" "4"
-                                         "--checkers" "4")))
-            (unless (= exit-code 0)
-              (setq errors (1+ errors))
-              (warn "Error sincronizando %s (código %d)" subdir exit-code))))))
-    (if (= errors 0)
-        (progn
-          (setq my/mu-ultimo-sync-drive (format-time-string "%Y-%m-%d %H:%M"))
-          (message "✅ Sync completado: %s → Drive [%s]"
-                   my/mu-alumno-actual my/mu-ultimo-sync-drive))
-      (message "⚠️ Sync completado con %d errores" errors))))
+         (parent-dir (file-name-directory (directory-file-name org-directory)))
+         (dir-name (file-name-nondirectory (directory-file-name org-directory))))
+    (message "📦 Comprimiendo datos de %s..." my/mu-alumno-actual)
+    (let ((tar-exit (call-process "tar" nil nil nil
+                                  "-czf" tmp-tar
+                                  "-C" parent-dir
+                                  dir-name)))
+      (if (not (= tar-exit 0))
+          (message "⚠️ Error comprimiendo los datos.")
+        (message "☁️ Subiendo archivo a Google Drive (%s)..." remote-file)
+        (let ((rclone-exit (call-process "rclone" nil nil nil
+                                         "copyto" tmp-tar remote-file)))
+          (if (= rclone-exit 0)
+              (progn
+                (setq my/mu-ultimo-sync-drive (format-time-string "%Y-%m-%d %H:%M"))
+                (message "✅ Sync completado: %s (tar.gz) → Drive [%s]"
+                         my/mu-alumno-actual my/mu-ultimo-sync-drive)
+                (ignore-errors (delete-file tmp-tar)))
+            (message "⚠️ Error al subir el archivo a Drive con rclone.")))))))
 #+end_src
 
 ** 9.3 Sync Pull (Drive → local)
@@ -430,7 +429,7 @@ Sincroniza solo archivos más nuevos (--update)."
 #+begin_src emacs-lisp
 (defun my/mu-sync-drive-pull ()
   "Descarga los datos del alumno desde Google Drive via rclone.
-Sincroniza solo archivos más nuevos (--update). Pide confirmación."
+Descarga el .tar.gz comprimido y lo extrae localmente. Pide confirmación."
   (interactive)
   (unless (my/mu-rclone-available-p)
     (user-error "rclone no está instalado. Ejecuta install.sh o install-wsl.sh"))
@@ -438,34 +437,30 @@ Sincroniza solo archivos más nuevos (--update). Pide confirmación."
     (user-error "Remote '%s' no configurado. Usa C-c U D para configurar" my/mu-rclone-remote))
   (unless my/mu-alumno-actual
     (user-error "No hay alumno activo"))
-  (when (yes-or-no-p (format "Descargar datos de %s desde Google Drive? (archivos locales más viejos se sobreescriben)"
+  (when (yes-or-no-p (format "Descargar datos de %s desde Google Drive? (se sobreescribirá la carpeta local con el último backup)"
                              my/mu-alumno-actual))
-    (let* ((remote-base (format "%s:%s/%s"
+    (let* ((tmp-tar (expand-file-name (format "backup-pull-%s.tar.gz" my/mu-alumno-actual) temporary-file-directory))
+           (remote-file (format "%s:%s/%s/backup.tar.gz"
                                 my/mu-rclone-remote
                                 my/mu-rclone-base-path
                                 my/mu-alumno-actual))
-           (errors 0))
-      (message "☁️ Descargando datos de %s desde Google Drive..." my/mu-alumno-actual)
-      (dolist (subdir my/mu-sync-subdirs)
-        (let ((local-dir (expand-file-name (concat subdir "/") org-directory))
-              (remote-dir (format "%s/%s/" remote-base subdir)))
-          (unless (file-directory-p local-dir)
-            (make-directory local-dir t))
-          (message "  ↓ Sincronizando %s..." subdir)
-          (let ((exit-code (call-process "rclone" nil nil nil
-                                         "sync" remote-dir local-dir
-                                         "--update"
-                                         "--transfers" "4"
-                                         "--checkers" "4")))
-            (unless (= exit-code 0)
-              (setq errors (1+ errors))
-              (warn "Error sincronizando %s (código %d)" subdir exit-code)))))
-      (if (= errors 0)
-          (progn
-            (setq my/mu-ultimo-sync-drive (format-time-string "%Y-%m-%d %H:%M"))
-            (message "✅ Sync completado: Drive → %s [%s]"
-                     my/mu-alumno-actual my/mu-ultimo-sync-drive))
-        (message "⚠️ Sync completado con %d errores" errors)))))
+           (parent-dir (file-name-directory (directory-file-name org-directory))))
+      (message "☁️ Descargando backup desde Google Drive...")
+      (let ((rclone-exit (call-process "rclone" nil nil nil
+                                       "copyto" remote-file tmp-tar)))
+        (if (not (= rclone-exit 0))
+            (message "⚠️ Error descargando el archivo desde Drive. Puede que no exista el backup o haya un error de red.")
+          (message "📦 Extrayendo datos de %s..." my/mu-alumno-actual)
+          (let ((tar-exit (call-process "tar" nil nil nil
+                                        "-xzf" tmp-tar
+                                        "-C" parent-dir)))
+            (if (= tar-exit 0)
+                (progn
+                  (setq my/mu-ultimo-sync-drive (format-time-string "%Y-%m-%d %H:%M"))
+                  (message "✅ Sync completado: Drive (tar.gz) → %s [%s]"
+                           my/mu-alumno-actual my/mu-ultimo-sync-drive)
+                  (ignore-errors (delete-file tmp-tar)))
+              (message "⚠️ Error extrayendo el archivo descargado."))))))))
 #+end_src
 
 ** 9.4 Setup guiado de rclone
