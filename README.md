@@ -27,6 +27,22 @@ Incluye **IA local** via Aider + Ollama, **sistema multiusuario** para entornos 
 
 ---
 
+## Guías de Uso (How-To)
+
+Para aprender a utilizar el entorno FORJA paso a paso, consulta nuestra serie de guías en la carpeta `how_to`:
+
+- [00_Basics.md](how_to/00_Basics.md) - Conceptos básicos, navegación y primeros pasos.
+- [01_Core_y_Entorno.md](how_to/01_Core_y_Entorno.md) - Hydra, Autocompletado, Dashboard y Termux.
+- [02_Proyectos_y_Git.md](how_to/02_Proyectos_y_Git.md) - Treemacs, Projectile y Magit.
+- [03_Desarrollo_Web.md](how_to/03_Desarrollo_Web.md) - HTML, CSS, JS, Node y Live Server.
+- [04_Lenguajes_Backend.md](how_to/04_Lenguajes_Backend.md) - Rust, Go, Python y PHP.
+- [05_Juegos_y_Sistemas.md](how_to/05_Juegos_y_Sistemas.md) - C/C++, ESP32, Godot y Unreal Engine.
+- [06_Inteligencia_Artificial.md](how_to/06_Inteligencia_Artificial.md) - Uso de Aider (IA Local) interactivo.
+- [07_Multiusuario_y_Sync.md](how_to/07_Multiusuario_y_Sync.md) - Sincronización Google Drive y copias locales (USB).
+- [08_Productividad_y_Org.md](how_to/08_Productividad_y_Org.md) - Sistema GTD, Procedimientos y renderizado de Diagramas.
+
+---
+
 ## Instalacion Rapida
 
 ### Opcion 1: Arch Linux (PC del colegio/casa)
