@@ -48,22 +48,20 @@ Para aprender a utilizar el entorno FORJA paso a paso, consulta nuestra serie de
 ### Opcion 1: Arch Linux (PC del colegio/casa)
 
 ```bash
-git clone https://github.com/tu-usuario/dotfiles ~/dotfiles
-cd ~/dotfiles
-
-# Instalar todo (detecta plataforma automaticamente)
-bash install.sh
-
-# Perfiles disponibles: escuela (default), casa, minimal
-bash install.sh --perfil casa
+git clone https://github.com/Brianholl/forja
+cd ~/forja
+install.sh
+update.sh
 ```
 
 ### Opcion 2: Termux (Android)
 
 ```bash
-git clone https://github.com/tu-usuario/dotfiles ~/emacs-gdt
-cd ~/emacs-gdt
-bash install.sh
+pkg install git
+git clone https://github.com/Brianholl/forja
+cd ~/forja
+install.sh
+update.sh
 ```
 
 > **Nota:** En Termux se usa `cp` en vez de `stow` para `termux.properties` porque Termux no sigue symlinks en su directorio de config.
@@ -78,18 +76,17 @@ wsl --install
 
 ```bash
 # Dentro de WSL (Ubuntu):
-git clone https://github.com/tu-usuario/dotfiles ~/dotfiles
-cd ~/dotfiles
-bash install-wsl.sh
+git clone https://github.com/Brianholl/forja
+cd ~/forja
+install.sh
+update.sh
 ```
-
-`install-wsl.sh` prepara WSL2 (PPA Emacs 29+, stow, rclone) y luego ejecuta `install.sh` automaticamente.
 
 ### Actualizar
 
 ```bash
-cd ~/dotfiles  # o ~/emacs-gdt en Termux
-bash update.sh
+cd ~/forja
+update.sh
 ```
 
 Actualiza: sistema, Rust, npm globals, Python LSP, Aider, Ollama, dotfiles, re-tangle de modulos y paquetes MELPA.
@@ -99,7 +96,7 @@ Actualiza: sistema, Rust, npm globals, Python LSP, Aider, Ollama, dotfiles, re-t
 ## Estructura del Repositorio
 
 ```
-dotfiles/
+forja/
 ├── emacs/
 │   └── .emacs.d/
 │       ├── init.el              # Orquestador: detecta maquina y carga modulos
@@ -128,7 +125,6 @@ dotfiles/
 │   └── .termux/
 │       └── termux.properties    # Extra-keys (F5, F7, F12, arrows)
 ├── install.sh                   # Instalador completo (PC + Termux + WSL)
-├── install-wsl.sh               # Preparador WSL2 (PPA Emacs 29+)
 ├── update.sh                    # Actualizador de dependencias
 └── README.md
 ```
