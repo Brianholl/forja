@@ -58,14 +58,19 @@ elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get update -y
     sudo apt-get upgrade -y
 else
-    sudo pacman -Syu --noconfirm
+    # Si tenemos yay (AUR), utilizamos yay para incluir dependencias como vterm-git y cppman-git
+    if command -v yay &>/dev/null; then
+        yay -Syu --noconfirm
+    else
+        sudo pacman -Syu --noconfirm
+    fi
 fi
 ok "Sistema actualizado"
 
 # =============================================================================
-# 2. ACTUALIZAR RUST TOOLCHAIN
+# 2. ACTUALIZAR RUST Y LENGUAJES COMPILADOS
 # =============================================================================
-info "[2/8] Actualizando Rust..."
+info "[2/8] Actualizando Rust y lenguajes base..."
 if [ "$PLATFORM" = "termux" ]; then
     # En Termux, Rust se actualiza via pkg
     pkg upgrade -y rust 2>/dev/null || info "Rust ya esta al dia"
@@ -74,8 +79,18 @@ else
     if command -v rustup &>/dev/null; then
         rustup update stable
         ok "Rust actualizado"
-    else
-        warn "rustup no encontrado, saltando"
+    fi
+    
+    # WSL: Actualizar herramientas LSPs manuales
+    if [ "$PLATFORM" = "wsl" ]; then
+        if command -v go &>/dev/null; then
+            info "Actualizando gopls en WSL..."
+            go install golang.org/x/tools/gopls@latest 2>/dev/null || warn "No se pudo actualizar gopls"
+        fi
+        if command -v composer &>/dev/null; then
+            info "Actualizando Composer en WSL..."
+            sudo composer self-update 2>/dev/null || warn "No se pudo actualizar composer"
+        fi
     fi
 fi
 
@@ -85,8 +100,11 @@ fi
 info "[3/8] Actualizando paquetes npm globales..."
 if [ "$PLATFORM" = "termux" ]; then
     npm update -g 2>/dev/null || warn "Error actualizando npm globals"
+elif [ "$PLATFORM" = "arch" ]; then
+    # Evitar problemas al reconstruir mermaid-cli con puppeteer
+    sudo PUPPETEER_SKIP_DOWNLOAD=true npm update -g 2>/dev/null || warn "Error actualizando npm globals"
 else
-    # WSL y Arch usan sudo para npm global
+    # WSL
     sudo npm update -g 2>/dev/null || warn "Error actualizando npm globals"
 fi
 ok "Paquetes npm actualizados"
@@ -94,12 +112,12 @@ ok "Paquetes npm actualizados"
 # =============================================================================
 # 3b. ACTUALIZAR PYTHON LSP Y HERRAMIENTAS
 # =============================================================================
-info "Actualizando Python LSP y herramientas..."
+info "Actualizando Python LSP y herramientas (incluyendo gdtoolkit)..."
 pip install --user --upgrade --break-system-packages \
-    python-lsp-server pylsp-mypy python-lsp-black 2>/dev/null \
-    || pip install --user --upgrade python-lsp-server pylsp-mypy python-lsp-black 2>/dev/null \
-    || warn "No se pudieron actualizar pip packages (pylsp)"
-ok "Python LSP actualizado"
+    python-lsp-server pylsp-mypy python-lsp-black gdtoolkit 2>/dev/null \
+    || pip install --user --upgrade python-lsp-server pylsp-mypy python-lsp-black gdtoolkit 2>/dev/null \
+    || warn "No se pudieron actualizar pip packages (pylsp/gdtoolkit)"
+ok "Python LSP y gdtoolkit actualizados"
 
 # =============================================================================
 # 4. ACTUALIZAR AIDER.EL (integracion Emacs)
@@ -220,18 +238,12 @@ cat > "$EMACS_UPDATE_EL" << 'ELISP'
 (package-initialize)
 (package-refresh-contents)
 
-;; Actualizar paquetes que tengan nueva version
-(let ((upgradeable (package--upgradeable-packages)))
-  (if upgradeable
-      (progn
-        (dolist (pkg upgradeable)
-          (condition-case err
-              (progn
-                (package-install pkg)
-                (message "Actualizado: %s" pkg))
-            (error (message "Error actualizando %s: %s" pkg err))))
-        (message "Paquetes actualizados: %d" (length upgradeable)))
-    (message "Todos los paquetes estan al dia.")))
+;; Utilizando la función optimizada de Emacs 29+ (limpia versiones antiguas)
+(if (fboundp 'package-upgrade-all)
+    (progn
+      (package-upgrade-all)
+      (message "Actualizacion de ELPA/MELPA y limpieza de paquetes finalizada."))
+  (message "Se requiere Emacs 29+ para auto-limpieza."))
 ELISP
 
 emacs --batch --load "$EMACS_UPDATE_EL" 2>&1 | tail -10

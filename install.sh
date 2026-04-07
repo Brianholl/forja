@@ -78,13 +78,18 @@ fi
 # =============================================================================
 info "[1/10] Sistema base y compilacion..."
 if [ "$PLATFORM" = "termux" ]; then
-    pkg install -y git build-essential ripgrep fd unzip cmake ninja stow rsync
+    pkg install -y git build-essential ripgrep fd unzip cmake ninja stow rsync tree-sitter
 elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get install -y \
-        git build-essential ripgrep fd-find unzip cmake ninja-build stow rsync curl wget
+        software-properties-common apt-transport-https ca-certificates gnupg \
+        git build-essential ripgrep fd-find unzip cmake ninja-build stow rsync curl wget \
+        libtree-sitter-dev tree-sitter-cli
+    
+    # Prevenir conflicto en WSL con fdfind (muchos paquetes Emacs buscan la palabra literal 'fd')
+    sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd
 else
     sudo pacman -S --needed --noconfirm \
-        git base-devel ripgrep fd unzip cmake ninja astyle stow rsync
+        git base-devel ripgrep fd unzip cmake ninja astyle stow rsync tree-sitter tree-sitter-cli
 fi
 
 # =============================================================================
