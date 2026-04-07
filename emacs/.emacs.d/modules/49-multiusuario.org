@@ -398,11 +398,17 @@ Comprime toda la carpeta del alumno en un .tar.gz y la sube para mayor velocidad
     (user-error "No hay alumno activo"))
   ;; Guardar buffers org primero
   (org-save-all-org-buffers)
-  (let* ((tmp-tar (expand-file-name (format "backup-%s.tar.gz" my/mu-alumno-actual) temporary-file-directory))
+  (let* ((timestamp (format-time-string "%Y%m%d-%H%M"))
+         (tmp-tar (expand-file-name (format "backup-%s.tar.gz" my/mu-alumno-actual) temporary-file-directory))
          (remote-file (format "%s:%s/%s/backup.tar.gz"
                               my/mu-rclone-remote
                               my/mu-rclone-base-path
                               my/mu-alumno-actual))
+         (remote-history (format "%s:%s/%s/history/backup-%s.tar.gz"
+                                 my/mu-rclone-remote
+                                 my/mu-rclone-base-path
+                                 my/mu-alumno-actual
+                                 timestamp))
          (parent-dir (file-name-directory (directory-file-name org-directory)))
          (dir-name (file-name-nondirectory (directory-file-name org-directory))))
     (message "📦 Comprimiendo datos de %s..." my/mu-alumno-actual)
@@ -417,6 +423,9 @@ Comprime toda la carpeta del alumno en un .tar.gz y la sube para mayor velocidad
                                          "copyto" tmp-tar remote-file)))
           (if (= rclone-exit 0)
               (progn
+                ;; Guardar versión histórica
+                (call-process "rclone" nil nil nil
+                              "copyto" tmp-tar remote-history)
                 (setq my/mu-ultimo-sync-drive (format-time-string "%Y-%m-%d %H:%M"))
                 (message "✅ Sync completado: %s (tar.gz) → Drive [%s]"
                          my/mu-alumno-actual my/mu-ultimo-sync-drive)
