@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: UProperty Editable
+# key: upe
+# --
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="${1:`(save-match-data (if (string-match "Source/\\([^/]+\\)/" (buffer-file-name)) (match-string 1 (buffer-file-name)) "Config"))`}")
+${2:int32} ${3:PropertyName};

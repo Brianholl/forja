@@ -1,0 +1,25 @@
+# -*- mode: snippet -*-
+# name: Module Header
+# key: umh
+# --
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class F${1:`(file-name-base (buffer-file-name))`} : public IModuleInterface
+{
+public:
+	static inline F$1& Get()
+	{
+		return FModuleManager::LoadModuleChecked<F$1>("$1");
+	}
+
+	static inline bool IsAvailable()
+	{
+		return FModuleManager::Get().IsModuleLoaded("$1");
+	}
+
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+};

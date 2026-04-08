@@ -1,0 +1,20 @@
+# -*- mode: snippet -*-
+# name: Google Benchmark Boilerplate
+# key: bench
+# --
+#include <benchmark/benchmark.h>
+#include <vector>
+
+// ---------------------------------------------------
+// Benchmark: ${1:NombreDelTest}
+// ---------------------------------------------------
+static void BM_$1(benchmark::State& state) {
+  for (auto _ : state) {
+    // Tu código a medir aquí
+    ${2:std::vector<int> v;
+    v.push_back(1);}
+  }
+}
+BENCHMARK(BM_$1);
+
+BENCHMARK_MAIN();

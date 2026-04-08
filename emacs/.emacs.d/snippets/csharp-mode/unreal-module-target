@@ -1,0 +1,15 @@
+# -*- mode: snippet -*-
+# name: UE Module Target
+# key: umt
+# --
+using UnrealBuildTool;
+
+public class ${1:`(file-name-base (buffer-file-name))` : TargetRules
+{
+	public $1(TargetInfo Target) : base(Target)
+	{
+		Type = TargetType.Game;
+		DefaultBuildSettings = BuildSettingsVersion.V2;
+		ExtraModuleNames.AddRange( new string[] { "${2:PrimaryModule}" } );
+	}
+}

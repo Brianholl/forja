@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: UE Constructor
+# key: ufc
+# --
+${1:`(file-name-base (buffer-file-name))`}(const FObjectInitializer& ObjectInitializer);

@@ -1,0 +1,18 @@
+# -*- mode: snippet -*-
+# name: Module CPP
+# key: umc
+# --
+#include "${1:`(file-name-base (buffer-file-name))`}.h"
+#include "Modules/ModuleManager.h"
+
+void F$1::StartupModule()
+{
+	// Startup code
+}
+
+void F$1::ShutdownModule()
+{
+	// Shutdown code
+}
+
+IMPLEMENT_GAME_MODULE(F$1, $1);

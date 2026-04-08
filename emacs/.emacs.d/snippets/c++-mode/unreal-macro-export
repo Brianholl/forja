@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: API Macro
+# key: ume
+# --
+${1:`(upcase (save-match-data (if (string-match "Source/\\([^/]+\\)/" (buffer-file-name)) (match-string 1 (buffer-file-name)) "MODULE")))`}_API

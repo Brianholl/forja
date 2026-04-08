@@ -1,0 +1,73 @@
+# -*- mode: snippet -*-
+# name: Adapter Pattern (Multiple Inheritance)
+# key: adaptermult
+# --
+#include <algorithm>
+#include <iostream>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Adapter (Herencia Múltiple)
+// Intención: Hacer colaborar clases incompatibles heredando de ambas.
+// -----------------------------------------------------------
+
+// --- Target: La interfaz que el dominio espera ---
+class ${1:Target} {
+ public:
+  virtual ~$1() = default;
+  virtual std::string ${2:Request}() const {
+    return "$1: Comportamiento estándar.";
+  }
+};
+
+// --- Adaptee: La clase útil pero incompatible ---
+class ${3:Adaptee} {
+ public:
+  std::string ${4:SpecificRequest}() const {
+    return ".elbitapmocni res nedeup secalC saL";
+  }
+};
+
+// --- Adapter: Une $1 y $3 mediante Herencia Múltiple ---
+class ${5:Adapter} : public $1, public $3 {
+ public:
+  $5() {}
+  
+  std::string $2() const override {
+    // Usamos el método del Adaptee (heredado directamente)
+    std::string to_reverse = $4();
+    
+    // Lógica de adaptación
+    std::reverse(to_reverse.begin(), to_reverse.end());
+    return "$5 (Adaptado): " + to_reverse;
+  }
+};
+
+// --- Código Cliente ---
+void ClientCode(const $1 *target) {
+  std::cout << target->$2();
+}
+
+int main() {
+  std::cout << "Cliente: Trabajando con objetos $1:\n";
+  $1 *target = new $1();
+  ClientCode(target);
+  std::cout << "\n\n";
+
+  $3 *adaptee = new $3();
+  std::cout << "Cliente: El $3 tiene una interfaz extraña:\n";
+  std::cout << "$3: " << adaptee->$4();
+  std::cout << "\n\n";
+
+  std::cout << "Cliente: Usando el $5 (Herencia Múltiple):\n";
+  // Instanciamos el adaptador
+  $5 *adapter = new $5();
+  ClientCode(adapter);
+  std::cout << "\n";
+
+  delete target;
+  delete adaptee;
+  delete adapter;
+
+  return 0;
+}

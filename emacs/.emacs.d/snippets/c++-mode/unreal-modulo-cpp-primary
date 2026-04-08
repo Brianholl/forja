@@ -1,0 +1,16 @@
+# -*- mode: snippet -*-
+# name: Primary Module CPP
+# key: umcp
+# --
+#include "${1:`(file-name-base (buffer-file-name))`}.h"
+#include "Modules/ModuleManager.h"
+
+void F$1::StartupModule()
+{
+}
+
+void F$1::ShutdownModule()
+{
+}
+
+IMPLEMENT_PRIMARY_GAME_MODULE(F$1, $1, "$1");

@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: UProperty Component
+# key: upc
+# --
+UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+class ${1:USceneComponent*} ${2:ComponentName};

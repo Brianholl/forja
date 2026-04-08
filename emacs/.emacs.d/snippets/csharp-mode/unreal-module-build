@@ -1,0 +1,17 @@
+# -*- mode: snippet -*-
+# name: UE Module Build
+# key: umb
+# --
+using UnrealBuildTool;
+
+public class ${1:`(file-name-base (buffer-file-name))`} : ModuleRules
+{
+	public $1(ReadOnlyTargetRules Target) : base(Target)
+	{
+		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+		bEnforceIWYU = true;
+
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
+		PrivateDependencyModuleNames.AddRange(new string[] {  });
+	}
+}

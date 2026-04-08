@@ -1,0 +1,24 @@
+# -*- mode: snippet -*-
+# name: UE Actor Component
+# key: ucc
+# --
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
+#include "${1:`(file-name-base (buffer-file-name))`}.generated.h"
+
+UCLASS( ClassGroup=(${2:Custom}), meta=(BlueprintSpawnableComponent) )
+class ${3:MODULE_API} U${1:$(capitalize yas-text)} : public UActorComponent
+{
+	GENERATED_BODY()
+
+public:
+	U$1();
+
+protected:
+	virtual void BeginPlay() override;
+
+public:
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+};

@@ -1,0 +1,17 @@
+# -*- mode: snippet -*-
+# name: UE4 Project File
+# key: uuproj
+# --
+{
+	"FileVersion": 3,
+	"EngineAssociation": "${1:4.27}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "${2:MyProject}",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

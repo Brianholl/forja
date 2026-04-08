@@ -1,0 +1,18 @@
+# -*- mode: snippet -*-
+# name: UE Blueprint Function Library
+# key: ucs
+# --
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "${1:`(file-name-base (buffer-file-name))`}.generated.h"
+
+UCLASS()
+class ${2:MODULE_API} U${1:$(capitalize yas-text)} : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	$0
+};

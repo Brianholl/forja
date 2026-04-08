@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: UFunction Static
+# key: ufs
+# --
+UFUNCTION(BlueprintCallable, Category="${1:Utils}", meta=(WorldContext="WorldContextObject"))
+static ${2:void} ${3:FunctionName}(const UObject* WorldContextObject);

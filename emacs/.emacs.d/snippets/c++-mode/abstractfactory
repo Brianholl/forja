@@ -1,0 +1,88 @@
+# -*- mode: snippet -*-
+# name: Dynamic Abstract Factory
+# key: abstractfactory
+# --
+#include <iostream>
+#include <string>
+
+// -----------------------------------------------------------
+// Familia de Productos: ${1:`(file-name-base (or (buffer-file-name) "NombreFamilia"))`}
+// (El nombre por defecto se toma del nombre de tu archivo)
+// -----------------------------------------------------------
+
+// --- Interfaces Abstractas ---
+
+// Interfaz para el producto A (ej. Silla)
+class Abstract${2:ProductoA} {
+ public:
+  virtual ~Abstract$2(){};
+  virtual std::string FuncionUtil$2() const = 0;
+};
+
+// Interfaz para el producto B (ej. Mesa)
+class Abstract${3:ProductoB} {
+ public:
+  virtual ~Abstract$3(){};
+  virtual std::string FuncionUtil$3() const = 0;
+  virtual std::string OtraFuncion$3(const Abstract$2 &colaborador) const = 0;
+};
+
+// --- Productos Concretos de la Familia "$1" ---
+
+class $1$2 : public Abstract$2 {
+ public:
+  std::string FuncionUtil$2() const override {
+    return "Resultado de $2 en familia $1.";
+  }
+};
+
+class $1$3 : public Abstract$3 {
+ public:
+  std::string FuncionUtil$3() const override {
+    return "Resultado de $3 en familia $1.";
+  }
+  std::string OtraFuncion$3(const Abstract$2 &colaborador) const override {
+    const std::string result = colaborador.FuncionUtil$2();
+    return "$3 ($1) colaborando con " + result;
+  }
+};
+
+// --- Fábrica Abstracta ---
+
+class AbstractFactory {
+ public:
+  virtual ~AbstractFactory(){};
+  virtual Abstract$2 *Crear$2() const = 0;
+  virtual Abstract$3 *Crear$3() const = 0;
+};
+
+// --- Fábrica Concreta: $1Factory ---
+
+class ${1:$(capitalize yas-text)}Factory : public AbstractFactory {
+ public:
+  Abstract$2 *Crear$2() const override {
+    return new $1$2();
+  }
+  Abstract$3 *Crear$3() const override {
+    return new $1$3();
+  }
+};
+
+// --- Cliente ---
+
+void ClientCode(const AbstractFactory &factory) {
+  const Abstract$2 *product_a = factory.Crear$2();
+  const Abstract$3 *product_b = factory.Crear$3();
+  std::cout << product_b->FuncionUtil$3() << "\n";
+  std::cout << product_b->OtraFuncion$3(*product_a) << "\n";
+  delete product_a;
+  delete product_b;
+}
+
+int main() {
+  std::cout << "Probando cliente con la fábrica $1:\n";
+  ${1:$(capitalize yas-text)}Factory *f1 = new ${1:$(capitalize yas-text)}Factory();
+  ClientCode(*f1);
+  delete f1;
+  return 0;
+}

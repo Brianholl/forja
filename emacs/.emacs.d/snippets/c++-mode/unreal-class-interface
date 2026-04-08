@@ -1,0 +1,25 @@
+# -*- mode: snippet -*-
+# name: UE Interface
+# key: uci
+# --
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/Interface.h"
+#include "${1:`(file-name-base (buffer-file-name))`}.generated.h"
+
+// This class does not need to be modified.
+UINTERFACE(MinimalAPI)
+class U${1:$(capitalize yas-text)} : public UInterface
+{
+	GENERATED_BODY()
+};
+
+class ${2:MODULE_API} I$1
+{
+	GENERATED_BODY()
+
+	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
+public:
+	${3:virtual void FunctionName() = 0;}
+};

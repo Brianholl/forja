@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: UE Log Line
+# key: ull
+# --
+UE_LOG(Log${1:`(save-match-data (if (string-match "Source/\\([^/]+\\)/" (buffer-file-name)) (match-string 1 (buffer-file-name)) "Temp"))`}, ${2:Warning}, TEXT("${3:Message}: %s"), *${4:Variable}.ToString());

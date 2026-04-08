@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: GetLifetimeReplicatedProps
+# key: ufr
+# --
+void A${1:`(file-name-base (buffer-file-name))`}:GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(A$1, ${2:ReplicatedVar});
+}
