@@ -300,11 +300,11 @@ Para activar IA: pkg install ollama && ollama pull qwen2.5-coder:0.5b")))
     (setq company-minimum-prefix-length 3))
 
   ;; --- Org: ajustes para pantalla chica ---
+  ;; NOTA: No setear org-directory aqui; 49-multiusuario.org lo configura por alumno
   (with-eval-after-load 'org
     (setq org-startup-folded t)
     (setq org-ellipsis " ▾")
-    (setq org-return-follows-link t)
-    (setq org-directory "~/org/"))
+    (setq org-return-follows-link t))
 
   (message "📱 Parches para módulos 50-53 aplicados"))
 #+end_src

@@ -35,7 +35,8 @@
  (my/is-termux
   (message "📱 Detectado entorno TERMUX (Android)")
   (setq my-base-modules
-        '("00-core.org"
+        '("02-termux.org"   ; Parches Termux ANTES de core
+          "00-core.org"
           "01-dashboard.org"
           "10-git.org"
           "30-cpp.org"      ; C/C++ (sin GDB, sin FASM, sin ESP32)

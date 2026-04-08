@@ -112,12 +112,16 @@ ok "Paquetes npm actualizados"
 # =============================================================================
 # 3b. ACTUALIZAR PYTHON LSP Y HERRAMIENTAS
 # =============================================================================
-info "Actualizando Python LSP y herramientas (incluyendo gdtoolkit)..."
-pip install --user --upgrade --break-system-packages \
-    python-lsp-server pylsp-mypy python-lsp-black gdtoolkit 2>/dev/null \
-    || pip install --user --upgrade python-lsp-server pylsp-mypy python-lsp-black gdtoolkit 2>/dev/null \
-    || warn "No se pudieron actualizar pip packages (pylsp/gdtoolkit)"
-ok "Python LSP y gdtoolkit actualizados"
+info "Actualizando Python LSP y herramientas..."
+PIP_PKGS="python-lsp-server pylsp-mypy python-lsp-black"
+# gdtoolkit solo en arch (donde se instala Godot)
+if [ "$PLATFORM" = "arch" ]; then
+    PIP_PKGS="$PIP_PKGS gdtoolkit"
+fi
+pip install --user --upgrade --break-system-packages $PIP_PKGS 2>/dev/null \
+    || pip install --user --upgrade $PIP_PKGS 2>/dev/null \
+    || warn "No se pudieron actualizar pip packages (pylsp)"
+ok "Python LSP actualizado"
 
 # =============================================================================
 # 4. ACTUALIZAR AIDER.EL (integracion Emacs)
@@ -215,8 +219,7 @@ info "[8/8] Re-tangling modulos y actualizando paquetes MELPA..."
 # Borrar archivos .el generados para forzar re-tangle
 if [ -d ~/.emacs.d/modules ]; then
     info "Eliminando .el generados para forzar re-tangle..."
-    find ~/.emacs.d/modules -name "*.el" -newer ~/.emacs.d/modules -delete 2>/dev/null
-    # Alternativa mas segura: borrar .el que tengan un .org correspondiente
+    # Borrar .el que tengan un .org correspondiente (generados por org-babel-tangle)
     for el_file in ~/.emacs.d/modules/*.el; do
         [ -f "$el_file" ] || continue
         org_file="${el_file%.el}.org"

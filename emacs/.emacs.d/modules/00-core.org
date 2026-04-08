@@ -123,29 +123,28 @@ Configuración del gestor de paquetes y repositorios.
 
 (package-initialize)
 
-;; Refrescar contenido de paquetes
+;; Refrescar contenido de paquetes (una sola vez si faltan)
 (unless package-archive-contents
   (package-refresh-contents))
 
-;; Instalar use-package si no existe
+;; Instalar use-package si no existe (ya se refresco arriba)
 (unless (package-installed-p 'use-package)
-  (package-refresh-contents)
   (package-install 'use-package))
 
 ;; Configuración de use-package
 (require 'use-package)
 (setq use-package-always-ensure t)    ; Auto-descargar paquetes
 (setq use-package-always-pin nil)     ; No fijar versiones (evita "Not found" en MELPA)
-(setq use-package-verbose t)          ; Mensajes de carga (útil para debug)
+(setq use-package-verbose init-file-debug) ; Solo verbose en debug (emacs --debug-init)
 
 ;; Reintentar con refresh si un paquete no se encuentra en MELPA
-(defadvice package-install (around refresh-on-fail activate)
+(define-advice package-install (:around (orig-fn &rest args) refresh-on-fail)
   "Si falla la instalación, refrescar el índice de paquetes y reintentar."
-  (condition-case err
-      ad-do-it
+  (condition-case _err
+      (apply orig-fn args)
     (error
      (package-refresh-contents)
-     ad-do-it)))
+     (apply orig-fn args))))
 
 ;; Sincronizar PATH con la shell (Optimizado)
 (use-package exec-path-from-shell
@@ -334,8 +333,8 @@ Company + Flycheck + LSP = Experiencia de IDE moderna.
 (use-package company
   :hook (after-init . global-company-mode)
   :config
-  (setq company-minimum-prefix-length 1)
-  (setq company-idle-delay (if (bound-and-true-p my/is-termux) 0.3 0.0))
+  (setq company-minimum-prefix-length 2)
+  (setq company-idle-delay (if (bound-and-true-p my/is-termux) 0.3 0.15))
   (setq company-selection-wrap-around t)
   ;; --- NUEVO: Ignorar mayúsculas/minúsculas ---
   (setq company-dabbrev-downcase nil)       ; No convertir a minúsculas automáticamente
@@ -403,7 +402,7 @@ Company + Flycheck + LSP = Experiencia de IDE moderna.
   (if (bound-and-true-p my/is-termux)
       (setq lsp-ui-sideline-enable nil)
     (progn
-      (setq lsp-ui-sideline-enable nil)
+      (setq lsp-ui-sideline-enable t)
       (setq lsp-ui-sideline-show-hover t))))
 #+end_src
 

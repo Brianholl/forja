@@ -157,11 +157,7 @@ Retorna el nombre del alumno seleccionado."
 (defun my/mu-activar-alumno (nombre &optional usb-path)
   "Activa el alumno NOMBRE, configurando org-directory.
 Si USB-PATH es dado, se registra para backups."
-  (let ((dir (if usb-path
-               ;; Si viene de USB, usar el USB directamente como org-directory
-               ;; pero también asegurar copia local
-               (expand-file-name (concat nombre "/") my/mu-base-dir)
-             (expand-file-name (concat nombre "/") my/mu-base-dir))))
+  (let ((dir (expand-file-name (concat nombre "/") my/mu-base-dir)))
     ;; Crear directorio local si no existe
     (unless (file-directory-p dir)
       (make-directory dir t))
@@ -179,16 +175,15 @@ Si USB-PATH es dado, se registra para backups."
 
 (defun my/mu--sync-desde-usb (usb-path local-dir)
   "Sincroniza datos desde USB-PATH al LOCAL-DIR usando rsync."
-  (let ((usb-org (expand-file-name "" usb-path)))
-    ;; Solo sincronizar las carpetas de datos org, no el marcador
-    (dolist (subdir '("gtd" "docs" "procesos" "projects"))
-      (let ((src (expand-file-name (concat subdir "/") usb-org))
-            (dst (expand-file-name (concat subdir "/") local-dir)))
-        (when (file-directory-p src)
-          (unless (file-directory-p dst)
-            (make-directory dst t))
-          (call-process "rsync" nil nil nil "-av" src dst))))
-    (message "Datos sincronizados desde USB a local.")))
+  ;; Solo sincronizar las carpetas de datos org, no el marcador
+  (dolist (subdir '("gtd" "docs" "procesos" "projects"))
+    (let ((src (expand-file-name (concat subdir "/") usb-path))
+          (dst (expand-file-name (concat subdir "/") local-dir)))
+      (when (file-directory-p src)
+        (unless (file-directory-p dst)
+          (make-directory dst t))
+        (call-process "rsync" nil nil nil "-av" src dst))))
+  (message "Datos sincronizados desde USB a local."))
 #+end_src
 
 * 5. Inicio automático

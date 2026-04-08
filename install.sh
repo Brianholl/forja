@@ -60,12 +60,10 @@ echo ""
 # =============================================================================
 info "Actualizando el sistema..."
 if [ "$PLATFORM" = "termux" ]; then
-    # Primero actualizar repositorios y resolver dependencias rotas
-    apt update -y
-    apt upgrade -y -o Dpkg::Options::="--force-confnew" || true
+    # pkg es un wrapper de apt en Termux; usarlo directamente evita duplicar trabajo
+    pkg upgrade -y
     # Reparar dependencias si quedan rotas (ej: ncurses/openssl version mismatch)
     apt --fix-broken install -y 2>/dev/null || true
-    pkg upgrade -y
 elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get update -y
     sudo apt-get upgrade -y

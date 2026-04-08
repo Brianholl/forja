@@ -55,8 +55,13 @@ done
 if [ "$PLATFORM" = "termux" ]; then
     info "Eliminando config especifica de Termux..."
     if [ -f ~/.termux/termux.properties ]; then
-        rm -i ~/.termux/termux.properties
-        ok "termux.properties procesado"
+        read -p "Eliminar ~/.termux/termux.properties? (s/N): " respuesta
+        if [[ "$respuesta" =~ ^[sS]$ ]]; then
+            rm -f ~/.termux/termux.properties
+            ok "termux.properties eliminado"
+        else
+            info "termux.properties conservado"
+        fi
     fi
 fi
 
