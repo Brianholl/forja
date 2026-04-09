@@ -74,7 +74,7 @@ fi
 # =============================================================================
 # 2. SISTEMA BASE Y COMPILACION
 # =============================================================================
-info "[1/10] Sistema base y compilacion..."
+info "[1/11] Sistema base y compilacion..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y git build-essential ripgrep fd unzip cmake ninja stow rsync tree-sitter
 elif [ "$PLATFORM" = "wsl" ]; then
@@ -93,7 +93,7 @@ fi
 # =============================================================================
 # 3. EMACS Y FUENTES
 # =============================================================================
-info "[2/10] Emacs y fuentes..."
+info "[2/11] Emacs y fuentes..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y emacs
     ok "Emacs instalado (Termux — sin fuentes GUI)"
@@ -119,7 +119,7 @@ fi
 # =============================================================================
 # 4. TOOLCHAIN C/C++ Y LOW LEVEL
 # =============================================================================
-info "[3/10] Toolchain C/C++..."
+info "[3/11] Toolchain C/C++..."
 if [ "$PLATFORM" = "termux" ]; then
     # Termux: clang viene con build-essential, sin GDB nativo ni FASM (x86)
     pkg install -y clang
@@ -136,7 +136,7 @@ fi
 # =============================================================================
 # 5. LENGUAJES Y RUNTIMES
 # =============================================================================
-info "[4/10] Lenguajes: Rust, Go, Node.js..."
+info "[4/11] Lenguajes: Rust, Go, Node.js..."
 
 # Rust
 if [ "$PLATFORM" = "termux" ]; then
@@ -226,7 +226,7 @@ ok "rclone instalado"
 # =============================================================================
 # 6. GAME DEV Y MULTIMEDIA (SOLO PC)
 # =============================================================================
-info "[5/10] Game Dev..."
+info "[5/11] Game Dev..."
 if [ "$PLATFORM" = "termux" ] || [ "$PLATFORM" = "wsl" ]; then
     info "Saltando Game Dev (no disponible en $PLATFORM)"
 else
@@ -244,7 +244,7 @@ fi
 # =============================================================================
 # 7. IA Y TERMINAL (SOLO PC — Ollama/Alacritty)
 # =============================================================================
-info "[6/10] IA y terminal..."
+info "[6/11] IA y terminal..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y direnv
     info "Saltando Ollama y Alacritty (no disponibles en Termux)"
@@ -279,7 +279,7 @@ fi
 # =============================================================================
 # 8. PAQUETES ESPECIFICOS DE PLATAFORMA (AUR / Termux extras)
 # =============================================================================
-info "[7/10] Paquetes especificos de plataforma..."
+info "[7/11] Paquetes especificos de plataforma..."
 if [ "$PLATFORM" = "termux" ]; then
     # Vterm requiere libvterm en Termux
     pkg install -y libvterm termux-api
@@ -311,7 +311,7 @@ fi
 # =============================================================================
 # 9. HERRAMIENTAS DE DOCUMENTACION (modulos 50-53)
 # =============================================================================
-info "[8/10] Herramientas para modulos GTD y Asistencia Operativa..."
+info "[8/11] Herramientas para modulos GTD y Asistencia Operativa..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y graphviz gnuplot libsqlite
     ok "Herramientas de documentacion (Termux)"
@@ -342,7 +342,7 @@ fi
 # =============================================================================
 # 10. LSPs Y HERRAMIENTAS NPM GLOBALES
 # =============================================================================
-info "[9/10] LSPs web y herramientas npm globales..."
+info "[9/11] LSPs web y herramientas npm globales..."
 if [ "$PLATFORM" = "termux" ]; then
     npm install -g \
         typescript \
@@ -396,7 +396,7 @@ fi
 # =============================================================================
 # 11. AIDER (SOLO PC)
 # =============================================================================
-info "[10/10] Aider — Code Agent local..."
+info "[10/11] Aider — Code Agent local..."
 if [ "$PLATFORM" = "termux" ] || [ "$PLATFORM" = "wsl" ]; then
     info "Saltando Aider (requiere Ollama, no disponible en $PLATFORM)"
 else
@@ -419,6 +419,31 @@ else
     else
         info "aider.el ya existe, actualizando..."
         git -C ~/.emacs.d/site-lisp/aider.el pull
+    fi
+fi
+
+# =============================================================================
+# 12. N8N — AUTOMATIZACION DE WORKFLOWS (PC + WSL)
+# =============================================================================
+info "[11/11] n8n — Automatizacion de workflows..."
+if [ "$PLATFORM" = "termux" ]; then
+    info "Saltando n8n (no disponible en Termux)"
+else
+    if command -v n8n &>/dev/null; then
+        info "n8n ya instalado: $(n8n --version 2>/dev/null)"
+    else
+        info "Instalando n8n via npm..."
+        if [ "$PLATFORM" = "wsl" ]; then
+            sudo npm install -g n8n
+        else
+            sudo npm install -g n8n
+        fi
+
+        if command -v n8n &>/dev/null; then
+            ok "n8n instalado: $(n8n --version 2>/dev/null)"
+        else
+            warn "No se pudo instalar n8n (verificar npm)"
+        fi
     fi
 fi
 

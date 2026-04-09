@@ -23,6 +23,7 @@ Incluye **IA local** via Aider + Ollama, **sistema multiusuario** para entornos 
 - **Sistema multiusuario:** Gestion de alumnos, backup USB, sync Google Drive
 - **Sincronizacion Drive:** rclone semi-automatico — `C-c U s` sube, `C-c U S` descarga
 - **GTD y documentacion:** Org Mode, org-roam, Kanban, diagramas, LaTeX
+- **Automatizacion:** n8n por alumno para workflows (webhooks, Telegram, email, sync)
 - **Hydra de compilacion:** Menu `C-c x` unificado para todos los lenguajes
 
 ---
@@ -40,6 +41,7 @@ Para aprender a utilizar el entorno FORJA paso a paso, consulta nuestra serie de
 - [06_Inteligencia_Artificial.md](how_to/06_Inteligencia_Artificial.md) - Uso de Aider (IA Local) interactivo.
 - [07_Multiusuario_y_Sync.md](how_to/07_Multiusuario_y_Sync.md) - Sincronización Google Drive y copias locales (USB).
 - [08_Productividad_y_Org.md](how_to/08_Productividad_y_Org.md) - Sistema GTD, Procedimientos y renderizado de Diagramas.
+- [09_Automatizacion_n8n.md](how_to/09_Automatizacion_n8n.md) - Automatizacion de workflows con n8n (webhooks, Telegram, email).
 
 ---
 
@@ -259,8 +261,11 @@ Todos crean estructura, `.gitignore`, `.projectile`, `git init` + primer commit:
 | `C-c U r` | Restaurar desde USB |
 | `C-c U e` | Exportar `.tar.gz` |
 | `C-c U i` | Importar `.tar.gz` |
+| `C-c U N s` | **n8n** — Iniciar (datos del alumno activo) |
+| `C-c U N x` | **n8n** — Detener |
+| `C-c U N o` | **n8n** — Abrir en navegador |
 | `C-c U c` | Cambiar alumno activo |
-| `C-c U t` | Estado actual (alumno, USB, Drive) |
+| `C-c U t` | Estado actual (alumno, USB, Drive, n8n) |
 
 ### Sincronizacion Google Drive
 
@@ -344,6 +349,7 @@ PC Escuela (Arch) ←→ Google Drive ←→ Celular (Termux) / PC Casa (WSL/Arc
 | Godot | ✅ | ❌ | ❌ |
 | Unreal Engine | Solo perfil Casa | ❌ | ❌ |
 | LaTeX export | ✅ | ❌ | ❌ |
+| n8n (automatizacion) | ✅ | ❌ | ✅ |
 | Sync Drive (rclone) | ✅ | ✅ | ✅ |
 | Backup USB | ✅ | ✅ (storage) | ✅ |
 | F-keys | Teclado nativo | Extra-keys en barra | Teclado nativo |

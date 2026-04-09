@@ -265,7 +265,7 @@ echo ""
 echo "  Que se actualizo:"
 echo "    - Sistema operativo ($PLATFORM)"
 echo "    - Rust toolchain"
-echo "    - Paquetes npm globales (LSPs, intelephense)"
+echo "    - Paquetes npm globales (LSPs, intelephense, n8n)"
 echo "    - Python LSP (pylsp, black, mypy)"
 echo "    - aider.el (integracion Emacs)"
 if [ "$PLATFORM" = "arch" ]; then

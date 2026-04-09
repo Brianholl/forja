@@ -54,7 +54,7 @@ Contiene el nombre del alumno en la primera línea.")
 (defvar my/mu-rclone-base-path "emacs-sync"
   "Carpeta base en Google Drive donde se guardan los datos.")
 
-(defvar my/mu-sync-subdirs '("gtd" "docs" "procesos" "projects")
+(defvar my/mu-sync-subdirs '("gtd" "docs" "procesos" "projects" ".n8n")
   "Subdirectorios a sincronizar con Drive.")
 
 (defvar my/mu-ultimo-sync-drive nil
@@ -175,8 +175,8 @@ Si USB-PATH es dado, se registra para backups."
 
 (defun my/mu--sync-desde-usb (usb-path local-dir)
   "Sincroniza datos desde USB-PATH al LOCAL-DIR usando rsync."
-  ;; Solo sincronizar las carpetas de datos org, no el marcador
-  (dolist (subdir '("gtd" "docs" "procesos" "projects"))
+  ;; Solo sincronizar las carpetas de datos, no el marcador
+  (dolist (subdir my/mu-sync-subdirs)
     (let ((src (expand-file-name (concat subdir "/") usb-path))
           (dst (expand-file-name (concat subdir "/") local-dir)))
       (when (file-directory-p src)
@@ -226,7 +226,7 @@ Si no hay USB conectado, intenta detectar uno."
         (progn
           ;; Guardar todos los buffers org primero
           (org-save-all-org-buffers)
-          (dolist (subdir '("gtd" "docs" "procesos" "projects"))
+          (dolist (subdir my/mu-sync-subdirs)
             (let ((src (expand-file-name (concat subdir "/") org-directory))
                   (dst (expand-file-name (concat subdir "/") usb)))
               (when (file-directory-p src)
@@ -541,18 +541,99 @@ Si rclone está instalado, ofrece abrir rclone config."
                             "rclone config\n"))))))
 #+end_src
 
-* 10. Hydra de acceso rápido
+* 10. n8n — Automatización de workflows por alumno
+
+Cada alumno tiene su propia instancia de n8n con datos aislados en
+=~/org-alumnos/NOMBRE/.n8n/=. Las credenciales (Telegram, email, etc.)
+son privadas y se respaldan junto con el resto de los datos del alumno.
+
+#+begin_src emacs-lisp
+(defvar my/mu-n8n-process nil
+  "Proceso de n8n activo, o nil si no está corriendo.")
+
+(defvar my/mu-n8n-port 5678
+  "Puerto donde corre n8n.")
+
+(defun my/mu-n8n-available-p ()
+  "Verifica si n8n está instalado."
+  (executable-find "n8n"))
+
+(defun my/mu-n8n-running-p ()
+  "Verifica si n8n está corriendo."
+  (and my/mu-n8n-process
+       (process-live-p my/mu-n8n-process)))
+
+(defun my/mu-n8n-user-folder ()
+  "Retorna el directorio .n8n del alumno activo."
+  (when my/mu-alumno-actual
+    (let ((dir (expand-file-name ".n8n/"
+                (expand-file-name (concat my/mu-alumno-actual "/")
+                                  my/mu-base-dir))))
+      (make-directory dir t)
+      dir)))
+
+(defun my/mu-n8n-start ()
+  "Inicia n8n con los datos del alumno activo."
+  (interactive)
+  (unless (my/mu-n8n-available-p)
+    (user-error "n8n no está instalado. Ejecuta install.sh"))
+  (unless my/mu-alumno-actual
+    (user-error "No hay alumno activo. Usa C-c U c para seleccionar uno"))
+  (when (my/mu-n8n-running-p)
+    (user-error "n8n ya está corriendo. Usa C-c U N x para detenerlo"))
+  (let* ((n8n-folder (my/mu-n8n-user-folder))
+         (process-environment
+          (append (list (format "N8N_USER_FOLDER=%s" n8n-folder))
+                  process-environment))
+         (buf (get-buffer-create "*n8n*")))
+    (setq my/mu-n8n-process
+          (start-process "n8n" buf "n8n" "start"))
+    (set-process-query-on-exit-flag my/mu-n8n-process nil)
+    (message "n8n iniciado para %s → http://localhost:%d (datos: %s)"
+             my/mu-alumno-actual my/mu-n8n-port n8n-folder)))
+
+(defun my/mu-n8n-stop ()
+  "Detiene la instancia de n8n activa."
+  (interactive)
+  (if (my/mu-n8n-running-p)
+      (progn
+        (kill-process my/mu-n8n-process)
+        (setq my/mu-n8n-process nil)
+        (message "n8n detenido."))
+    (message "n8n no está corriendo.")))
+
+(defun my/mu-n8n-open ()
+  "Abre n8n en el navegador."
+  (interactive)
+  (if (my/mu-n8n-running-p)
+      (browse-url (format "http://localhost:%d" my/mu-n8n-port))
+    (when (yes-or-no-p "n8n no está corriendo. ¿Iniciarlo?")
+      (my/mu-n8n-start)
+      (run-at-time 3 nil #'browse-url
+                   (format "http://localhost:%d" my/mu-n8n-port)))))
+
+(defun my/mu-n8n-status ()
+  "Muestra el estado de n8n."
+  (interactive)
+  (message "n8n: %s | Alumno: %s | Datos: %s"
+           (if (my/mu-n8n-running-p) "corriendo" "detenido")
+           (or my/mu-alumno-actual "ninguno")
+           (or (my/mu-n8n-user-folder) "N/A")))
+#+end_src
+
+* 11. Hydra de acceso rápido
 
 #+begin_src emacs-lisp
 (defun my/mu-estado ()
   "Muestra el estado actual del sistema multiusuario."
   (interactive)
-  (message "Alumno: %s | Dir: %s | USB: %s | Backup: %s | Drive: %s"
+  (message "Alumno: %s | Dir: %s | USB: %s | Backup: %s | Drive: %s | n8n: %s"
            (or my/mu-alumno-actual "ninguno")
            org-directory
            (if my/mu-usb-path-actual my/mu-usb-path-actual "no")
            (or my/mu-ultimo-backup "nunca")
-           (or my/mu-ultimo-sync-drive "nunca")))
+           (or my/mu-ultimo-sync-drive "nunca")
+           (if (my/mu-n8n-running-p) "corriendo" "detenido")))
 
 (defhydra hydra-multiusuario (:color blue :hint nil)
   "
@@ -566,6 +647,7 @@ Si rclone está instalado, ofrece abrir rclone config."
    _s_ Sync → Drive     _S_ Sync ← Drive
    _D_ Configurar Drive
   ─────────────────────────────────────
+   _N_ n8n Workflows
    _c_ Cambiar alumno   _t_ Estado
    _q_ Salir"
   ("u" my/mu-backup-usb)
@@ -576,8 +658,24 @@ Si rclone está instalado, ofrece abrir rclone config."
   ("s" my/mu-sync-drive-push)
   ("S" my/mu-sync-drive-pull)
   ("D" my/mu-sync-drive-setup)
+  ("N" hydra-n8n/body)
   ("c" my/mu-cambiar-alumno)
   ("t" my/mu-estado)
+  ("q" nil))
+
+(defhydra hydra-n8n (:color blue :hint nil)
+  "
+   n8n — AUTOMATIZACION
+   Estado: %-20s(if (my/mu-n8n-running-p) \"corriendo\" \"detenido\")
+  ─────────────────────────────────────
+   _s_ Iniciar n8n   _x_ Detener n8n
+   _o_ Abrir en navegador
+   _t_ Estado
+   _q_ Volver"
+  ("s" my/mu-n8n-start)
+  ("x" my/mu-n8n-stop)
+  ("o" my/mu-n8n-open)
+  ("t" my/mu-n8n-status)
   ("q" nil))
 
 (global-set-key (kbd "C-c U") 'hydra-multiusuario/body)
