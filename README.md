@@ -52,8 +52,8 @@ Para aprender a utilizar el entorno FORJA paso a paso, consulta nuestra serie de
 ```bash
 git clone https://github.com/Brianholl/forja
 cd ~/forja
-install.sh
-update.sh
+./install.sh
+./update.sh
 ```
 
 ### Opcion 2: Termux (Android)
@@ -62,8 +62,8 @@ update.sh
 pkg install git
 git clone https://github.com/Brianholl/forja
 cd ~/forja
-install.sh
-update.sh
+./install.sh
+./update.sh
 ```
 
 > **Nota:** En Termux se usa `cp` en vez de `stow` para `termux.properties` porque Termux no sigue symlinks en su directorio de config.
@@ -80,8 +80,8 @@ wsl --install
 # Dentro de WSL (Ubuntu):
 git clone https://github.com/Brianholl/forja
 cd ~/forja
-install.sh
-update.sh
+./install.sh
+./update.sh
 ```
 
 ### Actualizar
