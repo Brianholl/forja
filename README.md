@@ -400,7 +400,7 @@ rclone config
 
 ## Desarrollo
 
-- Branch principal: `experimental/emacs-next-gen`
+- Branch principal: `main`
 - Los archivos `.el` son **generados** — editar solo los `.org`
 - Despues de modificar un `.org`, borrar el `.el` correspondiente para forzar re-tangle
 - Commits en espanol, formato conventional commits (`feat:`, `fix:`, `refactor:`)
