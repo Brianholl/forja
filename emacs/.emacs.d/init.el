@@ -67,7 +67,8 @@
           "35-php.org"
           "20-web.org"))
   (setq my-extra-modules
-        '("99-misc.org"
+        '("36-modelos.org"
+          "99-misc.org"
           "49-multiusuario.org"
           "50-gtd.org"
           "51-estandarizacion.org"
@@ -88,6 +89,7 @@
           "34-python.org"
           "35-php.org"
           "33-aider.org"
+          "36-modelos.org"
           "41-godot.org"))
   (setq my-extra-modules
         '("20-web.org"
@@ -112,10 +114,13 @@
           "34-python.org"
           "35-php.org"
           "33-aider.org"
+          "36-modelos.org"
           "41-godot.org"))
   (setq my-extra-modules
         '("20-web.org"
           "40-unreal.org"
+          "55-picoclaw.org"
+          "56-openclaw.org"
           "99-misc.org"
           "49-multiusuario.org"
           "50-gtd.org"
@@ -136,6 +141,7 @@
           "34-python.org"
           "35-php.org"
           "33-aider.org"
+          "36-modelos.org"
           "41-godot.org"))
   (setq my-extra-modules
         '("20-web.org"

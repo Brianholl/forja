@@ -1,0 +1,269 @@
+#+TITLE: Módulo PicoClaw - Agente IA Ligero Local
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* PicoClaw — Agente Autónomo Ligero
+
+PicoClaw es un agente IA ultraligero (binario Go, ~20MB RAM) que puede
+ejecutar comandos, leer archivos, interactuar con Telegram y resolver
+tareas de forma autónoma usando Ollama como backend LLM.
+
+Solo disponible en perfil CASA.
+
+* 1. Variables de configuración
+
+#+begin_src emacs-lisp
+(defvar my/picoclaw-bin (or (executable-find "picoclaw")
+                            "/usr/local/bin/picoclaw")
+  "Ruta al binario de PicoClaw.")
+
+(defvar my/picoclaw-port 18790
+  "Puerto del gateway de PicoClaw.")
+
+(defvar my/picoclaw-process nil
+  "Proceso de PicoClaw corriendo en background.")
+
+(defvar my/picoclaw-default-model "ollama/qwen2.5-coder:7b"
+  "Modelo por defecto para PicoClaw (via Ollama local).")
+#+end_src
+
+* 2. Directorio de trabajo por alumno
+
+#+begin_src emacs-lisp
+(defun my/picoclaw-workspace ()
+  "Retorna el directorio de PicoClaw del alumno activo."
+  (if (bound-and-true-p my/mu-alumno-actual)
+      (expand-file-name
+       (concat my/mu-alumno-actual "/.picoclaw/")
+       my/mu-base-dir)
+    (expand-file-name ".picoclaw/" "~/")))
+
+(defun my/picoclaw-ensure-workspace ()
+  "Crea la estructura de directorios de PicoClaw si no existe."
+  (let ((ws (my/picoclaw-workspace)))
+    (dolist (subdir '("workspace" "memory" "skills" "cron"))
+      (make-directory (expand-file-name subdir ws) t))
+    ;; Crear config.json si no existe
+    (let ((config-file (expand-file-name "config.json" ws)))
+      (unless (file-exists-p config-file)
+        (with-temp-file config-file
+          (insert (format "{
+  \"model\": {
+    \"primary\": \"%s\"
+  },
+  \"ollama\": {
+    \"baseUrl\": \"http://127.0.0.1:11434\"
+  },
+  \"security\": {
+    \"restrict_to_workspace\": true
+  }
+}" my/picoclaw-default-model))))
+      ws)))
+#+end_src
+
+* 3. Control del proceso
+
+#+begin_src emacs-lisp
+(defun my/picoclaw-running-p ()
+  "Verifica si PicoClaw está corriendo."
+  (and my/picoclaw-process
+       (process-live-p my/picoclaw-process)))
+
+(defun my/picoclaw-start ()
+  "Inicia PicoClaw con el workspace del alumno activo."
+  (interactive)
+  (if (my/picoclaw-running-p)
+      (message "⚡ PicoClaw ya está corriendo")
+    (unless (file-executable-p my/picoclaw-bin)
+      (user-error "PicoClaw no encontrado en %s. Ejecuta install.sh --perfil casa" my/picoclaw-bin))
+    (let* ((ws (my/picoclaw-ensure-workspace))
+           (default-directory ws))
+      (setq my/picoclaw-process
+            (start-process "picoclaw" "*picoclaw*"
+                           my/picoclaw-bin "gateway"
+                           "--workspace" ws
+                           "--port" (number-to-string my/picoclaw-port)))
+      (set-process-query-on-exit-flag my/picoclaw-process nil)
+      (message "🐾 PicoClaw iniciado (workspace: %s, puerto: %d)"
+               ws my/picoclaw-port))))
+
+(defun my/picoclaw-stop ()
+  "Detiene PicoClaw."
+  (interactive)
+  (if (my/picoclaw-running-p)
+      (progn
+        (kill-process my/picoclaw-process)
+        (setq my/picoclaw-process nil)
+        (message "🛑 PicoClaw detenido"))
+    (message "PicoClaw no está corriendo")))
+
+(defun my/picoclaw-status ()
+  "Muestra el estado de PicoClaw."
+  (interactive)
+  (message "PicoClaw: %s | Workspace: %s | Puerto: %d | Modelo: %s"
+           (if (my/picoclaw-running-p) "corriendo" "detenido")
+           (my/picoclaw-workspace)
+           my/picoclaw-port
+           my/picoclaw-default-model))
+
+(defun my/picoclaw-open-logs ()
+  "Abre el buffer de logs de PicoClaw."
+  (interactive)
+  (if (get-buffer "*picoclaw*")
+      (switch-to-buffer-other-window "*picoclaw*")
+    (message "No hay logs de PicoClaw (no está corriendo)")))
+#+end_src
+
+* 4. Enviar tareas al agente
+
+#+begin_src emacs-lisp
+(defun my/picoclaw-send (message)
+  "Envía un mensaje/tarea a PicoClaw via CLI."
+  (interactive "sTarea para PicoClaw: ")
+  (unless (file-executable-p my/picoclaw-bin)
+    (user-error "PicoClaw no encontrado"))
+  (let* ((ws (my/picoclaw-workspace))
+         (output-buf "*picoclaw-output*")
+         (cmd (format "%s send --workspace %s '%s'"
+                      my/picoclaw-bin ws
+                      (shell-quote-argument message))))
+    (async-shell-command cmd output-buf)
+    (message "🐾 Tarea enviada a PicoClaw")))
+
+(defun my/picoclaw-resolve-ticket ()
+  "Lee el ticket de soporte bajo el cursor y pide a PicoClaw que lo analice."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Este comando funciona en archivos .org"))
+  (let* ((heading (org-get-heading t t t t))
+         (body (save-excursion
+                 (org-back-to-heading t)
+                 (let ((start (point))
+                       (end (org-end-of-subtree t)))
+                   (buffer-substring-no-properties start end))))
+         (prompt (format "Analiza este ticket de soporte y sugiere pasos para resolverlo:\n\n%s" body)))
+    (my/picoclaw-send prompt)))
+
+(defun my/picoclaw-diagnose-project ()
+  "Pide a PicoClaw que diagnostique por qué el proyecto actual no compila."
+  (interactive)
+  (let* ((project-root (or (and (fboundp 'projectile-project-root)
+                                (projectile-project-root))
+                           default-directory))
+         (prompt (format "Diagnostica el proyecto en %s. Ejecuta el build, analiza los errores y sugiere correcciones." project-root)))
+    (my/picoclaw-send prompt)))
+
+(defun my/picoclaw-review-buffer ()
+  "Pide a PicoClaw que revise el archivo actual."
+  (interactive)
+  (let* ((file (buffer-file-name))
+         (prompt (format "Revisa el archivo %s. Busca bugs, mejoras de seguridad y sugiere optimizaciones." file)))
+    (if file
+        (my/picoclaw-send prompt)
+      (message "❌ Este buffer no tiene archivo asociado"))))
+#+end_src
+
+* 5. Skills personalizados de FORJA
+
+#+begin_src emacs-lisp
+(defun my/picoclaw-install-forja-skills ()
+  "Instala skills prediseñados de FORJA en el workspace de PicoClaw."
+  (interactive)
+  (let ((skills-dir (expand-file-name "skills/" (my/picoclaw-workspace))))
+    ;; Skill: Diagnosticar compilación
+    (let ((skill-dir (expand-file-name "forja-diagnostico/" skills-dir)))
+      (make-directory skill-dir t)
+      (with-temp-file (expand-file-name "SKILL.md" skill-dir)
+        (insert "---
+name: forja-diagnostico
+description: Diagnostica por qué un proyecto no compila. Ejecuta el build, analiza errores y sugiere fixes.
+version: 1.0.0
+user-invocable: true
+metadata:
+  openclaw:
+    bins:
+      - gcc
+      - go
+      - cargo
+      - python
+      - node
+---
+
+# Diagnóstico de Compilación FORJA
+
+Cuando el usuario pida diagnosticar un proyecto:
+1. Identifica el lenguaje por los archivos presentes (.go, .rs, .py, .c, package.json)
+2. Ejecuta el comando de build apropiado (go build, cargo build, make, npm run build)
+3. Captura los errores de salida
+4. Analiza cada error y sugiere la corrección específica
+5. Si es posible, muestra el diff del fix propuesto
+")))
+    ;; Skill: Resolver ticket de soporte
+    (let ((skill-dir (expand-file-name "forja-soporte/" skills-dir)))
+      (make-directory skill-dir t)
+      (with-temp-file (expand-file-name "SKILL.md" skill-dir)
+        (insert "---
+name: forja-soporte
+description: Analiza tickets de soporte del sistema org y propone soluciones paso a paso.
+version: 1.0.0
+user-invocable: true
+---
+
+# Resolución de Tickets FORJA
+
+Cuando recibas un ticket de soporte:
+1. Lee el contenido completo del ticket (heading + properties + body)
+2. Identifica el tipo de problema (compilación, configuración, hardware, red)
+3. Si es un problema de código, intenta reproducirlo ejecutando comandos
+4. Propone una solución paso a paso
+5. Si hay un fix de código, muestra exactamente qué cambiar
+6. Sugiere cómo prevenir el problema en el futuro
+")))
+    (message "✅ Skills de FORJA instalados en %s" skills-dir)))
+#+end_src
+
+* 6. Hydra de Agentes (entrada unificada) y PicoClaw
+
+#+begin_src emacs-lisp
+;; Hydra principal de agentes: punto de entrada desde C-c U O
+(defhydra hydra-agentes (:color blue :hint nil)
+  "
+   AGENTES IA — Perfil Casa
+  ─────────────────────────────────────
+   _p_ PicoClaw (ligero, ~20MB RAM)
+   _o_ OpenClaw (completo, ~1.5GB RAM)
+  ─────────────────────────────────────
+   _q_ Volver"
+  ("p" hydra-picoclaw/body)
+  ("o" (if (fboundp 'hydra-openclaw/body)
+           (hydra-openclaw/body)
+         (message "⚠️ OpenClaw no disponible (módulo 56 no cargado)")))
+  ("q" nil))
+
+(defhydra hydra-picoclaw (:color blue :hint nil)
+  "
+   PICOCLAW — Agente Ligero
+   Estado: %-20s(if (my/picoclaw-running-p) \"corriendo\" \"detenido\")
+  ─────────────────────────────────────
+   _s_ Iniciar       _x_ Detener
+   _t_ Estado        _l_ Ver logs
+  ─────────────────────────────────────
+   _m_ Enviar tarea (mensaje libre)
+   _r_ Resolver ticket bajo cursor
+   _d_ Diagnosticar proyecto actual
+   _v_ Revisar archivo actual
+  ─────────────────────────────────────
+   _i_ Instalar skills FORJA
+   _q_ Volver"
+  ("s" my/picoclaw-start)
+  ("x" my/picoclaw-stop)
+  ("t" my/picoclaw-status)
+  ("l" my/picoclaw-open-logs)
+  ("m" my/picoclaw-send)
+  ("r" my/picoclaw-resolve-ticket)
+  ("d" my/picoclaw-diagnose-project)
+  ("v" my/picoclaw-review-buffer)
+  ("i" my/picoclaw-install-forja-skills)
+  ("q" nil))
+#+end_src

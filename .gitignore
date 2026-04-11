@@ -8,6 +8,11 @@
 # --- IMPORTANTE: Archivos Generados ---
 config.el
 modules/*.el
+points
+emacs/.emacs.d/.dap-breakpoints
+emacs/.emacs.d/lsp-cache/
+emacs/.emacs.d/modules/*.el
+emacs/.emacs.d/site-lisp/
 # --- Directorios que NO deben versionarse ---
 # Proyectos de prueba (NO son parte de la config)
 **/Programming/

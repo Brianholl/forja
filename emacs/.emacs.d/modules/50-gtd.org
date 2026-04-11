@@ -468,21 +468,23 @@ Usa tu Ollama local para asistencia dentro de Org Mode:
 - Resumir notas largas en ítems accionables
 - Clasificar tareas según Eisenhower
 
-Esto se conecta con el mismo Ollama que usa Aider (33-aider.org).
+Los modelos se configuran centralmente en 36-modelos.org.
+Si ese módulo no está cargado, se usa un fallback aquí.
 
 #+begin_src emacs-lisp
+;; gptel: solo configurar si 36-modelos.org no lo hizo ya
 (use-package gptel
   :defer t
   :config
-  ;; Usar el Ollama local que ya tenés corriendo
-  (setq gptel-backend
-        (gptel-make-ollama "Ollama-Local"
-          :host "localhost:11434"
-          :stream t
-          :models '("qwen2.5-coder:0.5b")))
-
-  (setq gptel-model "qwen2.5-coder:0.5b")
-  (setq gptel-default-mode 'org-mode))
+  (unless (boundp 'my/forja-model-chat)
+    ;; Fallback: si 36-modelos.org no está cargado
+    (setq gptel-backend
+          (gptel-make-ollama "Ollama-Local"
+            :host "localhost:11434"
+            :stream t
+            :models '("qwen2.5-coder:0.5b")))
+    (setq gptel-model "qwen2.5-coder:0.5b")
+    (setq gptel-default-mode 'org-mode)))
 
 ;; --- Funciones de IA para GTD ---
 (defun my/gtd-ai-procesar-item ()

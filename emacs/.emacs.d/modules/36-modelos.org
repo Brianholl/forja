@@ -1,0 +1,287 @@
+#+TITLE: Módulo Modelos IA - Configuración Central de LLM
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* Modelos IA — Configuración Centralizada
+
+Este módulo centraliza la configuración de modelos LLM para toda FORJA.
+En lugar de tener modelos hardcodeados en cada módulo (.org), se definen
+aquí y todos los demás módulos los referencian.
+
+Lee la configuración de =~/.forja/profile.conf= (generado por =forja-menu.sh=)
+y permite cambiar los modelos en caliente desde Emacs con =C-c M=.
+
+** Dos modelos, dos propósitos:
+- *Modelo para código*: Aider, autocompletado (Minuet), code review, agentes
+- *Modelo para español*: traducción, GTD, soporte, documentación
+
+* 1. Leer configuración de profile.conf
+
+#+begin_src emacs-lisp
+(defun my/forja-read-config ()
+  "Lee ~/.forja/profile.conf y retorna alist de variables."
+  (let ((conf-file (expand-file-name ".forja/profile.conf" "~/")))
+    (when (file-exists-p conf-file)
+      (with-temp-buffer
+        (insert-file-contents conf-file)
+        (goto-char (point-min))
+        (let (result)
+          (while (re-search-forward
+                  "^\\(FORJA_[A-Z_]+\\)=\"\\([^\"]*\\)\"" nil t)
+            (push (cons (match-string 1) (match-string 2)) result))
+          result)))))
+
+(defun my/forja-config-get (key &optional default)
+  "Obtiene un valor de profile.conf por KEY. Retorna DEFAULT si no existe."
+  (let ((config (my/forja-read-config)))
+    (or (cdr (assoc key config)) default)))
+#+end_src
+
+* 2. Variables centrales de modelos
+
+#+begin_src emacs-lisp
+;; Leer modelos de profile.conf o usar defaults
+(defvar my/forja-model-code
+  (my/forja-config-get "FORJA_MODEL_CODE" "qwen2.5-coder:0.5b")
+  "Modelo LLM para tareas de código (Aider, Minuet, review, agentes).
+Nombre del modelo en formato Ollama (sin prefijo 'ollama/').")
+
+(defvar my/forja-model-chat
+  (my/forja-config-get "FORJA_MODEL_CHAT" "qwen2.5:0.5b")
+  "Modelo LLM para tareas en español (traducción, GTD, soporte, docs).
+Nombre del modelo en formato Ollama (sin prefijo 'ollama/').")
+
+(defvar my/forja-ollama-host "localhost:11434"
+  "Host y puerto de Ollama.")
+#+end_src
+
+* 3. Configurar gptel (backend central de IA)
+
+#+begin_src emacs-lisp
+(use-package gptel
+  :defer t
+  :config
+  ;; Crear backend con AMBOS modelos disponibles
+  (let ((models (delete-dups
+                 (list my/forja-model-code my/forja-model-chat))))
+    (setq gptel-backend
+          (gptel-make-ollama "Ollama-Local"
+            :host my/forja-ollama-host
+            :stream t
+            :models models)))
+
+  ;; Modelo por defecto: el de español (para GTD, soporte, etc.)
+  (setq gptel-model my/forja-model-chat)
+  (setq gptel-default-mode 'org-mode))
+#+end_src
+
+* 4. Reconfigurar Aider y Minuet (si están cargados)
+
+#+begin_src emacs-lisp
+;; --- Aider: actualizar modelo de código ---
+(with-eval-after-load 'aider
+  (setq aider-args
+        (list "--model" (concat "ollama/" my/forja-model-code)
+              "--no-auto-commits"
+              "--no-show-model-warnings")))
+
+;; --- Minuet: actualizar modelo de autocompletado ---
+(with-eval-after-load 'minuet
+  (setq minuet-openai-fim-model my/forja-model-code))
+#+end_src
+
+* 5. Reconfigurar agentes (PicoClaw / OpenClaw)
+
+#+begin_src emacs-lisp
+;; Los agentes se configuran con with-eval-after-load para no
+;; generar error si los módulos 55/56 no están cargados.
+
+;; PicoClaw
+(with-eval-after-load '55-picoclaw
+  (when (boundp 'my/picoclaw-default-model)
+    (setq my/picoclaw-default-model
+          (concat "ollama/" my/forja-model-code))))
+
+;; OpenClaw
+(with-eval-after-load '56-openclaw
+  (when (boundp 'my/openclaw-default-model)
+    (setq my/openclaw-default-model
+          (concat "ollama/" my/forja-model-code))))
+#+end_src
+
+* 6. Traducir al español (C-c T)
+
+#+begin_src emacs-lisp
+(defun my/forja-traducir-region ()
+  "Traduce la región seleccionada al español usando el modelo de chat.
+Reemplaza la selección con la traducción."
+  (interactive)
+  (unless (use-region-p)
+    (user-error "Seleccioná texto primero (C-SPC para marcar, mover cursor, C-c T)"))
+  (let* ((text (buffer-substring-no-properties (region-beginning) (region-end)))
+         (prompt (format
+                  "Traducí el siguiente texto al español. \
+Respondé SOLAMENTE con la traducción, sin explicaciones ni comillas:\n\n%s"
+                  text)))
+    (message "Traduciendo con %s..." my/forja-model-chat)
+    (gptel-request prompt
+      :callback (lambda (response info)
+                  (if response
+                      (let ((clean (string-trim response)))
+                        (delete-region (region-beginning) (region-end))
+                        (insert clean)
+                        (message "Traducción aplicada (%s)" my/forja-model-chat))
+                    (message "Error al traducir: %s" (plist-get info :error)))))))
+
+(defun my/forja-traducir-buffer ()
+  "Traduce todo el buffer al español."
+  (interactive)
+  (mark-whole-buffer)
+  (my/forja-traducir-region))
+
+(global-set-key (kbd "C-c T") #'my/forja-traducir-region)
+#+end_src
+
+* 7. Consultar modelos instalados en Ollama
+
+#+begin_src emacs-lisp
+(defun my/forja-ollama-models ()
+  "Retorna lista de modelos instalados en Ollama."
+  (when (executable-find "ollama")
+    (let ((output (shell-command-to-string "ollama list 2>/dev/null")))
+      (when (and output (not (string-empty-p output)))
+        (let ((lines (cdr (split-string output "\n" t))))  ; skip header
+          (mapcar (lambda (line)
+                    (car (split-string line)))
+                  lines))))))
+
+(defun my/forja-show-models ()
+  "Muestra los modelos instalados en Ollama y cuáles usa FORJA."
+  (interactive)
+  (let ((installed (my/forja-ollama-models)))
+    (if installed
+        (message "Codigo: %s | Español: %s | Instalados: %s"
+                 my/forja-model-code
+                 my/forja-model-chat
+                 (string-join installed ", "))
+      (message "Ollama no está corriendo o no tiene modelos instalados"))))
+#+end_src
+
+* 8. Cambiar modelos en caliente
+
+#+begin_src emacs-lisp
+(defun my/forja-set-model-code (model)
+  "Cambia el modelo de código en caliente."
+  (interactive
+   (let ((models (or (my/forja-ollama-models)
+                     '("qwen2.5-coder:0.5b" "qwen2.5-coder:1.5b"
+                       "qwen2.5-coder:3b" "qwen2.5-coder:7b"
+                       "qwen2.5-coder:14b" "qwen2.5-coder:32b"
+                       "deepseek-coder-v2:lite"
+                       "codellama:7b" "codellama:13b" "codellama:34b"))))
+     (list (completing-read
+            (format "Modelo para CODIGO (actual: %s): " my/forja-model-code)
+            models nil nil nil nil my/forja-model-code))))
+  (setq my/forja-model-code model)
+  ;; Actualizar Aider
+  (when (boundp 'aider-args)
+    (setq aider-args
+          (list "--model" (concat "ollama/" model)
+                "--no-auto-commits"
+                "--no-show-model-warnings")))
+  ;; Actualizar Minuet
+  (when (boundp 'minuet-openai-fim-model)
+    (setq minuet-openai-fim-model model))
+  ;; Actualizar agentes
+  (when (boundp 'my/picoclaw-default-model)
+    (setq my/picoclaw-default-model (concat "ollama/" model)))
+  (when (boundp 'my/openclaw-default-model)
+    (setq my/openclaw-default-model (concat "ollama/" model)))
+  ;; Actualizar gptel models list
+  (when (boundp 'gptel-backend)
+    (setq gptel-backend
+          (gptel-make-ollama "Ollama-Local"
+            :host my/forja-ollama-host
+            :stream t
+            :models (delete-dups (list model my/forja-model-chat)))))
+  (message "Modelo de código cambiado a: %s" model))
+
+(defun my/forja-set-model-chat (model)
+  "Cambia el modelo de español/chat en caliente."
+  (interactive
+   (let ((models (or (my/forja-ollama-models)
+                     '("qwen2.5:0.5b" "qwen2.5:1.5b" "qwen2.5:3b"
+                       "qwen2.5:7b" "qwen2.5:14b" "qwen2.5:32b"
+                       "gemma3:1b" "gemma3:4b" "gemma3:12b"
+                       "llama3.2:3b" "llama3.1:8b" "llama3.1:70b"
+                       "mistral:7b"))))
+     (list (completing-read
+            (format "Modelo para ESPAÑOL (actual: %s): " my/forja-model-chat)
+            models nil nil nil nil my/forja-model-chat))))
+  (setq my/forja-model-chat model)
+  ;; Actualizar gptel
+  (when (boundp 'gptel-model)
+    (setq gptel-model model))
+  (when (boundp 'gptel-backend)
+    (setq gptel-backend
+          (gptel-make-ollama "Ollama-Local"
+            :host my/forja-ollama-host
+            :stream t
+            :models (delete-dups (list my/forja-model-code model)))))
+  (message "Modelo de español cambiado a: %s" model))
+
+(defun my/forja-save-models ()
+  "Guarda los modelos actuales en ~/.forja/profile.conf."
+  (interactive)
+  (let ((conf-file (expand-file-name ".forja/profile.conf" "~/")))
+    (if (not (file-exists-p conf-file))
+        (message "No existe ~/.forja/profile.conf. Ejecuta forja-menu.sh primero.")
+      (with-temp-buffer
+        (insert-file-contents conf-file)
+        ;; Reemplazar FORJA_MODEL_CODE
+        (goto-char (point-min))
+        (if (re-search-forward "^FORJA_MODEL_CODE=\"[^\"]*\"" nil t)
+            (replace-match (format "FORJA_MODEL_CODE=\"%s\"" my/forja-model-code))
+          (goto-char (point-max))
+          (insert (format "\nFORJA_MODEL_CODE=\"%s\"\n" my/forja-model-code)))
+        ;; Reemplazar FORJA_MODEL_CHAT
+        (goto-char (point-min))
+        (if (re-search-forward "^FORJA_MODEL_CHAT=\"[^\"]*\"" nil t)
+            (replace-match (format "FORJA_MODEL_CHAT=\"%s\"" my/forja-model-chat))
+          (goto-char (point-max))
+          (insert (format "\nFORJA_MODEL_CHAT=\"%s\"\n" my/forja-model-chat)))
+        (write-region (point-min) (point-max) conf-file))
+      (message "Modelos guardados: codigo=%s, español=%s"
+               my/forja-model-code my/forja-model-chat))))
+#+end_src
+
+* 9. Hydra de modelos (C-c M)
+
+#+begin_src emacs-lisp
+(defhydra hydra-modelos (:color blue :hint nil)
+  "
+   MODELOS IA — Configuración
+  ─────────────────────────────────────
+
+   Código:  %-30s`my/forja-model-code
+   Español: %-30s`my/forja-model-chat
+
+  ─────────────────────────────────────
+   _c_ Cambiar modelo de CÓDIGO
+   _e_ Cambiar modelo de ESPAÑOL
+   _s_ Guardar modelos a profile.conf
+  ─────────────────────────────────────
+   _i_ Ver modelos instalados (Ollama)
+   _T_ Traducir región al español
+  ─────────────────────────────────────
+   _q_ Cerrar"
+  ("c" my/forja-set-model-code)
+  ("e" my/forja-set-model-chat)
+  ("s" my/forja-save-models)
+  ("i" my/forja-show-models)
+  ("T" my/forja-traducir-region)
+  ("q" nil))
+
+(global-set-key (kbd "C-c M") #'hydra-modelos/body)
+#+end_src

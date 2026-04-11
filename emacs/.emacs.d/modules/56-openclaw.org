@@ -1,0 +1,245 @@
+#+TITLE: Módulo OpenClaw - Agente IA Completo
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* OpenClaw — Agente Autónomo Completo
+
+OpenClaw es un agente IA completo (Node.js, ~1.5GB RAM) con ecosistema
+de skills (5400+ en ClawHub), browser automation, memoria persistente
+y canales de mensajería (Telegram, Discord, etc.).
+
+Solo disponible en perfil CASA (requiere más recursos que PicoClaw).
+
+* 1. Variables de configuración
+
+#+begin_src emacs-lisp
+(defvar my/openclaw-bin (or (executable-find "openclaw")
+                            (expand-file-name ".npm-global/bin/openclaw" "~/"))
+  "Ruta al binario de OpenClaw.")
+
+(defvar my/openclaw-port 18789
+  "Puerto del gateway de OpenClaw.")
+
+(defvar my/openclaw-process nil
+  "Proceso de OpenClaw corriendo en background.")
+
+(defvar my/openclaw-default-model "ollama/qwen2.5-coder:7b"
+  "Modelo por defecto para OpenClaw (via Ollama local).")
+#+end_src
+
+* 2. Directorio de trabajo por alumno
+
+#+begin_src emacs-lisp
+(defun my/openclaw-workspace ()
+  "Retorna el directorio de OpenClaw del alumno activo."
+  (if (bound-and-true-p my/mu-alumno-actual)
+      (expand-file-name
+       (concat my/mu-alumno-actual "/.openclaw/")
+       my/mu-base-dir)
+    (expand-file-name ".openclaw/" "~/")))
+
+(defun my/openclaw-ensure-workspace ()
+  "Crea la estructura de directorios de OpenClaw si no existe."
+  (let ((ws (my/openclaw-workspace)))
+    (dolist (subdir '("agents/forja" "memory" "skills"))
+      (make-directory (expand-file-name subdir ws) t))
+    ;; Crear SOUL.md (identidad del agente)
+    (let ((soul-file (expand-file-name "agents/forja/SOUL.md" ws)))
+      (unless (file-exists-p soul-file)
+        (with-temp-file soul-file
+          (insert "# FORJA Agent
+
+Sos un asistente técnico para el entorno de desarrollo FORJA.
+Tu rol es ayudar a alumnos y docentes a resolver problemas técnicos.
+
+## Principios
+- Explicá cada paso que hacés para que el alumno aprenda
+- Siempre mostrá el diff antes de aplicar un cambio
+- Nunca borres archivos sin confirmación
+- Preferí soluciones simples sobre complejas
+- Respondé en español
+
+## Herramientas disponibles
+- Shell: podés ejecutar comandos del sistema
+- Archivos: podés leer y escribir archivos en el workspace
+- Git: podés interactuar con repositorios
+
+## Contexto
+Estás corriendo en un entorno FORJA (Emacs modular) en Arch Linux.
+Los proyectos del alumno están en su carpeta personal.
+Los lenguajes soportados son: C, C++, Rust, Go, Python, PHP, JavaScript, GDScript.
+"))))
+    ;; Crear config mínimo si no existe
+    (let ((config-file (expand-file-name "agents/forja/config.yaml" ws)))
+      (unless (file-exists-p config-file)
+        (with-temp-file config-file
+          (insert (format "model:
+  primary: \"%s\"
+  fallback: \"ollama/qwen2.5-coder:0.5b\"
+
+providers:
+  ollama:
+    baseUrl: \"http://127.0.0.1:11434\"
+
+security:
+  sandbox: false
+  exec:
+    enabled: true
+" my/openclaw-default-model)))))
+    ws))
+#+end_src
+
+* 3. Control del proceso
+
+#+begin_src emacs-lisp
+(defun my/openclaw-running-p ()
+  "Verifica si OpenClaw está corriendo."
+  (and my/openclaw-process
+       (process-live-p my/openclaw-process)))
+
+(defun my/openclaw-start ()
+  "Inicia OpenClaw con el workspace del alumno activo."
+  (interactive)
+  (if (my/openclaw-running-p)
+      (message "🦞 OpenClaw ya está corriendo")
+    (unless (file-executable-p my/openclaw-bin)
+      (user-error "OpenClaw no encontrado en %s. Ejecuta install.sh --perfil casa" my/openclaw-bin))
+    (let* ((ws (my/openclaw-ensure-workspace))
+           (agent-dir (expand-file-name "agents/forja/" ws))
+           (default-directory ws)
+           (process-environment
+            (append
+             (list (format "OPENCLAW_AGENT_DIR=%s" agent-dir)
+                   "OLLAMA_API_KEY=ollama-local")
+             process-environment)))
+      (setq my/openclaw-process
+            (start-process "openclaw" "*openclaw*"
+                           my/openclaw-bin "gateway"
+                           "--port" (number-to-string my/openclaw-port)))
+      (set-process-query-on-exit-flag my/openclaw-process nil)
+      (message "🦞 OpenClaw iniciado (workspace: %s, puerto: %d)"
+               ws my/openclaw-port))))
+
+(defun my/openclaw-stop ()
+  "Detiene OpenClaw."
+  (interactive)
+  (if (my/openclaw-running-p)
+      (progn
+        (kill-process my/openclaw-process)
+        (setq my/openclaw-process nil)
+        (message "🛑 OpenClaw detenido"))
+    (message "OpenClaw no está corriendo")))
+
+(defun my/openclaw-status ()
+  "Muestra el estado de OpenClaw."
+  (interactive)
+  (message "OpenClaw: %s | Workspace: %s | Puerto: %d | Modelo: %s"
+           (if (my/openclaw-running-p) "corriendo" "detenido")
+           (my/openclaw-workspace)
+           my/openclaw-port
+           my/openclaw-default-model))
+
+(defun my/openclaw-open-logs ()
+  "Abre el buffer de logs de OpenClaw."
+  (interactive)
+  (if (get-buffer "*openclaw*")
+      (switch-to-buffer-other-window "*openclaw*")
+    (message "No hay logs de OpenClaw (no está corriendo)")))
+
+(defun my/openclaw-open-web ()
+  "Abre la interfaz web de OpenClaw en el navegador."
+  (interactive)
+  (if (my/openclaw-running-p)
+      (browse-url (format "http://localhost:%d" my/openclaw-port))
+    (user-error "OpenClaw no está corriendo. Usa C-c U O s para iniciarlo")))
+#+end_src
+
+* 4. Enviar tareas al agente
+
+#+begin_src emacs-lisp
+(defun my/openclaw-send (message)
+  "Envía un mensaje/tarea a OpenClaw via CLI."
+  (interactive "sTarea para OpenClaw: ")
+  (unless (file-executable-p my/openclaw-bin)
+    (user-error "OpenClaw no encontrado"))
+  (let* ((ws (my/openclaw-workspace))
+         (output-buf "*openclaw-output*")
+         (cmd (format "OPENCLAW_AGENT_DIR=%s/agents/forja %s send '%s'"
+                      ws my/openclaw-bin
+                      (shell-quote-argument message))))
+    (async-shell-command cmd output-buf)
+    (message "🦞 Tarea enviada a OpenClaw")))
+
+(defun my/openclaw-resolve-ticket ()
+  "Lee el ticket bajo el cursor y pide a OpenClaw que lo analice."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Este comando funciona en archivos .org"))
+  (let* ((body (save-excursion
+                 (org-back-to-heading t)
+                 (let ((start (point))
+                       (end (org-end-of-subtree t)))
+                   (buffer-substring-no-properties start end))))
+         (prompt (format "Analiza este ticket de soporte y propone una solución detallada paso a paso:\n\n%s" body)))
+    (my/openclaw-send prompt)))
+
+(defun my/openclaw-diagnose-project ()
+  "Pide a OpenClaw que diagnostique el proyecto actual."
+  (interactive)
+  (let* ((project-root (or (and (fboundp 'projectile-project-root)
+                                (projectile-project-root))
+                           default-directory))
+         (prompt (format "Diagnostica el proyecto en %s. Ejecuta el build, analiza errores, revisa el código y sugiere correcciones con diffs." project-root)))
+    (my/openclaw-send prompt)))
+
+(defun my/openclaw-review-buffer ()
+  "Pide a OpenClaw que revise el archivo actual en profundidad."
+  (interactive)
+  (let* ((file (buffer-file-name))
+         (prompt (format "Hacé un code review completo del archivo %s. Buscá bugs, vulnerabilidades de seguridad, problemas de rendimiento y sugiere mejoras. Mostrá los diffs propuestos." file)))
+    (if file
+        (my/openclaw-send prompt)
+      (message "❌ Este buffer no tiene archivo asociado"))))
+
+(defun my/openclaw-generate-tests ()
+  "Pide a OpenClaw que genere tests para el archivo actual."
+  (interactive)
+  (let* ((file (buffer-file-name))
+         (prompt (format "Lee el archivo %s, identifica las funciones principales y generá un archivo de tests completo con casos límite. Escribí el archivo de tests al lado del original." file)))
+    (if file
+        (my/openclaw-send prompt)
+      (message "❌ Este buffer no tiene archivo asociado"))))
+#+end_src
+
+* 5. Hydra de OpenClaw
+
+#+begin_src emacs-lisp
+(defhydra hydra-openclaw (:color blue :hint nil)
+  "
+   OPENCLAW — Agente Completo
+   Estado: %-20s(if (my/openclaw-running-p) \"corriendo\" \"detenido\")
+  ─────────────────────────────────────
+   _s_ Iniciar       _x_ Detener
+   _w_ Abrir WebUI   _l_ Ver logs
+   _t_ Estado
+  ─────────────────────────────────────
+   _m_ Enviar tarea (mensaje libre)
+   _r_ Resolver ticket bajo cursor
+   _d_ Diagnosticar proyecto actual
+   _v_ Revisar archivo actual
+   _g_ Generar tests para archivo
+  ─────────────────────────────────────
+   _q_ Volver"
+  ("s" my/openclaw-start)
+  ("x" my/openclaw-stop)
+  ("w" my/openclaw-open-web)
+  ("l" my/openclaw-open-logs)
+  ("t" my/openclaw-status)
+  ("m" my/openclaw-send)
+  ("r" my/openclaw-resolve-ticket)
+  ("d" my/openclaw-diagnose-project)
+  ("v" my/openclaw-review-buffer)
+  ("g" my/openclaw-generate-tests)
+  ("q" nil))
+#+end_src

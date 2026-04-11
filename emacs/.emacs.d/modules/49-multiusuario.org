@@ -54,7 +54,7 @@ Contiene el nombre del alumno en la primera línea.")
 (defvar my/mu-rclone-base-path "emacs-sync"
   "Carpeta base en Google Drive donde se guardan los datos.")
 
-(defvar my/mu-sync-subdirs '("gtd" "docs" "procesos" "projects" ".n8n")
+(defvar my/mu-sync-subdirs '("gtd" "docs" "procesos" "projects" ".n8n" ".picoclaw" ".openclaw")
   "Subdirectorios a sincronizar con Drive.")
 
 (defvar my/mu-ultimo-sync-drive nil
@@ -648,6 +648,7 @@ son privadas y se respaldan junto con el resto de los datos del alumno.
    _D_ Configurar Drive
   ─────────────────────────────────────
    _N_ n8n Workflows
+   _O_ Agentes IA (PicoClaw/OpenClaw)
    _c_ Cambiar alumno   _t_ Estado
    _q_ Salir"
   ("u" my/mu-backup-usb)
@@ -659,6 +660,9 @@ son privadas y se respaldan junto con el resto de los datos del alumno.
   ("S" my/mu-sync-drive-pull)
   ("D" my/mu-sync-drive-setup)
   ("N" hydra-n8n/body)
+  ("O" (if (fboundp 'hydra-agentes/body)
+           (hydra-agentes/body)
+         (message "⚠️ Agentes IA no disponibles en este perfil (solo Casa)")))
   ("c" my/mu-cambiar-alumno)
   ("t" my/mu-estado)
   ("q" nil))

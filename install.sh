@@ -1,9 +1,13 @@
 #!/bin/bash
 # =============================================================================
-# install.sh — Instalador de dependencias para Emacs Modular Config
+# install.sh — Instalador de dependencias para FORJA
 # Autor: Brian Hollweg
 # Soporta: Arch Linux (PC), Termux (Android) y WSL2 (Windows)
-# Uso: bash install.sh [--perfil casa|escuela|minimal]
+#
+# Uso:
+#   bash forja-menu.sh        (configura perfil interactivamente)
+#   bash install.sh            (lee ~/.forja/profile.conf)
+#   bash install.sh --perfil casa   (modo legacy, sin menu)
 # =============================================================================
 
 # No usar set -e: manejamos errores manualmente con || warn/err
@@ -37,19 +41,98 @@ TMPDIR="${TMPDIR:-/tmp}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$SCRIPT_DIR"
 
-# --- Perfil (default: escuela) ---
-PERFIL="escuela"
+# =============================================================================
+# LEER CONFIGURACION (profile.conf o argumentos CLI)
+# =============================================================================
+
+FORJA_CONF_DIR="$HOME/.forja"
+FORJA_CONF_FILE="$FORJA_CONF_DIR/profile.conf"
+
+# Funcion: verificar si un feature esta habilitado en profile.conf
+forja_has_feature() {
+    local feature="$1"
+    echo ",$FORJA_FEATURES," | grep -q ",$feature,"
+    return $?
+}
+
+# --- Leer profile.conf si existe ---
+PERFIL=""
+FORJA_FEATURES=""
+FORJA_MODEL_CODE=""
+FORJA_MODEL_CHAT=""
+
+if [ -f "$FORJA_CONF_FILE" ]; then
+    source "$FORJA_CONF_FILE"
+    PERFIL="${FORJA_PROFILE:-escuela}"
+    info "Configuracion leida de $FORJA_CONF_FILE"
+    info "  Perfil: $PERFIL | Features: $FORJA_FEATURES"
+    if [ -n "$FORJA_MODEL_CODE" ] && [ "$FORJA_MODEL_CODE" != "ninguno" ]; then
+        info "  Modelo codigo: $FORJA_MODEL_CODE | Modelo espanol: $FORJA_MODEL_CHAT"
+    fi
+fi
+
+# --- Permitir override por CLI (modo legacy) ---
 while [[ $# -gt 0 ]]; do
     case $1 in
         --perfil) PERFIL="$2"; shift 2 ;;
         casa|escuela|minimal) PERFIL="$1"; shift ;;
+        --menu)
+            # Forzar ejecutar el menu interactivo
+            bash "$SCRIPT_DIR/forja-menu.sh"
+            # Recargar configuracion despues del menu
+            if [ -f "$FORJA_CONF_FILE" ]; then
+                source "$FORJA_CONF_FILE"
+                PERFIL="${FORJA_PROFILE:-escuela}"
+            fi
+            shift
+            ;;
         *) shift ;;
     esac
 done
 
+# --- Si no hay perfil definido, ofrecer el menu ---
+if [ -z "$PERFIL" ]; then
+    if [ -t 0 ] && [ -f "$SCRIPT_DIR/forja-menu.sh" ]; then
+        echo ""
+        echo -e "${YELLOW}No se encontro configuracion previa.${NC}"
+        echo -e "Ejecutando el asistente de configuracion..."
+        echo ""
+        bash "$SCRIPT_DIR/forja-menu.sh"
+        if [ -f "$FORJA_CONF_FILE" ]; then
+            source "$FORJA_CONF_FILE"
+            PERFIL="${FORJA_PROFILE:-escuela}"
+        else
+            PERFIL="escuela"
+            warn "El asistente no genero configuracion. Usando perfil: escuela"
+        fi
+    else
+        PERFIL="escuela"
+        warn "Sin configuracion ni terminal interactiva. Usando perfil: escuela"
+    fi
+fi
+
+# --- Si usaron --perfil sin forja-menu.sh, generar FORJA_FEATURES de compatibilidad ---
+if [ -z "$FORJA_FEATURES" ]; then
+    case "$PERFIL" in
+        minimal)
+            FORJA_FEATURES="sync-drive,multiusuario"
+            ;;
+        casa)
+            FORJA_FEATURES="aider,godot,raylib,unreal,n8n,picoclaw,openclaw,latex,esp32,fasm,sync-drive,multiusuario"
+            FORJA_MODEL_CODE="${FORJA_MODEL_CODE:-qwen2.5-coder:7b}"
+            FORJA_MODEL_CHAT="${FORJA_MODEL_CHAT:-qwen2.5:7b}"
+            ;;
+        *)
+            FORJA_FEATURES="aider,godot,raylib,n8n,latex,sync-drive,multiusuario"
+            FORJA_MODEL_CODE="${FORJA_MODEL_CODE:-qwen2.5-coder:0.5b}"
+            FORJA_MODEL_CHAT="${FORJA_MODEL_CHAT:-qwen2.5:0.5b}"
+            ;;
+    esac
+fi
+
 echo ""
 echo "=============================================="
-echo "  Emacs Modular Config — Instalador"
+echo "  FORJA — Instalador"
 echo "  Plataforma: $PLATFORM"
 echo "  Perfil: $PERFIL"
 echo "=============================================="
@@ -60,9 +143,7 @@ echo ""
 # =============================================================================
 info "Actualizando el sistema..."
 if [ "$PLATFORM" = "termux" ]; then
-    # pkg es un wrapper de apt en Termux; usarlo directamente evita duplicar trabajo
     pkg upgrade -y
-    # Reparar dependencias si quedan rotas (ej: ncurses/openssl version mismatch)
     apt --fix-broken install -y 2>/dev/null || true
 elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get update -y
@@ -82,8 +163,6 @@ elif [ "$PLATFORM" = "wsl" ]; then
         software-properties-common apt-transport-https ca-certificates gnupg \
         git build-essential ripgrep fd-find unzip cmake ninja-build stow rsync curl wget \
         libtree-sitter-dev tree-sitter-cli
-    
-    # Prevenir conflicto en WSL con fdfind (muchos paquetes Emacs buscan la palabra literal 'fd')
     sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd
 else
     sudo pacman -S --needed --noconfirm \
@@ -96,9 +175,8 @@ fi
 info "[2/11] Emacs y fuentes..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y emacs
-    ok "Emacs instalado (Termux — sin fuentes GUI)"
+    ok "Emacs instalado (Termux)"
 elif [ "$PLATFORM" = "wsl" ]; then
-    # WSL: instalar Emacs (Ubuntu puede traer 27, verificar si hay PPA para 29+)
     if ! command -v emacs &>/dev/null || [[ "$(emacs --version 2>/dev/null | head -1 | grep -oP '\d+')" -lt 29 ]]; then
         info "Agregando PPA para Emacs 29+..."
         sudo add-apt-repository -y ppa:ubuntuhandbook1/emacs 2>/dev/null \
@@ -106,7 +184,7 @@ elif [ "$PLATFORM" = "wsl" ]; then
         sudo apt-get update -y
     fi
     sudo apt-get install -y emacs
-    ok "Emacs instalado (WSL — sin fuentes GUI)"
+    ok "Emacs instalado (WSL)"
 else
     sudo pacman -S --needed --noconfirm \
         emacs \
@@ -121,15 +199,18 @@ fi
 # =============================================================================
 info "[3/11] Toolchain C/C++..."
 if [ "$PLATFORM" = "termux" ]; then
-    # Termux: clang viene con build-essential, sin GDB nativo ni FASM (x86)
     pkg install -y clang
     ok "Clang instalado (sin GDB/FASM en Termux)"
 elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get install -y clang llvm gdb
     ok "Clang + GDB instalados (WSL)"
 else
-    sudo pacman -S --needed --noconfirm \
-        clang llvm lldb gdb benchmark fasm binutils
+    ARCH_CPP_PKGS="clang llvm lldb gdb benchmark binutils"
+    # FASM solo si esta habilitado
+    if forja_has_feature "fasm"; then
+        ARCH_CPP_PKGS="$ARCH_CPP_PKGS fasm"
+    fi
+    sudo pacman -S --needed --noconfirm $ARCH_CPP_PKGS
     ok "Toolchain C/C++ completo"
 fi
 
@@ -213,36 +294,53 @@ fi
 ok "PHP instalado"
 
 # rclone (sincronizacion con Google Drive)
-info "Instalando rclone (sincronizacion Google Drive)..."
-if [ "$PLATFORM" = "termux" ]; then
-    pkg install -y rclone
-elif [ "$PLATFORM" = "wsl" ]; then
-    sudo apt-get install -y rclone
-else
-    sudo pacman -S --needed --noconfirm rclone
+if forja_has_feature "sync-drive"; then
+    info "Instalando rclone (sincronizacion Google Drive)..."
+    if [ "$PLATFORM" = "termux" ]; then
+        pkg install -y rclone
+    elif [ "$PLATFORM" = "wsl" ]; then
+        sudo apt-get install -y rclone
+    else
+        sudo pacman -S --needed --noconfirm rclone
+    fi
+    ok "rclone instalado"
 fi
-ok "rclone instalado"
 
 # =============================================================================
-# 6. GAME DEV Y MULTIMEDIA (SOLO PC)
+# 6. GAME DEV (CONDICIONAL)
 # =============================================================================
 info "[5/11] Game Dev..."
 if [ "$PLATFORM" = "termux" ] || [ "$PLATFORM" = "wsl" ]; then
     info "Saltando Game Dev (no disponible en $PLATFORM)"
 else
-    sudo pacman -S --needed --noconfirm \
-        raylib \
-        sdl2 sdl2_image sdl2_mixer sdl2_ttf \
-        godot \
-        zathura zathura-pdf-mupdf
+    GAMEDEV_PKGS=""
 
-    # gdtoolkit: formatter/linter para GDScript
-    pip install --user --break-system-packages gdtoolkit
-    ok "Godot + gdtoolkit instalados"
+    if forja_has_feature "raylib"; then
+        GAMEDEV_PKGS="$GAMEDEV_PKGS raylib sdl2 sdl2_image sdl2_mixer sdl2_ttf"
+    fi
+
+    if forja_has_feature "godot"; then
+        GAMEDEV_PKGS="$GAMEDEV_PKGS godot"
+    fi
+
+    # zathura siempre util en PC
+    GAMEDEV_PKGS="$GAMEDEV_PKGS zathura zathura-pdf-mupdf"
+
+    if [ -n "$GAMEDEV_PKGS" ]; then
+        sudo pacman -S --needed --noconfirm $GAMEDEV_PKGS
+    fi
+
+    if forja_has_feature "godot"; then
+        pip install --user --break-system-packages gdtoolkit 2>/dev/null \
+            || warn "No se pudo instalar gdtoolkit"
+        ok "Godot + gdtoolkit instalados"
+    fi
+
+    ok "Game Dev configurado"
 fi
 
 # =============================================================================
-# 7. IA Y TERMINAL (SOLO PC — Ollama/Alacritty)
+# 7. IA Y TERMINAL (CONDICIONAL)
 # =============================================================================
 info "[6/11] IA y terminal..."
 if [ "$PLATFORM" = "termux" ]; then
@@ -252,26 +350,36 @@ elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get install -y direnv
     info "Saltando Ollama y Alacritty (no disponibles en WSL)"
 else
-    sudo pacman -S --needed --noconfirm alacritty ollama direnv
+    sudo pacman -S --needed --noconfirm alacritty direnv
 
-    # Bajar modelo de codigo para Aider/gptel
-    if command -v ollama &>/dev/null; then
-        if ! systemctl is-active --quiet ollama; then
-            info "Iniciando servicio ollama..."
-            sudo systemctl enable --now ollama
-            for i in $(seq 1 10); do
-                sleep 2
-                ollama list &>/dev/null && break
-                info "Esperando que ollama este listo... ($i/10)"
-            done
-        fi
+    # Ollama: instalar si se eligio algun feature que lo necesite
+    if forja_has_feature "aider" || forja_has_feature "picoclaw" || forja_has_feature "openclaw"; then
+        sudo pacman -S --needed --noconfirm ollama
 
-        info "Descargando modelo qwen2.5-coder:0.5b (liviano)..."
-        ollama pull qwen2.5-coder:0.5b || warn "No se pudo descargar el modelo"
+        if command -v ollama &>/dev/null; then
+            if ! systemctl is-active --quiet ollama; then
+                info "Iniciando servicio ollama..."
+                sudo systemctl enable --now ollama
+                for i in $(seq 1 10); do
+                    sleep 2
+                    ollama list &>/dev/null && break
+                    info "Esperando que ollama este listo... ($i/10)"
+                done
+            fi
 
-        if [ "$PERFIL" = "casa" ]; then
-            info "Descargando modelo qwen2.5-coder:7b (casa)..."
-            ollama pull qwen2.5-coder:7b || warn "Fallo al descargar 7b"
+            # Descargar modelos seleccionados
+            if [ -n "$FORJA_MODEL_CODE" ] && [ "$FORJA_MODEL_CODE" != "ninguno" ]; then
+                info "Descargando modelo de codigo: $FORJA_MODEL_CODE..."
+                ollama pull "$FORJA_MODEL_CODE" || warn "No se pudo descargar $FORJA_MODEL_CODE"
+            fi
+
+            if [ -n "$FORJA_MODEL_CHAT" ] && [ "$FORJA_MODEL_CHAT" != "ninguno" ]; then
+                # No descargar si es el mismo que el de codigo
+                if [ "$FORJA_MODEL_CHAT" != "$FORJA_MODEL_CODE" ]; then
+                    info "Descargando modelo de espanol: $FORJA_MODEL_CHAT..."
+                    ollama pull "$FORJA_MODEL_CHAT" || warn "No se pudo descargar $FORJA_MODEL_CHAT"
+                fi
+            fi
         fi
     fi
 fi
@@ -281,11 +389,9 @@ fi
 # =============================================================================
 info "[7/11] Paquetes especificos de plataforma..."
 if [ "$PLATFORM" = "termux" ]; then
-    # Vterm requiere libvterm en Termux
     pkg install -y libvterm termux-api
     ok "libvterm y termux-api instalados"
 elif [ "$PLATFORM" = "wsl" ]; then
-    # WSL: libvterm para vterm, sin AUR
     sudo apt-get install -y libvterm-dev libtool-bin
     ok "libvterm instalado (WSL)"
 else
@@ -304,14 +410,19 @@ else
         fi
         rm -rf "$BUILD_DIR"
     fi
-    yay -S --needed --noconfirm vterm-git cppman-git esp-idf
+
+    AUR_PKGS="vterm-git cppman-git"
+    if forja_has_feature "esp32"; then
+        AUR_PKGS="$AUR_PKGS esp-idf"
+    fi
+    yay -S --needed --noconfirm $AUR_PKGS
     ok "Paquetes AUR instalados"
 fi
 
 # =============================================================================
 # 9. HERRAMIENTAS DE DOCUMENTACION (modulos 50-53)
 # =============================================================================
-info "[8/11] Herramientas para modulos GTD y Asistencia Operativa..."
+info "[8/11] Herramientas para modulos GTD y documentacion..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y graphviz gnuplot libsqlite
     ok "Herramientas de documentacion (Termux)"
@@ -319,22 +430,19 @@ elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get install -y graphviz gnuplot sqlite3 libsqlite3-dev
     ok "Herramientas de documentacion (WSL)"
 else
-    # Diagramas
-    sudo pacman -S --needed --noconfirm graphviz gnuplot
+    sudo pacman -S --needed --noconfirm graphviz gnuplot sqlite man-pages
 
-    # LaTeX
-    sudo pacman -S --needed --noconfirm \
-        texlive-basic texlive-latexrecommended \
-        texlive-fontsrecommended texlive-langspanish
+    # LaTeX (condicional)
+    if forja_has_feature "latex"; then
+        info "Instalando LaTeX..."
+        sudo pacman -S --needed --noconfirm \
+            texlive-basic texlive-latexrecommended \
+            texlive-fontsrecommended texlive-langspanish
+        ok "LaTeX instalado"
+    fi
 
-    # Diagnostico de redes
+    # Diagnostico de redes (para modulo 53-soporte)
     sudo pacman -S --needed --noconfirm traceroute bind-tools
-
-    # org-roam requiere sqlite
-    sudo pacman -S --needed --noconfirm sqlite
-
-    # man-pages para cppman
-    sudo pacman -S --needed --noconfirm man-pages
 
     ok "Dependencias de documentacion instaladas"
 fi
@@ -394,12 +502,12 @@ EOF
 fi
 
 # =============================================================================
-# 11. AIDER (SOLO PC)
+# 11. AIDER (CONDICIONAL)
 # =============================================================================
 info "[10/11] Aider — Code Agent local..."
 if [ "$PLATFORM" = "termux" ] || [ "$PLATFORM" = "wsl" ]; then
     info "Saltando Aider (requiere Ollama, no disponible en $PLATFORM)"
-else
+elif forja_has_feature "aider"; then
     sudo pacman -S --needed --noconfirm uv
 
     uv tool install --force --python python3.12 aider-chat@latest
@@ -420,24 +528,22 @@ else
         info "aider.el ya existe, actualizando..."
         git -C ~/.emacs.d/site-lisp/aider.el pull
     fi
+else
+    info "Saltando Aider (no seleccionado)"
 fi
 
 # =============================================================================
-# 12. N8N — AUTOMATIZACION DE WORKFLOWS (PC + WSL)
+# 12. N8N — AUTOMATIZACION DE WORKFLOWS (CONDICIONAL)
 # =============================================================================
 info "[11/11] n8n — Automatizacion de workflows..."
 if [ "$PLATFORM" = "termux" ]; then
     info "Saltando n8n (no disponible en Termux)"
-else
+elif forja_has_feature "n8n"; then
     if command -v n8n &>/dev/null; then
         info "n8n ya instalado: $(n8n --version 2>/dev/null)"
     else
         info "Instalando n8n via npm..."
-        if [ "$PLATFORM" = "wsl" ]; then
-            sudo npm install -g n8n
-        else
-            sudo npm install -g n8n
-        fi
+        sudo npm install -g n8n
 
         if command -v n8n &>/dev/null; then
             ok "n8n instalado: $(n8n --version 2>/dev/null)"
@@ -445,18 +551,51 @@ else
             warn "No se pudo instalar n8n (verificar npm)"
         fi
     fi
+else
+    info "Saltando n8n (no seleccionado)"
 fi
 
 # =============================================================================
-# PERFIL CASA: Unreal Engine tools (SOLO PC)
+# AGENTES IA (CONDICIONAL — PicoClaw + OpenClaw)
 # =============================================================================
-if [ "$PERFIL" = "casa" ] && [ "$PLATFORM" = "arch" ]; then
-    echo ""
-    info "Perfil CASA: configurando herramientas adicionales..."
+if [ "$PLATFORM" = "arch" ]; then
+    # --- PicoClaw ---
+    if forja_has_feature "picoclaw"; then
+        info "Instalando PicoClaw (agente IA ligero)..."
+        PICOCLAW_URL="https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-amd64"
+        if ! command -v picoclaw &>/dev/null; then
+            curl -fsSL "$PICOCLAW_URL" -o /tmp/picoclaw \
+                && chmod +x /tmp/picoclaw \
+                && sudo mv /tmp/picoclaw /usr/local/bin/picoclaw \
+                && ok "PicoClaw instalado" \
+                || warn "No se pudo instalar PicoClaw"
+        else
+            ok "PicoClaw ya instalado"
+        fi
+        mkdir -p ~/.picoclaw/{workspace,memory,skills,cron}
+    fi
 
+    # --- OpenClaw ---
+    if forja_has_feature "openclaw"; then
+        info "Instalando OpenClaw (agente IA completo)..."
+        if ! command -v openclaw &>/dev/null; then
+            sudo npm install -g openclaw@latest \
+                && ok "OpenClaw instalado" \
+                || warn "No se pudo instalar OpenClaw"
+        else
+            ok "OpenClaw ya instalado"
+        fi
+        mkdir -p ~/.openclaw/{agents/forja,memory,skills}
+    fi
+fi
+
+# =============================================================================
+# UNREAL ENGINE (CONDICIONAL)
+# =============================================================================
+if [ "$PLATFORM" = "arch" ] && forja_has_feature "unreal"; then
+    info "Configurando Unreal Engine..."
     sudo pacman -S --needed --noconfirm \
-        cmake extra-cmake-modules \
-        clang llvm
+        cmake extra-cmake-modules clang llvm
 
     if [ ! -f ~/.bashrc_unreal ]; then
         cat > ~/.bashrc_unreal <<'EOF'
@@ -466,8 +605,7 @@ export PATH="$UE4_DIR/Engine/Binaries/Linux:$PATH"
 EOF
         ok "~/.bashrc_unreal creado"
     fi
-
-    info "Recorda agregar 'source ~/.bashrc_unreal' en tu ~/.bashrc"
+    info "Agrega 'source ~/.bashrc_unreal' en tu ~/.bashrc"
 fi
 
 # =============================================================================
@@ -482,11 +620,28 @@ mkdir -p ~/org/gtd \
          ~/projects
 
 if [ "$PLATFORM" = "termux" ]; then
-    # Asegurar acceso a storage compartido de Android
     if [ ! -d ~/storage ]; then
         info "Configurando acceso a almacenamiento de Android..."
         termux-setup-storage || warn "Ejecuta 'termux-setup-storage' manualmente"
     fi
+fi
+
+# Crear directorio de configuracion FORJA si no existe
+mkdir -p "$FORJA_CONF_DIR"
+
+# Si no existe profile.conf (modo legacy), crearlo ahora
+if [ ! -f "$FORJA_CONF_FILE" ]; then
+    cat > "$FORJA_CONF_FILE" << EOF
+# FORJA -- Configuracion generada por install.sh (modo legacy)
+FORJA_PLATFORM="$PLATFORM"
+FORJA_PROFILE="$PERFIL"
+FORJA_FEATURES="$FORJA_FEATURES"
+FORJA_MODEL_CODE="${FORJA_MODEL_CODE:-qwen2.5-coder:0.5b}"
+FORJA_MODEL_CHAT="${FORJA_MODEL_CHAT:-qwen2.5:0.5b}"
+FORJA_CONFIG_DATE="$(date '+%Y-%m-%d')"
+FORJA_CONFIG_VERSION="2"
+EOF
+    ok "profile.conf generado en $FORJA_CONF_FILE"
 fi
 
 ok "Directorios creados"
@@ -513,7 +668,6 @@ if [ -d "$DOTFILES_DIR/emacs" ] || [ -d "$DOTFILES_DIR/shell" ]; then
         ok "shell stowed"
     fi
 
-    # Copiar config de Termux directamente (no stow — Termux no sigue symlinks)
     if [ "$PLATFORM" = "termux" ] && [ -f termux/.termux/termux.properties ]; then
         mkdir -p ~/.termux
         cp -v termux/.termux/termux.properties ~/.termux/termux.properties
@@ -607,8 +761,7 @@ fi
 # TERMUX: EXTRA-KEYS Y CONFIGURACION ESPECIFICA
 # =============================================================================
 if [ "$PLATFORM" = "termux" ]; then
-    info "Recargando configuración de Termux..."
-    # Recargar config de Termux (extra-keys ya copiadas en la sección STOW)
+    info "Recargando configuracion de Termux..."
     if command -v termux-reload-settings &>/dev/null; then
         termux-reload-settings
         ok "Termux settings recargadas (cerrar y reabrir Termux para ver extra-keys)"
@@ -624,46 +777,80 @@ echo -e "${GREEN}  Instalacion completa${NC}"
 echo "  Plataforma: $PLATFORM | Perfil: $PERFIL"
 echo "=============================================="
 echo ""
-echo "  Proximos pasos:"
 
-if [ "$PLATFORM" = "termux" ]; then
-    echo "  1. Abri Emacs: emacs"
-    echo "  2. El sistema multiusuario pedira seleccionar alumno"
-    echo "  3. Espera que instale paquetes de MELPA (~2 min)"
-    echo "  4. Usa las extra-keys del teclado para F5, F7, F12"
+# Mostrar features instalados
+echo "  Componentes instalados:"
+echo "    - Sistema base (Emacs, C/C++, Rust, Go, Python, PHP, JS)"
+echo "    - Git visual (Magit, Treemacs, Projectile)"
+echo "    - GTD + Org-Mode"
+
+if forja_has_feature "aider"; then
+    echo "    - Aider (IA local) con modelo: ${FORJA_MODEL_CODE:-default}"
+fi
+if forja_has_feature "godot"; then
+    echo "    - Godot + GDScript"
+fi
+if forja_has_feature "raylib"; then
+    echo "    - Raylib (game dev C/C++)"
+fi
+if forja_has_feature "n8n"; then
+    echo "    - n8n (automatizacion)"
+fi
+if forja_has_feature "latex"; then
+    echo "    - LaTeX (exportacion PDF)"
+fi
+if forja_has_feature "esp32"; then
+    echo "    - ESP32 (ESP-IDF)"
+fi
+if forja_has_feature "picoclaw"; then
+    echo "    - PicoClaw (agente IA ligero)"
+fi
+if forja_has_feature "openclaw"; then
+    echo "    - OpenClaw (agente IA completo)"
+fi
+if forja_has_feature "unreal"; then
+    echo "    - Unreal Engine (ajustar UE4_DIR en ~/.bashrc_unreal)"
+fi
+if forja_has_feature "sync-drive"; then
+    echo "    - rclone (Google Drive)"
+fi
+if [ -n "$FORJA_MODEL_CODE" ] && [ "$FORJA_MODEL_CODE" != "ninguno" ]; then
     echo ""
-    echo "  Sincronizacion Google Drive (C-c U):"
-    echo "    D = Configurar rclone (primera vez)"
-    echo "    s = Subir datos a Drive | S = Descargar desde Drive"
-    echo "    u = Backup a USB | c = Cambiar alumno"
-elif [ "$PLATFORM" = "wsl" ]; then
-    echo "  1. Abri Emacs: emacs"
-    echo "  2. El sistema multiusuario pedira seleccionar alumno"
-    echo "  3. Espera que instale paquetes de MELPA (~2 min)"
-    echo ""
-    echo "  Sincronizacion Google Drive (C-c U):"
-    echo "    D = Configurar rclone (primera vez)"
-    echo "    s = Subir datos a Drive | S = Descargar desde Drive"
-    echo "    c = Cambiar alumno | t = Estado"
-else
-    echo "  1. Abri Emacs: emacs"
-    echo "  2. Al iniciar, el sistema multiusuario pedira seleccionar alumno"
-    echo "     (o detectara un USB con datos automaticamente)"
-    echo "  3. Espera que instale los paquetes de MELPA (~2 min)"
-    echo "  4. Ejecuta en Emacs:"
-    echo "       M-x all-the-icons-install-fonts"
-    echo "       M-x nerd-icons-install-fonts"
-    echo ""
-    echo "  Sistema multiusuario (C-c U):"
-    echo "    u = Backup a USB | e = Exportar .tar.gz"
-    echo "    s = Sync a Drive | S = Sync desde Drive"
-    echo "    D = Configurar Drive | c = Cambiar alumno"
-    if [ "$PERFIL" = "casa" ]; then
-        echo ""
-        echo "  5. Ajusta UE4_DIR en ~/.bashrc_unreal"
-    fi
+    echo "  Modelos IA:"
+    echo "    - Codigo:  $FORJA_MODEL_CODE"
+    echo "    - Espanol: $FORJA_MODEL_CHAT"
+    echo "    - Cambiar en Emacs: C-c M"
 fi
 
+echo ""
+echo "  Configuracion guardada en: ~/.forja/profile.conf"
+echo "  Para reconfigurar: bash forja-menu.sh"
+echo ""
+
+echo "  Proximos pasos:"
+if [ "$PLATFORM" = "termux" ]; then
+    echo "    1. Abri Emacs: emacs"
+    echo "    2. Espera que instale paquetes MELPA (~2 min)"
+    echo "    3. Usa las extra-keys del teclado para F5, F7, F12"
+elif [ "$PLATFORM" = "wsl" ]; then
+    echo "    1. Abri Emacs: emacs"
+    echo "    2. Espera que instale paquetes MELPA (~2 min)"
+else
+    echo "    1. Abri Emacs: emacs"
+    echo "    2. Espera que instale paquetes MELPA (~2 min)"
+    echo "    3. Ejecuta: M-x all-the-icons-install-fonts"
+    echo "    4. Ejecuta: M-x nerd-icons-install-fonts"
+fi
+
+echo ""
+echo "  Teclas principales:"
+echo "    C-c U   Sistema multiusuario (alumnos, Drive, USB)"
+if forja_has_feature "aider"; then
+    echo "    C-c i   Aider (asistente IA)"
+fi
+echo "    C-c M   Menu de modelos IA (cambiar, guardar)"
+echo "    C-c T   Traducir seleccion al espanol"
+echo "    F5      Compilar y ejecutar"
 echo ""
 echo "  Happy Hacking!"
 echo ""

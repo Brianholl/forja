@@ -9,17 +9,21 @@
 
 Configuracion modular de Emacs para **desarrollo Full Stack** (Node.js, Python, PHP, Go, Rust), **Game Dev** (C/C++, Raylib, Godot, Unreal) y **Sistemas** (ASM, ESP32). Soporta **Arch Linux (PC)**, **Termux (Android)** y **WSL2 (Windows)** con deteccion automatica de plataforma.
 
-Incluye **IA local** via Aider + Ollama, **sistema multiusuario** para entornos educativos, **sincronizacion Google Drive** via rclone y **GTD** con Org Mode.
+Incluye **IA local** via Aider + Ollama (modelos seleccionables), **agentes autonomos** (PicoClaw + OpenClaw), **sistema multiusuario** para entornos educativos, **sincronizacion Google Drive** via rclone, **automatizacion** con n8n y **GTD** con Org Mode.
 
 ---
 
 ## Caracteristicas Principales
 
-- **Arquitectura modular:** 18 modulos `.org` (literate config) con carga selectiva por maquina
+- **Instalador interactivo:** Menu TUI (`forja-menu.sh`) con deteccion de hardware, perfiles y seleccion de modelos IA
+- **Arquitectura modular:** 21 modulos `.org` (literate config) con carga selectiva por maquina
 - **Multiplataforma:** Arch Linux (PC), Termux (Android) y WSL2 (Windows) con adaptacion automatica
+- **Tres perfiles de instalacion:** Minimal (celular), Moderado (PC con poca RAM), Full (desktop)
 - **Full Stack REST APIs:** Templates para Express, FastAPI, Laravel, Gin, Actix-web
 - **Game Dev:** Raylib (C/C++), Godot (GDScript), Unreal Engine (solo PC)
-- **AI Code Agent:** Aider + Ollama (sin API keys, 100% local, solo PC)
+- **IA local configurable:** Aider + Ollama con modelos seleccionables para codigo y espanol
+- **Agentes IA autonomos:** PicoClaw (ligero) + OpenClaw (completo) para resolver tickets y diagnosticar proyectos
+- **Traduccion integrada:** `C-c T` traduce texto seleccionado al espanol con IA local
 - **Sistema multiusuario:** Gestion de alumnos, backup USB, sync Google Drive
 - **Sincronizacion Drive:** rclone semi-automatico — `C-c U s` sube, `C-c U S` descarga
 - **GTD y documentacion:** Org Mode, org-roam, Kanban, diagramas, LaTeX
@@ -28,70 +32,152 @@ Incluye **IA local** via Aider + Ollama, **sistema multiusuario** para entornos 
 
 ---
 
-## Guías de Uso (How-To)
+## Guias de Uso (How-To)
 
-Para aprender a utilizar el entorno FORJA paso a paso, consulta nuestra serie de guías en la carpeta `how_to`:
+Para aprender a utilizar el entorno FORJA paso a paso, consulta nuestra serie de guias en la carpeta `how_to`. Cada guia incluye objetivos de aprendizaje, prerequisitos, ejercicios practicos y tabla de errores comunes:
 
-- [00_Basics.md](how_to/00_Basics.md) - Conceptos básicos, navegación y primeros pasos.
-- [01_Core_y_Entorno.md](how_to/01_Core_y_Entorno.md) - Hydra, Autocompletado, Dashboard y Termux.
-- [02_Proyectos_y_Git.md](how_to/02_Proyectos_y_Git.md) - Treemacs, Projectile y Magit.
-- [03_Desarrollo_Web.md](how_to/03_Desarrollo_Web.md) - HTML, CSS, JS, Node y Live Server.
-- [04_Lenguajes_Backend.md](how_to/04_Lenguajes_Backend.md) - Rust, Go, Python y PHP.
-- [05_Juegos_y_Sistemas.md](how_to/05_Juegos_y_Sistemas.md) - C/C++, ESP32, Godot y Unreal Engine.
-- [06_Inteligencia_Artificial.md](how_to/06_Inteligencia_Artificial.md) - Uso de Aider (IA Local) interactivo.
-- [07_Multiusuario_y_Sync.md](how_to/07_Multiusuario_y_Sync.md) - Sincronización Google Drive y copias locales (USB).
-- [08_Productividad_y_Org.md](how_to/08_Productividad_y_Org.md) - Sistema GTD, Procedimientos y renderizado de Diagramas.
-- [09_Automatizacion_n8n.md](how_to/09_Automatizacion_n8n.md) - Automatizacion de workflows con n8n (webhooks, Telegram, email).
+| # | Guia | Temas |
+| :---: | :--- | :--- |
+| 00 | [Conceptos Basicos](how_to/00_Basics.md) | Primeros pasos, Hydra, F-keys, navegacion basica |
+| 01 | [Core y Entorno](how_to/01_Core_y_Entorno.md) | Dashboard, generadores de proyectos, LSP, Termux |
+| 02 | [Proyectos y Git](how_to/02_Proyectos_y_Git.md) | Treemacs, Projectile, Magit, branches |
+| 03 | [Desarrollo Web](how_to/03_Desarrollo_Web.md) | HTML, CSS, JS, Node.js, Live Server, NPM, tests |
+| 04 | [Lenguajes Backend](how_to/04_Lenguajes_Backend.md) | Python, Go, Rust, PHP, APIs REST |
+| 05 | [Juegos y Sistemas](how_to/05_Juegos_y_Sistemas.md) | C/C++, Raylib, ESP32, Godot, Unreal Engine |
+| 06 | [Inteligencia Artificial](how_to/06_Inteligencia_Artificial.md) | Aider + Ollama, chat IA, refactoring, tests, fix |
+| 07 | [Multiusuario y Sync](how_to/07_Multiusuario_y_Sync.md) | Alumnos, Google Drive, backup USB, exportar |
+| 08 | [Productividad y Org](how_to/08_Productividad_y_Org.md) | GTD, captura, agenda, SOPs, checklists, Mermaid |
+| 09 | [Automatizacion n8n](how_to/09_Automatizacion_n8n.md) | Workflows, webhooks, Telegram, email, GTD + n8n |
+| 10 | [Depuracion y Diagnostico](how_to/10_Depuracion_y_Diagnostico.md) | GDB, breakpoints, diagnosticos LSP, Assembly, FASM |
+| 11 | [Soporte y Extras](how_to/11_Soporte_y_Extras.md) | Tickets de soporte, PDF, LaTeX, Kanban, Org-babel |
+| 12 | [Agentes IA Autonomos](how_to/12_Agente_Autonomo.md) | PicoClaw, OpenClaw, resolucion de tickets con IA |
 
 ---
 
-## Instalacion Rapida
+## Instalacion
 
-### Opcion 1: Arch Linux (PC del colegio/casa)
-
-```bash
-git clone https://github.com/Brianholl/forja
-cd ~/forja
-./install.sh
-./update.sh
-```
-
-### Opcion 2: Termux (Android)
+### Paso 1: Clonar el repositorio
 
 ```bash
+# Arch Linux / WSL
+git clone https://github.com/Brianholl/forja ~/forja
+
+# Termux (Android)
 pkg install git
-git clone https://github.com/Brianholl/forja
-cd ~/forja
-./install.sh
-./update.sh
+git clone https://github.com/Brianholl/forja ~/forja
 ```
 
-> **Nota:** En Termux se usa `cp` en vez de `stow` para `termux.properties` porque Termux no sigue symlinks en su directorio de config.
-
-### Opcion 3: Windows (WSL2)
-
-```powershell
-# Desde PowerShell (como Administrador):
-wsl --install
-# Reiniciar Windows, abrir Ubuntu desde el menu Inicio
-```
+### Paso 2: Configurar con el menu interactivo
 
 ```bash
-# Dentro de WSL (Ubuntu):
-git clone https://github.com/Brianholl/forja
 cd ~/forja
-./install.sh
-./update.sh
+bash forja-menu.sh
 ```
+
+El menu detecta tu hardware automaticamente y te guia para elegir:
+
+1. **Perfil de instalacion** (Minimal / Moderado / Full)
+2. **Componentes opcionales** (Godot, n8n, LaTeX, ESP32, agentes IA, etc.)
+3. **Modelos de IA** para codigo y para espanol (filtrados segun tu RAM)
+
+La configuracion se guarda en `~/.forja/profile.conf`.
+
+### Paso 3: Instalar
+
+```bash
+bash install.sh
+```
+
+El instalador lee `~/.forja/profile.conf` y solo instala los componentes que elegiste. Si no existe `profile.conf`, lanza el menu automaticamente.
+
+> **Modo legacy:** `bash install.sh --perfil casa` sigue funcionando para quienes prefieran CLI puro.
+
+### Perfiles de instalacion
+
+| Perfil | Plataforma | RAM | Que incluye |
+| :--- | :--- | :--- | :--- |
+| **Minimal** | Termux (Android) | < 4 GB | Editor + LSP + Git + GTD + Sync Drive |
+| **Moderado** | Arch / WSL | 4-8 GB | + IA local + Game Dev + n8n + LaTeX + ESP32 |
+| **Full** | Arch Linux | 16+ GB | + Modelos IA grandes + Agentes + Unreal + FASM |
+
+Cada componente es opcional y se puede activar/desactivar individualmente en el menu.
 
 ### Actualizar
 
 ```bash
 cd ~/forja
-update.sh
+bash update.sh
 ```
 
-Actualiza: sistema, Rust, npm globals, Python LSP, Aider, Ollama, dotfiles, re-tangle de modulos y paquetes MELPA.
+Lee `~/.forja/profile.conf` y solo actualiza los componentes instalados: sistema, Rust, npm globals, Python LSP, Aider, agentes IA, modelos Ollama, dotfiles, re-tangle de modulos y paquetes MELPA.
+
+### Reconfigurar
+
+```bash
+bash forja-menu.sh    # Volver a elegir perfil, features y modelos
+bash install.sh       # Aplicar cambios
+```
+
+---
+
+## Modelos de IA
+
+FORJA usa **Ollama** para correr modelos de IA 100% local. Tu codigo nunca sale de tu maquina.
+
+Se configuran dos modelos independientes:
+
+| Proposito | Para que se usa | Recomendado |
+| :--- | :--- | :--- |
+| **Modelo de codigo** | Aider, autocompletado (Minuet), code review, agentes | `qwen2.5-coder` |
+| **Modelo de espanol** | Traduccion (`C-c T`), GTD, soporte, documentacion | `qwen2.5`, `gemma3`, `llama3` |
+
+### Modelos para codigo disponibles
+
+| Modelo | RAM | Notas |
+| :--- | :--- | :--- |
+| `qwen2.5-coder:0.5b` | ~400 MB | Minimo, rapido |
+| `qwen2.5-coder:1.5b` | ~1 GB | Ligero, buen balance |
+| `qwen2.5-coder:3b` | ~2 GB | Bueno para code review |
+| `deepseek-coder-v2:lite` | ~3 GB | MoE 16B, muy bueno |
+| `qwen2.5-coder:7b` | ~5 GB | Preciso, recomendado para desktop |
+| `codellama:7b` | ~4 GB | Meta, bueno para C/C++ |
+| `qwen2.5-coder:14b` | ~9 GB | Avanzado |
+| `codellama:13b` | ~8 GB | Meta, fuerte en C/Rust |
+| `qwen2.5-coder:32b` | ~20 GB | El mejor, pesado |
+| `codellama:34b` | ~20 GB | Meta, casi nivel GPT-4 |
+
+### Modelos para espanol disponibles
+
+| Modelo | RAM | Notas |
+| :--- | :--- | :--- |
+| `qwen2.5:0.5b` | ~400 MB | Minimo, espanol basico |
+| `qwen2.5:1.5b` | ~1 GB | Ligero, buen espanol |
+| `gemma3:1b` | ~800 MB | Google, multilingue |
+| `qwen2.5:3b` | ~2 GB | Bueno para traduccion |
+| `gemma3:4b` | ~3 GB | Google, buen espanol |
+| `llama3.2:3b` | ~2 GB | Meta, rapido y capaz |
+| `mistral:7b` | ~4 GB | Fuerte en espanol |
+| `qwen2.5:7b` | ~5 GB | Preciso, recomendado |
+| `llama3.1:8b` | ~5 GB | Meta, muy buen espanol |
+| `gemma3:12b` | ~8 GB | Google, excelente |
+| `qwen2.5:14b` | ~9 GB | Avanzado, traduce bien |
+| `qwen2.5:32b` | ~20 GB | El mejor |
+
+> El menu `forja-menu.sh` solo muestra los modelos compatibles con tu RAM. Los modelos se cargan bajo demanda, no permanecen en memoria.
+
+### Cambiar modelos despues de instalar
+
+Desde Emacs con `C-c M`:
+
+| Tecla | Accion |
+| :--- | :--- |
+| `C-c M` | Menu de modelos IA |
+| `C-c M c` | Cambiar modelo de CODIGO |
+| `C-c M e` | Cambiar modelo de ESPANOL |
+| `C-c M s` | Guardar cambios a `~/.forja/profile.conf` |
+| `C-c M i` | Ver modelos instalados en Ollama |
+
+O desde terminal: `bash forja-menu.sh` para reconfigurar todo.
 
 ---
 
@@ -105,6 +191,7 @@ forja/
 │       └── modules/
 │           ├── 00-core.org      # UX, fuentes, LSP, snippets, templates, hydra
 │           ├── 01-dashboard.org # Dashboard de inicio
+│           ├── 02-termux.org    # Parches y adaptaciones para Termux
 │           ├── 10-git.org       # Magit, Projectile, Treemacs
 │           ├── 20-web.org       # JS, TS, HTML, CSS, Node.js, Live Server
 │           ├── 30-cpp.org       # C, C++, FASM, GDB, ESP32
@@ -113,23 +200,44 @@ forja/
 │           ├── 33-aider.org     # Aider: Code Agent con Ollama local
 │           ├── 34-python.org    # Python: tree-sitter, pylsp, black, FastAPI
 │           ├── 35-php.org       # PHP: tree-sitter, intelephense, Laravel
-│           ├── 40-unreal.org    # Unreal Engine (solo PC Casa)
+│           ├── 36-modelos.org   # Config central modelos IA, C-c M, C-c T
+│           ├── 40-unreal.org    # Unreal Engine (solo PC)
 │           ├── 41-godot.org     # Godot (GDScript)
 │           ├── 49-multiusuario.org  # Sistema multiusuario + sync Drive
 │           ├── 50-gtd.org       # Getting Things Done con Org Mode
 │           ├── 51-estandarizacion.org # SOPs y checklists
 │           ├── 52-vision-sistemica.org # Diagramas y mapas mentales
 │           ├── 53-soporte.org   # Asistencia operativa y KB
+│           ├── 55-picoclaw.org  # PicoClaw: agente IA ligero (solo Casa)
+│           ├── 56-openclaw.org  # OpenClaw: agente IA completo (solo Casa)
 │           └── 99-misc.org      # PDF, Org extras, docencia
 ├── shell/
 │   └── .bashrc_custom           # Aliases y config de shell
 ├── termux/
 │   └── .termux/
 │       └── termux.properties    # Extra-keys (F5, F7, F12, arrows)
-├── install.sh                   # Instalador completo (PC + Termux + WSL)
-├── update.sh                    # Actualizador de dependencias
+├── how_to/                      # 13 guias pedagogicas (00-12)
+├── forja-menu.sh                # Menu interactivo de instalacion (TUI)
+├── install.sh                   # Instalador (lee ~/.forja/profile.conf)
+├── update.sh                    # Actualizador (lee ~/.forja/profile.conf)
 └── README.md
 ```
+
+### Archivo de configuracion (`~/.forja/profile.conf`)
+
+Generado por `forja-menu.sh`, leido por `install.sh` y `update.sh`:
+
+```bash
+FORJA_PLATFORM="arch"
+FORJA_PROFILE="full"
+FORJA_FEATURES="aider,godot,raylib,n8n,picoclaw,openclaw,latex,esp32,fasm,sync-drive,multiusuario"
+FORJA_MODEL_CODE="qwen2.5-coder:7b"
+FORJA_MODEL_CHAT="qwen2.5:7b"
+FORJA_CONFIG_DATE="2026-04-10"
+FORJA_CONFIG_VERSION="2"
+```
+
+Tambien leido por Emacs (`36-modelos.org`) para configurar los modelos al iniciar.
 
 ---
 
@@ -141,21 +249,25 @@ forja/
 | :--- | :--- | :---: | :---: | :---: | :---: |
 | **00-core** | UX, fuentes, LSP, snippets, generadores, hydra | ✅ | ✅ | ✅ | ✅ |
 | **01-dashboard** | Dashboard de inicio personalizado | ✅ | ✅ | ✅ | ✅ |
+| **02-termux** | Parches Termux (teclado, UI, stubs IA) | ✅ | ❌ | ❌ | ❌ |
 | **10-git** | Magit, Projectile, Treemacs, diff-hl | ✅ | ✅ | ✅ | ✅ |
 | **20-web** | JS, TS, HTML, CSS, Node.js, Live Server | ✅ | ✅ | ✅ | ✅ |
 | **30-cpp** | C/C++, FASM, GDB, ESP32, clang/gcc | ✅ | ✅ | ✅ | ✅ |
 | **31-rust** | Rust: tree-sitter, rust-analyzer, cargo | ✅ | ✅ | ✅ | ✅ |
 | **32-go** | Go: tree-sitter, gopls, go build/test | ✅ | ✅ | ✅ | ✅ |
-| **33-aider** | Aider + Ollama (IA local) | ❌ | ❌ | ✅ | ✅ |
+| **33-aider** | Aider + Ollama (IA local para codigo) | ❌ | ❌ | ✅ | ✅ |
 | **34-python** | Python: pylsp, black, FastAPI/Django | ✅ | ✅ | ✅ | ✅ |
 | **35-php** | PHP: intelephense, prettier, Laravel | ✅ | ✅ | ✅ | ✅ |
+| **36-modelos** | Config central modelos IA, traduccion, C-c M/T | ❌ | ✅ | ✅ | ✅ |
 | **40-unreal** | Unreal Engine 4/5 | ❌ | ❌ | ❌ | ✅ |
 | **41-godot** | Godot: GDScript, gdformat | ❌ | ❌ | ✅ | ✅ |
-| **49-multiusuario** | Gestion alumnos, USB, sync Drive | ✅ | ✅ | ✅ | ✅ |
-| **50-gtd** | GTD con Org Mode, agenda, capturas | ✅ | ✅ | ✅ | ✅ |
+| **49-multiusuario** | Gestion alumnos, USB, sync Drive, n8n | ✅ | ✅ | ✅ | ✅ |
+| **50-gtd** | GTD con Org Mode, agenda, capturas, IA | ✅ | ✅ | ✅ | ✅ |
 | **51-estandarizacion** | SOPs, checklists, templates | ✅ | ✅ | ✅ | ✅ |
 | **52-vision-sistemica** | Diagramas, Mermaid, Graphviz | ✅ | ✅ | ✅ | ✅ |
-| **53-soporte** | Asistencia operativa, KB | ✅ | ✅ | ✅ | ✅ |
+| **53-soporte** | Asistencia operativa, KB, diagnosticos | ✅ | ✅ | ✅ | ✅ |
+| **55-picoclaw** | PicoClaw: agente IA ligero (Go, ~20MB) | ❌ | ❌ | ❌ | ✅ |
+| **56-openclaw** | OpenClaw: agente IA completo (Node.js) | ❌ | ❌ | ❌ | ✅ |
 | **99-misc** | PDF, Org extras, docencia | ✅ | ✅ | ✅ | ✅ |
 
 ### Perfiles de Entorno
@@ -250,12 +362,31 @@ Todos crean estructura, `.gitignore`, `.projectile`, `git init` + primer commit:
 
 > **Termux:** Las F-keys aparecen en la barra de extra-keys. Si no se ven, ejecutar `install.sh` o `update.sh` y reiniciar Termux.
 
+### IA Local y Traduccion
+
+| Tecla | Accion |
+| :--- | :--- |
+| `C-c i` | Menu completo de Aider (IA para codigo) |
+| `C-c i o` | Abrir Aider en el proyecto |
+| `C-c i a` | Agregar archivo al contexto |
+| `C-c i c` | Cambiar funcion o region |
+| `C-c i t` | Generar unit tests |
+| `C-c i f` | Corregir errores de Flycheck |
+| `C-c M` | **Menu de modelos IA** (cambiar, ver, guardar) |
+| `C-c M c` | Cambiar modelo de CODIGO |
+| `C-c M e` | Cambiar modelo de ESPANOL |
+| `C-c M s` | Guardar modelos a `profile.conf` |
+| `C-c M i` | Ver modelos instalados en Ollama |
+| `C-c T` | **Traducir** region seleccionada al espanol |
+
+> Usa Ollama local. Sin API keys, sin internet, 100% local. Los modelos se eligen en `forja-menu.sh` o se cambian en caliente con `C-c M`.
+
 ### Sistema Multiusuario y Sync (`C-c U`)
 
 | Tecla | Accion |
 | :--- | :--- |
-| `C-c U s` | **Sync → Drive** — Subir datos a Google Drive |
-| `C-c U S` | **Sync ← Drive** — Descargar datos desde Google Drive |
+| `C-c U s` | **Sync a Drive** — Subir datos a Google Drive |
+| `C-c U S` | **Sync desde Drive** — Descargar datos desde Google Drive |
 | `C-c U D` | **Configurar Drive** — Setup guiado de rclone |
 | `C-c U u` | Backup a USB |
 | `C-c U r` | Restaurar desde USB |
@@ -264,6 +395,9 @@ Todos crean estructura, `.gitignore`, `.projectile`, `git init` + primer commit:
 | `C-c U N s` | **n8n** — Iniciar (datos del alumno activo) |
 | `C-c U N x` | **n8n** — Detener |
 | `C-c U N o` | **n8n** — Abrir en navegador |
+| `C-c U O` | **Agentes IA** — Submenu PicoClaw/OpenClaw |
+| `C-c U O p` | **PicoClaw** — Agente ligero (~20MB RAM) |
+| `C-c U O o` | **OpenClaw** — Agente completo (~1.5GB RAM) |
 | `C-c U c` | Cambiar alumno activo |
 | `C-c U t` | Estado actual (alumno, USB, Drive, n8n) |
 
@@ -272,7 +406,7 @@ Todos crean estructura, `.gitignore`, `.projectile`, `git init` + primer commit:
 Los datos del alumno se sincronizan entre dispositivos via **rclone + Google Drive**:
 
 ```
-PC Escuela (Arch) ←→ Google Drive ←→ Celular (Termux) / PC Casa (WSL/Arch)
+PC Escuela (Arch) <-> Google Drive <-> Celular (Termux) / PC Casa (WSL/Arch)
 ```
 
 **Primera vez:** `C-c U D` abre un asistente de configuracion de rclone.
@@ -283,19 +417,6 @@ PC Escuela (Arch) ←→ Google Drive ←→ Celular (Termux) / PC Casa (WSL/Arc
 3. Al terminar en casa: `C-c U s` (sube a Drive)
 
 > Solo se sincronizan archivos mas nuevos (`--update`). No se borran archivos remotos.
-
-### Aider — IA Local (solo PC)
-
-| Tecla | Accion |
-| :--- | :--- |
-| `C-c i` | Menu completo de Aider |
-| `C-c i o` | Abrir Aider en el proyecto |
-| `C-c i a` | Agregar archivo al contexto |
-| `C-c i c` | Cambiar funcion o region |
-| `C-c i t` | Generar unit tests |
-| `C-c i f` | Corregir errores de Flycheck |
-
-> Usa `qwen2.5-coder` via Ollama. Sin API keys, sin internet, 100% local.
 
 ### Gestion de Proyectos
 
@@ -311,10 +432,13 @@ PC Escuela (Arch) ←→ Google Drive ←→ Celular (Termux) / PC Casa (WSL/Arc
 
 | Tecla | Accion |
 | :--- | :--- |
-| `C-c T` | Traducir seleccion (Ollama) |
-| `C-c d a` | Ver codigo Assembly |
+| `C-c T` | Traducir seleccion al espanol (Ollama) |
+| `C-c d a` | Ver codigo Assembly (C/C++) |
 | `F12` | Ir a definicion (LSP) |
 | `S-F12` | Ver referencias (LSP) |
+| `C-c D` | Duplicar linea o region |
+| `C-c R` | Invertir lista (Smart Reverse) |
+| `C-c f b` | Formatear buffer completo |
 
 ---
 
@@ -341,23 +465,29 @@ PC Escuela (Arch) ←→ Google Drive ←→ Celular (Termux) / PC Casa (WSL/Arc
 | :--- | :--- | :--- | :--- |
 | Compilador C/C++ | gcc + clang | clang (solo) | clang + gdb |
 | GDB Debugger | ✅ | ❌ | ✅ |
-| FASM (x86 ASM) | ✅ | ❌ | ❌ |
-| ESP32 (idf.py) | ✅ | ❌ | ❌ |
-| Aider (IA) | ✅ | ❌ | ❌ |
-| Ollama | ✅ | ❌ | ❌ |
+| FASM (x86 ASM) | ✅ (si seleccionado) | ❌ | ❌ |
+| ESP32 (idf.py) | ✅ (si seleccionado) | ❌ | ❌ |
+| Aider (IA) | ✅ (si seleccionado) | ❌ | ❌ |
+| Ollama (modelos) | ✅ (si seleccionado) | ❌ | ❌ |
+| Modelos IA | Configurable (0.5b-32b) | ❌ | ❌ |
+| Traduccion (C-c T) | ✅ | ❌ (stub) | ✅ |
 | Live Server | Abre Firefox | `--no-browser` | `--no-browser` |
-| Godot | ✅ | ❌ | ❌ |
-| Unreal Engine | Solo perfil Casa | ❌ | ❌ |
-| LaTeX export | ✅ | ❌ | ❌ |
-| n8n (automatizacion) | ✅ | ❌ | ✅ |
+| Godot | ✅ (si seleccionado) | ❌ | ❌ |
+| Unreal Engine | ✅ (si seleccionado) | ❌ | ❌ |
+| PicoClaw | ✅ (si seleccionado) | ❌ | ❌ |
+| OpenClaw | ✅ (si seleccionado) | ❌ | ❌ |
+| LaTeX export | ✅ (si seleccionado) | ❌ | ❌ |
+| n8n (automatizacion) | ✅ (si seleccionado) | ❌ | ✅ |
 | Sync Drive (rclone) | ✅ | ✅ | ✅ |
 | Backup USB | ✅ | ✅ (storage) | ✅ |
 | F-keys | Teclado nativo | Extra-keys en barra | Teclado nativo |
 | Stow | Symlinks | `cp` directo | Symlinks |
 | GC threshold | 50MB / 1GB | 16MB / 64MB | 50MB / 1GB |
-| UI & Autocompletado | Normal (delay 0.0) | Ligero (delay 0.3s, N. abs) | Normal |
-| Linter (Flycheck) | Dinámico (0.5s) | Al guardar (2.0s) | Dinámico |
+| UI y autocompletado | Normal (delay 0.0) | Ligero (delay 0.3s) | Normal |
+| Linter (Flycheck) | Dinamico (0.5s) | Al guardar (2.0s) | Dinamico |
 | Cliente Git (Magit) | Completo | Secciones pesadas omitidas | Completo |
+
+> En PC, cada componente marcado "si seleccionado" depende de lo que se eligio en `forja-menu.sh`. El menu filtra opciones segun la plataforma automaticamente.
 
 ---
 
@@ -398,6 +528,39 @@ rclone config
 
 ---
 
+## Flujo de Instalacion Completo
+
+```
+forja-menu.sh                     install.sh
+┌─────────────────────┐           ┌──────────────────────────────┐
+│  1. Detectar HW     │           │  Lee ~/.forja/profile.conf   │
+│  2. Elegir perfil   │──saves──> │  ┌────────────────────────┐  │
+│  3. Elegir features │           │  │ FORJA_PROFILE="full"   │  │
+│  4. Elegir modelos  │           │  │ FORJA_FEATURES="..."   │  │
+│  5. Confirmar       │           │  │ FORJA_MODEL_CODE="..." │  │
+└─────────────────────┘           │  │ FORJA_MODEL_CHAT="..." │  │
+                                  │  └────────────────────────┘  │
+                                  │  Instala solo lo elegido     │
+                                  └──────────────────────────────┘
+                                               │
+                                               v
+                                  ┌──────────────────────────────┐
+                                  │  update.sh                   │
+                                  │  Lee el mismo profile.conf   │
+                                  │  Actualiza solo lo instalado │
+                                  └──────────────────────────────┘
+                                               │
+                                               v
+                                  ┌──────────────────────────────┐
+                                  │  Emacs (36-modelos.org)      │
+                                  │  Lee profile.conf al iniciar │
+                                  │  Configura gptel + aider     │
+                                  │  C-c M para cambiar en vivo  │
+                                  └──────────────────────────────┘
+```
+
+---
+
 ## Desarrollo
 
 - Branch principal: `main`
@@ -406,6 +569,7 @@ rclone config
 - Commits en espanol, formato conventional commits (`feat:`, `fix:`, `refactor:`)
 - Variables de plataforma: `my/is-termux`, `my/is-gui`, `my/is-wsl` (definidas en `init.el`)
 - Guard pattern: `(bound-and-true-p my/is-termux)`, `(bound-and-true-p my/is-wsl)`
+- Configuracion persistente: `~/.forja/profile.conf` (no commitear, es por maquina)
 
 ---
 
