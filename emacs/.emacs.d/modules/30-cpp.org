@@ -135,8 +135,6 @@
     (with-temp-file (concat project-dir "/.projectile") (insert ""))
     (message "🛠️ Proyecto nob creado: %s" project-dir)
     (find-file (concat project-dir "/nob.c"))))
-
-(global-set-key (kbd "C-c n n") #'my/new-nob-project)
 #+end_src
 
 ** Documentación y Traducción (Cppman + IA)

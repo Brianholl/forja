@@ -1857,7 +1857,7 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   _c_  C (genérico)          _C_  C++ (genérico)
   _g_  Game Dev C  (Raylib)  _+_  Game Dev C++ (Raylib)
   _r_  Rust (genérico)       _R_  Rust REST API
-  _G_  Go (genérico)
+  _G_  Go (genérico)         _N_  C con nob.h (Tsoding)
   ──────────────────────────────────────────
   _n_ → más opciones         _q_ cancelar
 "
@@ -1868,6 +1868,9 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   ("r" my/new-rust-project)
   ("R" my/new-rust-api-project)
   ("G" my/new-go-project)
+  ("N" (if (fboundp 'my/new-nob-project)
+           (call-interactively 'my/new-nob-project)
+         (message "Módulo cpp no cargado")) :color blue)
   ("n" my/hydra-new-project-2/body :color blue)
   ("q" nil))
 

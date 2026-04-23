@@ -288,6 +288,25 @@ rm -f "$EMACS_UPDATE_EL"
 ok "Paquetes MELPA actualizados"
 
 # =============================================================================
+# 8b. VERIFICACION DE SANIDAD: Emacs carga sin errores
+# =============================================================================
+info "Verificando que Emacs carga sin errores de keybinding..."
+SANITY_LOG="$TMPDIR/forja-sanity.log"
+emacs --batch \
+    --load "$HOME/.emacs.d/init.el" \
+    --eval "(kill-emacs 0)" \
+    2>"$SANITY_LOG" || true
+
+if grep -qiE "Key sequence.*starts with non-prefix|Symbol's function definition is void|Error.*loading.*init" "$SANITY_LOG" 2>/dev/null; then
+    warn "⚠️  Emacs reportó errores al cargar. Revisa:"
+    grep -iE "Key sequence.*starts with non-prefix|void|Error" "$SANITY_LOG" | head -5
+    warn "Tip: emacs --debug-init para ver el stack completo"
+else
+    ok "Emacs carga sin errores de init"
+fi
+rm -f "$SANITY_LOG"
+
+# =============================================================================
 # RESUMEN FINAL
 # =============================================================================
 echo ""
