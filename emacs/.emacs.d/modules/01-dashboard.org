@@ -57,16 +57,29 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
 ;; === Widgets personalizados ===
 
 (defun my/dashboard-insert-header (_list-size)
-  "Saludo con nombre de usuario activo y versión de Forja."
+  "Saludo con estado explícito: alumno activo (verde) o sin sesión (gris + botón)."
   (let* ((version (my/forja-get-version))
-         (usuario (if (bound-and-true-p my/mu-alumno-actual)
-                      my/mu-alumno-actual
-                    user-login-name)))
+         (alumno (and (bound-and-true-p my/mu-alumno-actual)
+                      my/mu-alumno-actual)))
     (insert (propertize (format "  FORJA %s" version)
                         'face '(:foreground "#7c3aed" :weight bold)))
     (insert "     ")
-    (insert (propertize (format "¡Bienvenido, %s!" usuario)
-                        'face '(:foreground "#10b981" :weight bold)))
+    (if alumno
+        ;; Alumno activo → verde, nombre visible
+        (insert (propertize (format "¡Bienvenido, %s!" alumno)
+                            'face '(:foreground "#10b981" :weight bold)))
+      ;; Sin alumno → login del sistema en gris + botón de acción
+      (progn
+        (insert (propertize (format "¡Bienvenido, %s!" user-login-name)
+                            'face '(:foreground "#94a3b8")))
+        (insert "   ")
+        (widget-create 'push-button
+                       :action (lambda (&rest _)
+                                 (if (fboundp 'my/mu-cambiar-alumno)
+                                     (my/mu-cambiar-alumno)
+                                   (message "Módulo multiusuario no disponible")))
+                       :mouse-face 'highlight
+                       "[ Crear usuario ]")))
     (insert "\n")))
 
 (defun my/dashboard-insert-new-project-btn (_list-size)

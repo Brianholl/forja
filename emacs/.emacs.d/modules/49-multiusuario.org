@@ -208,8 +208,11 @@ Si USB-PATH es dado, se registra para backups."
       (let ((nombre (my/mu-selector-alumno)))
         (my/mu-activar-alumno nombre nil)))))
 
-;; Ejecutar al cargar el módulo
-(my/mu-iniciar)
+;; Auto-iniciar solo en ESCUELA (usuario "estudiante").
+;; En CASA y otros perfiles, my/mu-alumno-actual arranca en nil.
+;; El usuario puede seleccionar o crear alumno con C-c U c.
+(when (string-equal user-login-name "estudiante")
+  (my/mu-iniciar))
 #+end_src
 
 * 6. Funciones de backup
