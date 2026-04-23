@@ -387,3 +387,162 @@ No disponible en Termux (no hay GDB nativo en ARM Android).
 
 ) ;; fin (unless my/is-termux) — GDB
 #+end_src
+
+* 60. C como lenguaje mimado
+
+Herramientas de calidad completas para C: tests, cobertura, sanitizers, Valgrind y GDB avanzado.
+Todas asumen un proyecto con =Makefile= (generado por =C-c n c=).
+
+** 60.1 Tests (Unity)
+
+#+begin_src emacs-lisp
+(defun my/c-run-tests ()
+  "Ejecuta make test en la raíz del proyecto."
+  (interactive)
+  (let ((root (or (and (fboundp 'projectile-project-root)
+                       (projectile-project-root))
+                  default-directory)))
+    (if (file-exists-p (expand-file-name "Makefile" root))
+        (let ((default-directory root))
+          (compile "make test"))
+      (message "No hay Makefile — usa C-c n c para crear el proyecto"))))
+#+end_src
+
+** 60.2 Cobertura de código (gcov + lcov)
+
+#+begin_src emacs-lisp
+(defun my/c-coverage ()
+  "Compila con --coverage, genera reporte lcov y lo abre en el navegador."
+  (interactive)
+  (let* ((root (or (and (fboundp 'projectile-project-root)
+                        (projectile-project-root))
+                   default-directory))
+         (report (expand-file-name "coverage/index.html" root)))
+    (if (file-exists-p (expand-file-name "Makefile" root))
+        (progn
+          (let ((default-directory root))
+            (compile "make coverage"))
+          (run-with-timer 5 nil
+                          (lambda ()
+                            (when (file-exists-p report)
+                              (browse-url report)))))
+      (message "No hay Makefile — usa C-c n c para crear el proyecto"))))
+#+end_src
+
+** 60.3 Sanitizers (AddressSanitizer + UBSanitizer)
+
+#+begin_src emacs-lisp
+(defun my/c-run-asan ()
+  "Compila y ejecuta con AddressSanitizer + UBSanitizer."
+  (interactive)
+  (let ((root (or (and (fboundp 'projectile-project-root)
+                       (projectile-project-root))
+                  default-directory)))
+    (if (file-exists-p (expand-file-name "Makefile" root))
+        (let ((default-directory root))
+          (compile "make asan"))
+      (message "No hay Makefile — usa C-c n c para crear el proyecto"))))
+
+(defun my/c-run-ubsan ()
+  "Compila y ejecuta solo con UBSanitizer."
+  (interactive)
+  (let ((root (or (and (fboundp 'projectile-project-root)
+                       (projectile-project-root))
+                  default-directory)))
+    (if (file-exists-p (expand-file-name "Makefile" root))
+        (let ((default-directory root))
+          (compile "make ubsan"))
+      (message "No hay Makefile — usa C-c n c para crear el proyecto"))))
+#+end_src
+
+** 60.4 Valgrind
+
+#+begin_src emacs-lisp
+(defun my/c-valgrind ()
+  "Analiza memoria con Valgrind (make valgrind)."
+  (interactive)
+  (let ((root (or (and (fboundp 'projectile-project-root)
+                       (projectile-project-root))
+                  default-directory)))
+    (if (file-exists-p (expand-file-name "Makefile" root))
+        (let ((default-directory root))
+          (compile "make valgrind"))
+      (message "No hay Makefile — usa C-c n c para crear el proyecto"))))
+#+end_src
+
+** 60.5 Hydra C Tools (C-c X)
+
+Submenú de herramientas avanzadas de C, accesible desde cualquier buffer C/C++.
+
+#+begin_src emacs-lisp
+(unless (bound-and-true-p my/is-termux)
+
+(defhydra my/hydra-c-tools (:color blue :hint nil)
+  "
+  FORJA — C Tools
+  ──────────────────────────────────────────
+  _t_  make test           _c_  coverage (gcov+lcov)
+  _a_  AddressSanitizer    _u_  UBSanitizer
+  _v_  Valgrind            _s_  Análisis estático (clang-tidy)
+  ──────────────────────────────────────────
+  _g_  GDB hydra           _q_  cancelar
+"
+  ("t" my/c-run-tests)
+  ("c" my/c-coverage)
+  ("a" my/c-run-asan)
+  ("u" my/c-run-ubsan)
+  ("v" my/c-valgrind)
+  ("s" (let ((root (or (and (fboundp 'projectile-project-root)
+                            (projectile-project-root))
+                       default-directory)))
+         (compile (format "clang-tidy %s -- -Iinclude"
+                          (or buffer-file-name "src/*.c")))))
+  ("g" my/hydra-gdb/body :color blue)
+  ("q" nil))
+
+(add-hook 'c-mode-hook
+          (lambda () (local-set-key (kbd "C-c X") #'my/hydra-c-tools/body)))
+(add-hook 'c++-mode-hook
+          (lambda () (local-set-key (kbd "C-c X") #'my/hydra-c-tools/body)))
+
+) ;; fin (unless my/is-termux) — C Tools
+#+end_src
+
+** 60.6 GDB hydra mejorada (C-c G)
+
+#+begin_src emacs-lisp
+(unless (bound-and-true-p my/is-termux)
+
+(defhydra my/hydra-gdb (:color pink :hint nil)
+  "
+  FORJA — GDB
+  ──────────────────────────────────
+  Ejecución:  _r_un  _c_ont  _k_ill
+  Stepping:   _n_ext _s_tep  _f_inish
+  Break:      _b_reak en línea  _B_orrar break  _w_atch expr
+  Inspect:    _p_rint expr      _u_ntil línea
+  ──────────────────────────────────
+  _q_ salir del hydra
+"
+  ("r" gud-run          :color pink)
+  ("c" gud-cont         :color pink)
+  ("k" (when (get-buffer-process (gud-format-command "%s" 0))
+         (kill-process (get-buffer-process gud-comint-buffer)))
+       :color blue)
+  ("n" gud-next         :color pink)
+  ("s" gud-step         :color pink)
+  ("f" gud-finish       :color pink)
+  ("b" gud-break        :color pink)
+  ("B" gud-remove       :color pink)
+  ("w" gud-watch        :color pink)
+  ("p" gud-print        :color pink)
+  ("u" gud-until        :color pink)
+  ("q" nil              :color blue))
+
+(add-hook 'c-mode-hook
+          (lambda () (local-set-key (kbd "C-c G") #'my/hydra-gdb/body)))
+(add-hook 'c++-mode-hook
+          (lambda () (local-set-key (kbd "C-c G") #'my/hydra-gdb/body)))
+
+) ;; fin (unless my/is-termux) — GDB hydra
+#+end_src

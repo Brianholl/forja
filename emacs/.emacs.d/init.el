@@ -30,6 +30,9 @@
 ;; 3. Definir Perfiles por Máquina
 (defvar my-extra-modules '())
 
+;; 3b. Módulos pesados — cargados tras 3 segundos de idle post-startup
+(defvar my-lazy-modules '())
+
 (cond
  ;; CASO TERMUX: Android (se evalúa primero)
  (my/is-termux
@@ -118,15 +121,16 @@
           "41-godot.org"))
   (setq my-extra-modules
         '("20-web.org"
-          "40-unreal.org"
-          "55-picoclaw.org"
-          "56-openclaw.org"
           "99-misc.org"
           "49-multiusuario.org"
           "50-gtd.org"
           "51-estandarizacion.org"
           "52-vision-sistemica.org"
-          "53-soporte.org")))
+          "53-soporte.org"))
+  (setq my-lazy-modules
+        '("40-unreal.org"
+          "55-picoclaw.org"
+          "56-openclaw.org")))
 
  ;; CASO 3: Fallback (Cualquier otra máquina desconocida)
  (t
@@ -158,6 +162,20 @@
     (if (file-exists-p file)
         (org-babel-load-file file)
       (message "⚠️ ALERTA: No encuentro el módulo %s" module))))
+
+;; 4b. Carga lazy de módulos pesados (tras 3s de idle, post-startup)
+(when my-lazy-modules
+  (run-with-idle-timer
+   3 nil
+   (lambda ()
+     (dolist (module my-lazy-modules)
+       (let ((file (expand-file-name module my-modules-dir)))
+         (if (file-exists-p file)
+             (progn
+               (message "🦥 Cargando lazy: %s" module)
+               (org-babel-load-file file))
+           (message "⚠️ Módulo lazy no encontrado: %s" module))))
+     (message "✅ Módulos lazy listos"))))
 
 ;; 5. Cargar customizaciones automáticas (si existen)
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))

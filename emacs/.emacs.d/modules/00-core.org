@@ -244,10 +244,10 @@ Configuración visual y comportamiento general.
   (setq ring-bell-function 'ignore)     ; Sin sonidos molestos
 
   ;; --- Performance ---
-  ;; GC menos agresivo durante startup; Termux usa menos RAM
+  ;; Mantener GC alto durante carga de módulos (gcmh lo normaliza después)
   (setq gc-cons-threshold (if (bound-and-true-p my/is-termux)
                               (* 16 1024 1024)    ; 16MB en Termux
-                            (* 50 1024 1024)))    ; 50MB en PC
+                            (* 128 1024 1024)))   ; 128MB en PC
   (setq read-process-output-max (* 1024 1024))) ; 1MB para LSP
 ;; Limpieza automática de espacios al guardar (Rexim)
 (defun my/set-up-whitespace-handling ()
@@ -578,6 +578,8 @@ Si hay un proceso de compilación activo, lo mata."
          (compile "npm install"))
         (t (compile (read-string "Build cmd: ")))))
   ("t" (cond
+        ((derived-mode-p 'c-mode 'c++-mode)
+         (if (fboundp 'my/c-run-tests) (my/c-run-tests) (compile "make test")))
         ((derived-mode-p 'rust-ts-mode 'rust-mode)
          (if (fboundp 'my/rust-test) (my/rust-test) (compile "cargo test")))
         ((derived-mode-p 'go-ts-mode 'go-mode)
@@ -619,50 +621,100 @@ Si hay un proceso de compilación activo, lo mata."
 
 ;; --- Crear proyecto C/C++ genérico ---
 (defun my/new-c-project (name)
-  "Crea estructura básica para un proyecto C/C++ genérico."
+  "Crea proyecto C con Makefile profesional (build/test/coverage/asan/valgrind)."
   (interactive "sNombre del proyecto: ")
   (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "c/"))))
-    (make-directory project-dir t)
-    (make-directory (concat project-dir "/src") t)
-    (make-directory (concat project-dir "/include") t)
-    (make-directory (concat project-dir "/build") t)
+    (make-directory (concat project-dir "/src")          t)
+    (make-directory (concat project-dir "/include")      t)
+    (make-directory (concat project-dir "/build")        t)
+    (make-directory (concat project-dir "/tests/unity")  t)
 
-    ;; Crear build.sh
-    (with-temp-file (concat project-dir "/build.sh")
-      (insert "#!/bin/bash\n")
-      (insert "set -e\n\n")
-      (insert (format "CC=%s\n" my/c-compiler))
-      (insert "CFLAGS=\"-Wall -Wextra -std=c11 -g -Iinclude\"\n")
-      (insert "SRC=\"src/*.c\"\n")
-      (insert (format "OUT=\"build/%s\"\n\n" name))
-      (insert "echo \"🔨 Compilando $OUT...\"\n")
-      (insert "$CC $CFLAGS $SRC -o $OUT\n\n")
-      (insert "echo \"✅ Compilación exitosa!\"\n")
-      (insert "echo \"▶️  Ejecutando...\"\n")
-      (insert "./$OUT\n"))
+    ;; Makefile profesional
+    (with-temp-file (concat project-dir "/Makefile")
+      (insert (format "PROJECT = %s\n" name))
+      (insert "CC      = gcc\n")
+      (insert "CFLAGS  = -Wall -Wextra -std=c11 -g -Iinclude\n\n")
+      (insert "SRC     = $(wildcard src/*.c)\n")
+      (insert "OBJ     = $(patsubst src/%%.c, build/%%.o, $(SRC))\n")
+      (insert "TARGET  = build/$(PROJECT)\n\n")
+      (insert "UNITY   = tests/unity/unity.c\n")
+      (insert "TESTS   = $(wildcard tests/test_*.c)\n\n")
+      (insert ".PHONY: all build test coverage asan ubsan valgrind clean\n\n")
+      (insert "all: build\n\n")
+      (insert "build: $(TARGET)\n\n")
+      (insert "$(TARGET): $(OBJ) | build\n")
+      (insert "\t$(CC) $(CFLAGS) -o $@ $^\n\n")
+      (insert "build/%%.o: src/%%.c | build\n")
+      (insert "\t$(CC) $(CFLAGS) -c -o $@ $<\n\n")
+      (insert "build:\n\t@mkdir -p build\n\n")
+      (insert "# Tests con Unity (descarga automática en primer uso)\n")
+      (insert "test: $(UNITY) build\n")
+      (insert "\t$(CC) $(CFLAGS) $(TESTS) $(UNITY) $(filter-out build/main.o,$(OBJ)) -o build/test_runner\n")
+      (insert "\t@echo '=== Tests ==='\n")
+      (insert "\t./build/test_runner\n\n")
+      (insert "$(UNITY):\n")
+      (insert "\t@echo 'Descargando Unity...'\n")
+      (insert "\t@mkdir -p tests/unity\n")
+      (insert "\t@curl -sLo tests/unity/unity.h     https://raw.githubusercontent.com/ThrowTheSwitch/Unity/master/src/unity.h\n")
+      (insert "\t@curl -sLo tests/unity/unity.c     https://raw.githubusercontent.com/ThrowTheSwitch/Unity/master/src/unity.c\n")
+      (insert "\t@curl -sLo tests/unity/unity_internals.h https://raw.githubusercontent.com/ThrowTheSwitch/Unity/master/src/unity_internals.h\n\n")
+      (insert "# Cobertura (requiere gcc, gcov, lcov, genhtml)\n")
+      (insert "coverage: CFLAGS += --coverage\n")
+      (insert "coverage: clean build test\n")
+      (insert "\t@mkdir -p coverage\n")
+      (insert "\tlcov -c -d build/ -o coverage/coverage.info --rc lcov_branch_coverage=1\n")
+      (insert "\tgenhtml coverage/coverage.info -o coverage/\n")
+      (insert "\t@echo '=== Reporte en coverage/index.html ==='\n\n")
+      (insert "# AddressSanitizer + UBSanitizer\n")
+      (insert "asan: CFLAGS += -fsanitize=address,undefined\n")
+      (insert "asan: clean $(TARGET)\n")
+      (insert "\t./$(TARGET)\n\n")
+      (insert "# Solo UBSanitizer\n")
+      (insert "ubsan: CFLAGS += -fsanitize=undefined\n")
+      (insert "ubsan: clean $(TARGET)\n")
+      (insert "\t./$(TARGET)\n\n")
+      (insert "# Valgrind\n")
+      (insert "valgrind: build\n")
+      (insert "\tvalgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(TARGET)\n\n")
+      (insert "clean:\n")
+      (insert "\trm -rf build/ coverage/ *.gcov *.gcda *.gcno\n"))
 
-    (set-file-modes (concat project-dir "/build.sh") #o755)
+    ;; compile_flags.txt para clangd
     (with-temp-file (concat project-dir "/compile_flags.txt")
-      (insert "-Iinclude\n"))
-    ;; Crear main.c básico
+      (insert "-Iinclude\n-Wall\n-Wextra\n-std=c11\n-g\n"))
+
+    ;; main.c
     (with-temp-file (concat project-dir "/src/main.c")
       (insert "#include <stdio.h>\n\n")
       (insert "int main(void) {\n")
-      (insert "    printf(\"¡Hola desde C!\\n\");\n")
+      (insert "    printf(\"Hola desde ")
+      (insert name)
+      (insert "\\n\");\n")
       (insert "    return 0;\n")
       (insert "}\n"))
 
-    ;; Crear .gitignore
+    ;; Test de ejemplo
+    (with-temp-file (concat project-dir "/tests/test_main.c")
+      (insert "#include \"unity/unity.h\"\n")
+      (insert (format "// #include \"../%s.h\"\n\n" name))
+      (insert "void setUp(void)    {}\n")
+      (insert "void tearDown(void) {}\n\n")
+      (insert "void test_ejemplo(void) {\n")
+      (insert "    TEST_ASSERT_EQUAL(2, 1 + 1);\n")
+      (insert "}\n\n")
+      (insert "int main(void) {\n")
+      (insert "    UNITY_BEGIN();\n")
+      (insert "    RUN_TEST(test_ejemplo);\n")
+      (insert "    return UNITY_END();\n")
+      (insert "}\n"))
+
+    ;; .gitignore
     (with-temp-file (concat project-dir "/.gitignore")
-      (insert "build/\n")
-      (insert "*.o\n")
-      (insert "*.out\n"))
-    (with-temp-file (concat project-dir "/.projectile")
-      (insert ""))
-    ;; NUEVO: Inicializar git
+      (insert "build/\ncoverage/\ntests/unity/\n*.o\n*.gcov\n*.gcda\n*.gcno\n"))
+
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
     (my/git-init-and-commit project-dir name)
-    
-    (message "🛠️  Proyecto C creado: %s" project-dir)
+    (message "Proyecto C creado: %s" project-dir)
     (find-file (concat project-dir "/src/main.c"))))
 
 (global-set-key (kbd "C-c n c") 'my/new-c-project)
@@ -1719,10 +1771,33 @@ Optimizaciones finales y limpieza.
   :ensure t
   :init (gcmh-mode 1)
   :config
-  (setq gcmh-idle-delay (if (bound-and-true-p my/is-termux) 1.0 0.5)
+  (setq gcmh-idle-delay (if (bound-and-true-p my/is-termux) 10.0 0.5)
         gcmh-high-cons-threshold (if (bound-and-true-p my/is-termux)
-                                     (* 64 1024 1024)      ; 64MB en Termux
+                                     (* 16 1024 1024)      ; 16MB en Termux
                                    (* 1024 1024 1024))))   ; 1GB en PC
+
+;; --- Profiler de startup ---
+(use-package esup
+  :ensure t
+  :commands (esup))
+
+;; --- Benchmark de inicio ---
+(defun my/forja-benchmark ()
+  "Mide el tiempo de inicio de Emacs con la config activa (3 runs)."
+  (interactive)
+  (let ((script (expand-file-name "forja-bench.sh" temporary-file-directory)))
+    (with-temp-file script
+      (insert "#!/bin/bash\n"
+              "echo 'Benchmark FORJA — 3 runs'\n"
+              "for i in 1 2 3; do\n"
+              "  START=$(date +%s%3N)\n"
+              "  emacs --batch --load \"$HOME/.emacs.d/init.el\" "
+              "--eval '(kill-emacs)' 2>/dev/null\n"
+              "  END=$(date +%s%3N)\n"
+              "  echo \"  Run $i: $((END - START)) ms\"\n"
+              "done\n"))
+    (set-file-modes script #o755)
+    (compile script)))
 
 ;; --- Mostrar tiempo de carga ---
 (add-hook 'emacs-startup-hook
@@ -1760,5 +1835,63 @@ Optimizaciones finales y limpieza.
   ;; Opción B: Si prefieres que sea MUY sutil (ej: solo un leve cambio de color de fondo)
   ;; (set-face-attribute 'flycheck-error nil :background "#2c0e0e" :underline nil)
   )
+#+end_src
+
+* 90. Menú de Nuevo Proyecto (C-c n)
+
+Hydra paginado de dos páginas (máx. 7 opciones por página) para crear proyectos.
+Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
+
+#+begin_src emacs-lisp
+;; Limpiar bindings individuales anteriores para liberar C-c n como prefijo
+(dolist (key '("C-c n c" "C-c n C" "C-c n g" "C-c n +"
+               "C-c n r" "C-c n R" "C-c n G" "C-c n a"
+               "C-c n w" "C-c n W" "C-c n e" "C-c n p" "C-c n P"
+               "C-c n T"))
+  (global-unset-key (kbd key)))
+
+(defhydra my/hydra-new-project (:color blue :hint nil)
+  "
+  FORJA — Nuevo Proyecto  (1/2)
+  ──────────────────────────────────────────
+  _c_  C (genérico)          _C_  C++ (genérico)
+  _g_  Game Dev C  (Raylib)  _+_  Game Dev C++ (Raylib)
+  _r_  Rust (genérico)       _R_  Rust REST API
+  _G_  Go (genérico)
+  ──────────────────────────────────────────
+  _n_ → más opciones         _q_ cancelar
+"
+  ("c" my/new-c-project)
+  ("C" my/new-cpp-project)
+  ("g" my/new-gamedev-project)
+  ("+" my/new-gamedev-cpp-project)
+  ("r" my/new-rust-project)
+  ("R" my/new-rust-api-project)
+  ("G" my/new-go-project)
+  ("n" my/hydra-new-project-2/body :color blue)
+  ("q" nil))
+
+(defhydra my/hydra-new-project-2 (:color blue :hint nil)
+  "
+  FORJA — Nuevo Proyecto  (2/2)
+  ──────────────────────────────────────────
+  _a_  Go REST API            _w_  Web (estático)
+  _W_  Web (Tailwind)         _e_  Express / Node.js
+  _p_  Python / FastAPI       _P_  PHP / Laravel
+  _T_  TypeScript standalone  (CLI o librería)
+  ──────────────────────────────────────────
+  _b_ ← volver               _q_ cancelar
+"
+  ("a" my/new-go-api-project)
+  ("w" my/new-web-project)
+  ("W" my/new-web-tailwind-project)
+  ("e" my/new-express-project)
+  ("p" my/new-python-project)
+  ("P" my/new-php-project)
+  ("T" my/new-ts-project)
+  ("b" my/hydra-new-project/body :color blue)
+  ("q" nil))
+
+(global-set-key (kbd "C-c n") #'my/hydra-new-project/body)
 #+end_src
 

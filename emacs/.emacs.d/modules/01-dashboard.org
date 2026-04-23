@@ -8,6 +8,125 @@
 Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, reemplazando el buffer de *scratch* estándar por un panel de control interactivo.
 
 #+begin_src emacs-lisp
+;; === Versión de Forja (desde ~/.forja/profile.conf) ===
+
+(defun my/forja-get-version ()
+  "Lee FORJA_CONFIG_VERSION desde ~/.forja/profile.conf."
+  (let ((conf (expand-file-name "~/.forja/profile.conf")))
+    (if (file-exists-p conf)
+        (with-temp-buffer
+          (insert-file-contents conf)
+          (if (re-search-forward
+               "^FORJA_CONFIG_VERSION=\"?\\([^\"\\n]+\\)\"?" nil t)
+              (concat "v" (match-string 1))
+            "v?"))
+      "v?")))
+
+;; === Variables del chequeo de actualizaciones ===
+
+(defvar my/forja-update-status nil
+  "Estado de actualizaciones: nil, :checking, :available, :up-to-date, :error.")
+
+(defvar my/forja-dir
+  (expand-file-name "forja/" "~/")
+  "Directorio del repositorio FORJA.")
+
+(defun my/forja-check-updates ()
+  "Chequea async si hay commits nuevos en el remote de FORJA."
+  (when (and (file-directory-p (expand-file-name ".git" my/forja-dir))
+             (executable-find "git"))
+    (setq my/forja-update-status :checking)
+    (let ((default-directory my/forja-dir))
+      (set-process-sentinel
+       (start-process "forja-fetch" nil "git" "fetch" "--quiet" "origin")
+       (lambda (proc _event)
+         (when (= (process-exit-status proc) 0)
+           (let* ((default-directory my/forja-dir)
+                  (behind (string-trim
+                           (shell-command-to-string
+                            "git rev-list HEAD..origin/main --count 2>/dev/null"))))
+             (setq my/forja-update-status
+                   (if (and (string-match-p "^[0-9]+$" behind)
+                            (> (string-to-number behind) 0))
+                       :available
+                     :up-to-date))
+             (when (get-buffer "*dashboard*")
+               (with-current-buffer "*dashboard*"
+                 (dashboard-refresh-buffer))))))))))
+
+;; === Widgets personalizados ===
+
+(defun my/dashboard-insert-header (_list-size)
+  "Saludo con nombre de usuario activo y versión de Forja."
+  (let* ((version (my/forja-get-version))
+         (usuario (if (bound-and-true-p my/mu-alumno-actual)
+                      my/mu-alumno-actual
+                    user-login-name)))
+    (insert (propertize (format "  FORJA %s" version)
+                        'face '(:foreground "#7c3aed" :weight bold)))
+    (insert "     ")
+    (insert (propertize (format "¡Bienvenido, %s!" usuario)
+                        'face '(:foreground "#10b981" :weight bold)))
+    (insert "\n")))
+
+(defun my/dashboard-insert-new-project-btn (_list-size)
+  "Botón para crear un nuevo proyecto desde el dashboard."
+  (widget-create 'push-button
+                 :action (lambda (&rest _)
+                           (if (fboundp 'my/hydra-new-project/body)
+                               (my/hydra-new-project/body)
+                             (message "Usa C-c n <letra> para crear un proyecto")))
+                 :mouse-face 'highlight
+                 :button-face 'dashboard-heading
+                 "  [ + Nuevo Proyecto ]")
+  (insert "   ")
+  (insert (propertize "(C-c n)" 'face 'font-lock-comment-face))
+  (insert "\n"))
+
+(defun my/dashboard-insert-user-projects (list-size)
+  "Proyectos del usuario activo ordenados por fecha de modificación."
+  (let* ((dir (if (fboundp 'my/mu-projects-base)
+                  (my/mu-projects-base)
+                (expand-file-name "~/projects/")))
+         (projects (when (file-directory-p dir)
+                     (seq-filter #'file-directory-p
+                                 (directory-files dir t "^[^.]")))))
+    (if projects
+        (let* ((sorted (sort projects
+                             (lambda (a b)
+                               (time-less-p
+                                (file-attribute-modification-time (file-attributes b))
+                                (file-attribute-modification-time (file-attributes a))))))
+               (shown (seq-take sorted list-size)))
+          (insert (propertize "  Proyectos recientes:\n" 'face 'dashboard-heading))
+          (dolist (proj shown)
+            (insert "    ")
+            (widget-create 'push-button
+                           :action `(lambda (&rest _) (find-file ,proj))
+                           :mouse-face 'highlight
+                           :button-prefix ""
+                           :button-suffix ""
+                           (file-name-nondirectory proj))
+            (insert "\n")))
+      (insert (propertize "  Sin proyectos aún — usa C-c n para crear uno.\n"
+                          'face 'font-lock-comment-face)))))
+
+(defun my/dashboard-insert-updates (_list-size)
+  "Notificación de actualizaciones disponibles."
+  (pcase my/forja-update-status
+    (:available
+     (insert (propertize
+              "  FORJA: hay actualizaciones disponibles — ejecuta update.sh"
+              'face '(:foreground "#ff9800" :weight bold)))
+     (insert "\n"))
+    (:checking
+     (insert (propertize "  Verificando actualizaciones..."
+                         'face 'font-lock-comment-face))
+     (insert "\n"))
+    (_ nil)))
+
+;; === Configuración del paquete dashboard ===
+
 (use-package dashboard
   :ensure t
   :config
@@ -15,79 +134,22 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
   (setq dashboard-center-content t)
   (setq dashboard-show-shortcuts nil)
 
-  ;; --- Generador de botón manual (Prueba a prueba de fallos) ---
-  (defun my/dashboard-insert-scratch (list-size)
-    (insert "📝 Acciones Rápidas:\n")
-    (widget-create 'push-button
-                   :action (lambda (&rest ignore) (switch-to-buffer "*scratch*"))
-                   :mouse-face 'highlight
-                   :button-face 'dashboard-heading
-                   "  [ Abrir Lienzo en Blanco (Scratch) ]")
-    (insert "\n"))
-  
-  (add-to-list 'dashboard-item-generators '(scratch-button . my/dashboard-insert-scratch))
+  (add-to-list 'dashboard-item-generators
+               '(forja-header    . my/dashboard-insert-header))
+  (add-to-list 'dashboard-item-generators
+               '(new-project-btn . my/dashboard-insert-new-project-btn))
+  (add-to-list 'dashboard-item-generators
+               '(user-projects   . my/dashboard-insert-user-projects))
+  (add-to-list 'dashboard-item-generators
+               '(forja-updates   . my/dashboard-insert-updates))
 
-  ;; --- Contenido principal ---
-  (setq dashboard-items '((recents  . 5)
-                          (scratch-button . 1)
-                          (projects . 5)
-                          (agenda . 5)))
+  (setq dashboard-items '((forja-header    . 1)
+                          (new-project-btn . 1)
+                          (forja-updates   . 1)
+                          (user-projects   . 5)
+                          (agenda          . 5)))
 
-  ;; --- Notificación de actualizaciones disponibles ---
-  (defvar my/forja-update-status nil
-    "Estado de actualizaciones: nil (no chequeado), :checking, :available, :up-to-date, :error.")
-
-  (defvar my/forja-dir
-    (expand-file-name "forja/" "~/")
-    "Directorio del repositorio FORJA.")
-
-  (defun my/forja-check-updates ()
-    "Chequea async si hay commits nuevos en el remote de FORJA."
-    (when (and (file-directory-p (expand-file-name ".git" my/forja-dir))
-               (executable-find "git"))
-      (setq my/forja-update-status :checking)
-      (let ((default-directory my/forja-dir))
-        (set-process-sentinel
-         (start-process "forja-fetch" nil "git" "fetch" "--quiet" "origin")
-         (lambda (proc _event)
-           (when (= (process-exit-status proc) 0)
-             (let* ((default-directory my/forja-dir)
-                    (behind (string-trim
-                             (shell-command-to-string
-                              "git rev-list HEAD..origin/main --count 2>/dev/null"))))
-               (setq my/forja-update-status
-                     (if (and (string-match-p "^[0-9]+$" behind)
-                              (> (string-to-number behind) 0))
-                         :available
-                       :up-to-date))
-               ;; Refrescar dashboard si está visible
-               (when (get-buffer "*dashboard*")
-                 (with-current-buffer "*dashboard*"
-                   (dashboard-refresh-buffer))))))))))
-
-  (defun my/dashboard-insert-updates (list-size)
-    "Inserta notificación de actualizaciones en el dashboard."
-    (pcase my/forja-update-status
-      (:available
-       (insert (propertize "  FORJA: hay actualizaciones disponibles. Ejecuta update.sh"
-                           'face '(:foreground "#ff9800" :weight bold)))
-       (insert "\n"))
-      (:checking
-       (insert (propertize "  Verificando actualizaciones..." 'face 'font-lock-comment-face))
-       (insert "\n"))
-      (_ nil)))
-
-  (add-to-list 'dashboard-item-generators '(forja-updates . my/dashboard-insert-updates))
-  (setq dashboard-items '((forja-updates . 1)
-                          (recents  . 5)
-                          (scratch-button . 1)
-                          (projects . 5)
-                          (agenda . 5)))
-
-  ;; Chequear al iniciar (async, no bloquea)
   (add-hook 'emacs-startup-hook #'my/forja-check-updates)
-
-  ;; IMPORTANTE: setup al final y activarlo
   (dashboard-setup-startup-hook)
   (setq initial-buffer-choice (lambda () (get-buffer-create "*dashboard*"))))
 #+end_src

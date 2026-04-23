@@ -158,17 +158,23 @@ Detecta Express/package.json (npm start), o ejecuta el archivo directamente."
      (t (message "❌ No se encontró archivo JS para ejecutar")))))
 
 (defun my/node--run-file (project-root)
-  "Busca y ejecuta el entry point del proyecto Node.js."
-  (let ((candidates '("index.js" "app.js" "server.js" "src/index.js" "src/app.js")))
+  "Busca y ejecuta el entry point del proyecto Node.js / TypeScript."
+  (let ((candidates '("src/index.ts" "src/index.js" "index.ts"
+                      "index.js" "app.js" "server.js" "src/app.js")))
     (catch 'found
       (dolist (file candidates)
         (when (file-exists-p (expand-file-name file project-root))
-          (compile (format "node %s" file))
+          (compile (if (and (string-match-p "\\.ts$" file) (executable-find "tsx"))
+                       (format "tsx %s" file)
+                     (format "node %s" file)))
           (throw 'found t)))
       ;; Fallback: ejecutar archivo actual
       (if (buffer-file-name)
-          (compile (format "node %s" (file-name-nondirectory buffer-file-name)))
-        (message "❌ No se encontró entry point Node.js")))))
+          (let ((f (file-name-nondirectory buffer-file-name)))
+            (compile (if (and (string-match-p "\\.ts$" f) (executable-find "tsx"))
+                         (format "tsx %s" f)
+                       (format "node %s" f))))
+        (message "❌ No se encontró entry point")))))
 
 (defun my/node-test ()
   "Ejecuta tests del proyecto Node.js.
@@ -215,5 +221,114 @@ Detecta jest, mocha, o npm test."
           (lambda () (local-set-key (kbd "<f5>") 'my/run-live-server)))
 (add-hook 'css-ts-mode-hook
           (lambda () (local-set-key (kbd "<f5>") 'my/run-live-server)))
+#+end_src
+
+* 20. TypeScript Standalone (CLI y Librería)
+
+Proyectos TypeScript puros sin stack web. Usa =tsx= para ejecutar sin compilar a JS.
+Requiere: =sudo npm install -g tsx typescript=
+
+#+begin_src emacs-lisp
+(defun my/new-ts-project (name)
+  "Crea un proyecto TypeScript standalone: CLI o librería npm.
+Pregunta el tipo con completing-read."
+  (interactive "sNombre del proyecto: ")
+  (let* ((tipo (completing-read "Tipo de proyecto: " '("cli" "libreria") nil t))
+         (base-dir (expand-file-name name (concat (my/mu-projects-base) "ts/")))
+         (src-dir  (concat base-dir "/src")))
+
+    (make-directory src-dir t)
+
+    ;; tsconfig.json — base estricto para ambos tipos
+    (with-temp-file (concat base-dir "/tsconfig.json")
+      (insert "{\n")
+      (insert "  \"compilerOptions\": {\n")
+      (insert "    \"target\": \"ES2022\",\n")
+      (insert "    \"module\": \"commonjs\",\n")
+      (insert "    \"lib\": [\"ES2022\"],\n")
+      (insert "    \"outDir\": \"./dist\",\n")
+      (insert "    \"rootDir\": \"./src\",\n")
+      (insert "    \"strict\": true,\n")
+      (insert "    \"esModuleInterop\": true,\n")
+      (insert "    \"skipLibCheck\": true,\n")
+      (insert "    \"declaration\": true,\n")
+      (insert "    \"declarationMap\": true,\n")
+      (insert "    \"sourceMap\": true\n")
+      (insert "  },\n")
+      (insert "  \"include\": [\"src/**/*\"],\n")
+      (insert "  \"exclude\": [\"node_modules\", \"dist\"]\n")
+      (insert "}\n"))
+
+    (if (string= tipo "cli")
+        (my/new-ts--cli name base-dir src-dir)
+      (my/new-ts--lib name base-dir src-dir))
+
+    ;; .gitignore y .projectile comunes
+    (with-temp-file (concat base-dir "/.gitignore")
+      (insert "node_modules/\ndist/\n*.js.map\n"))
+    (with-temp-file (concat base-dir "/.projectile") (insert ""))
+
+    (my/git-init-and-commit base-dir name)
+    (message "Proyecto TypeScript %s creado: %s" tipo base-dir)
+    (find-file (concat src-dir "/index.ts"))))
+
+(defun my/new-ts--cli (name base-dir src-dir)
+  "Genera template para herramienta CLI en TypeScript."
+  ;; package.json con bin y scripts tsx
+  (with-temp-file (concat base-dir "/package.json")
+    (insert (format "{\n  \"name\": \"%s\",\n" name))
+    (insert "  \"version\": \"0.1.0\",\n")
+    (insert "  \"description\": \"\",\n")
+    (insert "  \"main\": \"dist/index.js\",\n")
+    (insert (format "  \"bin\": { \"%s\": \"dist/index.js\" },\n" name))
+    (insert "  \"scripts\": {\n")
+    (insert "    \"build\": \"tsc\",\n")
+    (insert (format "    \"start\": \"tsx src/index.ts\",\n"))
+    (insert (format "    \"dev\":   \"tsx watch src/index.ts\",\n"))
+    (insert "    \"test\":  \"jest\"\n")
+    (insert "  },\n")
+    (insert "  \"devDependencies\": {\n")
+    (insert "    \"typescript\": \"^5\",\n")
+    (insert "    \"@types/node\": \"^20\",\n")
+    (insert "    \"tsx\": \"^4\"\n")
+    (insert "  }\n")
+    (insert "}\n"))
+  ;; src/index.ts — entrada CLI con process.argv
+  (with-temp-file (concat src-dir "/index.ts")
+    (insert "#!/usr/bin/env node\n\n")
+    (insert (format "const nombre = \"%s\";\n" name))
+    (insert "const args = process.argv.slice(2);\n\n")
+    (insert "if (args.length === 0) {\n")
+    (insert (format "  console.log(`%s — sin argumentos`);\n" name))
+    (insert "  process.exit(0);\n")
+    (insert "}\n\n")
+    (insert "console.log(`Args: ${args.join(', ')}`);\n")))
+
+(defun my/new-ts--lib (name base-dir src-dir)
+  "Genera template para librería npm en TypeScript."
+  (with-temp-file (concat base-dir "/package.json")
+    (insert (format "{\n  \"name\": \"%s\",\n" name))
+    (insert "  \"version\": \"0.1.0\",\n")
+    (insert "  \"description\": \"\",\n")
+    (insert "  \"main\": \"dist/index.js\",\n")
+    (insert "  \"types\": \"dist/index.d.ts\",\n")
+    (insert "  \"files\": [\"dist\"],\n")
+    (insert "  \"scripts\": {\n")
+    (insert "    \"build\": \"tsc\",\n")
+    (insert (format "    \"dev\":   \"tsx watch src/index.ts\",\n"))
+    (insert "    \"test\":  \"jest\"\n")
+    (insert "  },\n")
+    (insert "  \"devDependencies\": {\n")
+    (insert "    \"typescript\": \"^5\",\n")
+    (insert "    \"@types/node\": \"^20\",\n")
+    (insert "    \"tsx\": \"^4\"\n")
+    (insert "  }\n")
+    (insert "}\n"))
+  ;; src/index.ts — exports de la librería
+  (with-temp-file (concat src-dir "/index.ts")
+    (insert (format "// %s — punto de entrada de la librería\n\n" name))
+    (insert (format "export function saludo(nombre: string): string {\n"))
+    (insert (format "  return `Hola desde %s, ${nombre}!`;\n" name))
+    (insert "}\n")))
 #+end_src
 
