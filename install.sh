@@ -298,12 +298,12 @@ info "Instalando Lua y lua-language-server..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y lua54
 elif [ "$PLATFORM" = "wsl" ]; then
-    sudo apt-get install -y lua5.4
-    warn "lua-language-server: instalar manualmente desde https://github.com/LuaLS/lua-language-server"
+    sudo apt-get install -y lua5.4 love
+    warn "lua-language-server/WSL: instalar desde https://github.com/LuaLS/lua-language-server"
 else
-    sudo pacman -S --needed --noconfirm lua lua-language-server
+    sudo pacman -S --needed --noconfirm lua lua-language-server love
 fi
-ok "Lua instalado"
+ok "Lua + Löve2D instalados"
 
 # Zig
 info "Instalando Zig y zls..."
@@ -321,10 +321,10 @@ info "Instalando Java (JDK 17), Maven y Kotlin..."
 if [ "$PLATFORM" = "termux" ]; then
     info "Saltando Java/Maven/Kotlin (no disponible en Termux)"
 elif [ "$PLATFORM" = "wsl" ]; then
-    sudo apt-get install -y openjdk-17-jdk maven
+    sudo apt-get install -y openjdk-17-jdk maven gradle
     warn "Kotlin/WSL: instalar desde https://kotlinlang.org/docs/command-line.html"
 else
-    sudo pacman -S --needed --noconfirm jdk17-openjdk maven kotlin
+    sudo pacman -S --needed --noconfirm jdk17-openjdk maven gradle kotlin
     # kotlin-language-server (LSP para kotlin-mode)
     if command -v yay &>/dev/null; then
         yay -S --needed --noconfirm kotlin-language-server 2>/dev/null \

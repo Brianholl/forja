@@ -14,8 +14,7 @@
   (unless (treesit-language-available-p 'zig)
     (condition-case err
         (treesit-install-language-grammar 'zig)
-      (error (message "43-zig: no se pudo instalar gramática zig: %s" err))))
-  (add-to-list 'auto-mode-alist '("\\.zig\\'" . zig-ts-mode)))
+      (error (message "43-zig: no se pudo instalar gramática zig: %s" err)))))
 #+end_src
 
 * 20. zig-mode y LSP
@@ -29,8 +28,7 @@
       (setq zig-format-on-save t))
   (error (message "43-zig: zig-mode no se pudo cargar: %s" err)))
 
-(add-hook 'zig-mode-hook    #'lsp-deferred)
-(add-hook 'zig-ts-mode-hook #'lsp-deferred)
+(add-hook 'zig-mode-hook #'lsp-deferred)
 #+end_src
 
 * 30. Generador de proyecto

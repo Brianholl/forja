@@ -46,8 +46,7 @@
       :mode "\\.kt\\'")
   (error (message "44-java: kotlin-mode no se pudo cargar: %s" err)))
 
-(add-hook 'kotlin-mode-hook    #'lsp-deferred)
-(add-hook 'kotlin-ts-mode-hook #'lsp-deferred)
+(add-hook 'kotlin-mode-hook #'lsp-deferred)
 #+end_src
 
 * 40. Generador — Proyecto Java (Maven)

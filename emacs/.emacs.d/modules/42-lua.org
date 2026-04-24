@@ -14,8 +14,7 @@
   (unless (treesit-language-available-p 'lua)
     (condition-case err
         (treesit-install-language-grammar 'lua)
-      (error (message "42-lua: no se pudo instalar gramática lua: %s" err))))
-  (add-to-list 'auto-mode-alist '("\\.lua\\'" . lua-ts-mode)))
+      (error (message "42-lua: no se pudo instalar gramática lua: %s" err)))))
 #+end_src
 
 * 20. lua-mode y LSP
@@ -28,8 +27,7 @@
   :config
   (setq lua-indent-level 2))
 
-(add-hook 'lua-mode-hook    #'lsp-deferred)
-(add-hook 'lua-ts-mode-hook #'lsp-deferred)
+(add-hook 'lua-mode-hook #'lsp-deferred)
 #+end_src
 
 * 30. Generadores de proyecto

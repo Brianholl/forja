@@ -1918,7 +1918,7 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
          (message "Módulo Java no cargado")) :color blue)
   ("k" (if (fboundp 'my/new-kotlin-project)
            (call-interactively 'my/new-kotlin-project)
-         (message "Módulo Java no cargado")) :color blue)
+         (message "Módulo Java/Kotlin no cargado")) :color blue)
   ("b" my/hydra-new-project/body :color blue)
   ("q" nil))
 
