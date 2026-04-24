@@ -54,7 +54,98 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
                (with-current-buffer "*dashboard*"
                  (dashboard-refresh-buffer))))))))))
 
+;; === Estado asíncrono de Ollama ===
+
+(defvar my/dashboard-ollama-status nil
+  "Estado de Ollama: nil | :checking | :running | :stopped.")
+(defvar my/dashboard-ollama-loaded nil
+  "Modelos actualmente cargados en memoria (ollama ps).")
+
+(defun my/dashboard-check-ollama-async ()
+  "Verifica si Ollama está activo y qué modelos tiene en memoria."
+  (when (executable-find "ollama")
+    (setq my/dashboard-ollama-status :checking)
+    (let* ((buf (generate-new-buffer " *ollama-ps*"))
+           (proc (start-process "ollama-ps" buf "ollama" "ps")))
+      (set-process-sentinel
+       proc
+       (lambda (proc _event)
+         (let ((status (process-exit-status proc)))
+           (if (= status 0)
+               (with-current-buffer (process-buffer proc)
+                 (let* ((lines (cdr (split-string (buffer-string) "\n" t)))
+                        (models (delq nil
+                                      (mapcar (lambda (l)
+                                                (let ((m (car (split-string l))))
+                                                  (unless (string-empty-p (or m "")) m)))
+                                              lines))))
+                   (setq my/dashboard-ollama-status :running
+                         my/dashboard-ollama-loaded models)))
+             (setq my/dashboard-ollama-status :stopped
+                   my/dashboard-ollama-loaded nil))
+           (kill-buffer (process-buffer proc))
+           (when (get-buffer "*dashboard*")
+             (with-current-buffer "*dashboard*"
+               (dashboard-refresh-buffer)))))))))
+
 ;; === Widgets personalizados ===
+
+(defun my/dashboard-insert-separator (_list-size)
+  "Línea separadora entre secciones."
+  (insert (propertize (concat "  " (make-string 54 ?─) "\n")
+                      'face 'font-lock-comment-face)))
+
+(defun my/dashboard-insert-system-status (_list-size)
+  "Estado del sistema: RAM + Ollama + modelos en memoria."
+  ;; --- RAM ---
+  (when (file-readable-p "/proc/meminfo")
+    (let* ((data (with-temp-buffer
+                   (insert-file-contents "/proc/meminfo")
+                   (buffer-string)))
+           (parse (lambda (key)
+                    (when (string-match (concat key ":[ \t]+\\([0-9]+\\)") data)
+                      (/ (string-to-number (match-string 1 data)) 1024))))
+           (total     (funcall parse "MemTotal"))
+           (available (funcall parse "MemAvailable"))
+           (used      (- total available))
+           (pct       (if (> total 0) (/ (* used 100) total) 0))
+           (color     (cond ((< pct 60) "#10b981")
+                            ((< pct 80) "#f59e0b")
+                            (t          "#ef4444"))))
+      (insert (propertize "  RAM  " 'face 'font-lock-comment-face))
+      (insert (propertize (format "%d / %d MB  (%d%%)" used total pct)
+                          'face `(:foreground ,color :weight bold)))
+      (insert "\n")))
+  ;; --- Ollama ---
+  (pcase my/dashboard-ollama-status
+    (:running
+     (insert (propertize "  IA    " 'face 'font-lock-comment-face))
+     (insert (propertize "● Ollama activo" 'face '(:foreground "#10b981" :weight bold)))
+     (if my/dashboard-ollama-loaded
+         (progn
+           (insert (propertize "   en memoria: " 'face 'font-lock-comment-face))
+           (insert (propertize (string-join my/dashboard-ollama-loaded "  ")
+                               'face '(:foreground "#7c3aed"))))
+       (insert (propertize "   (sin modelos cargados)" 'face 'font-lock-comment-face)))
+     (insert "\n"))
+    (:stopped
+     (insert (propertize "  IA    " 'face 'font-lock-comment-face))
+     (insert (propertize "○ Ollama detenido  " 'face '(:foreground "#94a3b8")))
+     (widget-create 'push-button
+                    :action (lambda (&rest _)
+                              (start-process "ollama-serve" nil "ollama" "serve")
+                              (run-with-timer
+                               2 nil
+                               (lambda ()
+                                 (my/dashboard-check-ollama-async)))
+                              (message "Iniciando Ollama..."))
+                    :mouse-face 'highlight
+                    "[ Iniciar ]")
+     (insert "\n"))
+    (:checking
+     (insert (propertize "  IA    verificando Ollama...\n"
+                         'face 'font-lock-comment-face)))
+    (_ nil)))
 
 (defun my/dashboard-insert-header (_list-size)
   "Saludo con estado explícito: alumno activo (verde) o sin sesión (gris + botón)."
@@ -152,17 +243,24 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
   (add-to-list 'dashboard-item-generators
                '(new-project-btn . my/dashboard-insert-new-project-btn))
   (add-to-list 'dashboard-item-generators
+               '(separator       . my/dashboard-insert-separator))
+  (add-to-list 'dashboard-item-generators
+               '(system-status   . my/dashboard-insert-system-status))
+  (add-to-list 'dashboard-item-generators
                '(user-projects   . my/dashboard-insert-user-projects))
   (add-to-list 'dashboard-item-generators
                '(forja-updates   . my/dashboard-insert-updates))
 
   (setq dashboard-items '((forja-header    . 1)
                           (new-project-btn . 1)
+                          (separator       . 1)
+                          (system-status   . 1)
                           (forja-updates   . 1)
                           (user-projects   . 5)
                           (agenda          . 5)))
 
   (add-hook 'emacs-startup-hook #'my/forja-check-updates)
+  (add-hook 'emacs-startup-hook #'my/dashboard-check-ollama-async)
   (dashboard-setup-startup-hook)
   (setq initial-buffer-choice (lambda () (get-buffer-create "*dashboard*"))))
 #+end_src
