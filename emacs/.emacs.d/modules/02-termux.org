@@ -151,9 +151,17 @@ all-the-icons-ivy-rich (GUI).
     (setq dashboard-center-content nil)       ;; Más espacio
     (setq dashboard-startup-banner 'logo))
 
-  ;; --- Treemacs: reemplazar F7 con dired-jump ---
-  ;; Treemacs es muy pesado y poco práctico en pantalla táctil
-  (global-set-key (kbd "<f7>") #'dired-jump)
+  ;; --- F7: sidebar ligero con dired en ventana lateral ---
+  (defun my/termux-sidebar ()
+    "Abre dired en ventana lateral izquierda (reemplaza treemacs en Termux)."
+    (interactive)
+    (let* ((dir (or (and (fboundp 'projectile-project-root)
+                         (ignore-errors (projectile-project-root)))
+                    default-directory))
+           (buf (dired-noselect dir)))
+      (display-buffer-in-side-window
+       buf '((side . left) (window-width . 28)))))
+  (global-set-key (kbd "<f7>") #'my/termux-sidebar)
 
   ;; --- all-the-icons-ivy-rich: desactivar (requiere GUI) ---
   (with-eval-after-load 'all-the-icons-ivy-rich

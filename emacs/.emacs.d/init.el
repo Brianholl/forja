@@ -47,7 +47,10 @@
           "32-go.org"
           "34-python.org"
           "35-php.org"
-          "20-web.org"))
+          "20-web.org"
+          "42-lua.org"
+          "43-zig.org"
+          "44-java.org"))
   (setq my-extra-modules
         '("99-misc.org"
           "49-multiusuario.org"

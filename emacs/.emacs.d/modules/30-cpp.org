@@ -64,10 +64,15 @@
      ((file-exists-p build-script)
       (let ((default-directory project-root))
         (compile build-script)))
-     ;; 3. Makefile
+     ;; 3. Makefile — usa "make run" si el target existe, si no solo compila
      ((file-exists-p makefile)
-      (let ((default-directory project-root))
-        (compile (format "make -C \"%s\"" project-root))))
+      (let ((default-directory project-root)
+            (has-run (with-temp-buffer
+                       (insert-file-contents makefile)
+                       (re-search-forward "^run[ \t]*:" nil t))))
+        (compile (if has-run
+                     (format "make -C \"%s\" run" project-root)
+                   (format "make -C \"%s\"" project-root)))))
      ;; 4. CMake genérico
      ((file-exists-p cmake-file)
       (let ((default-directory project-root))

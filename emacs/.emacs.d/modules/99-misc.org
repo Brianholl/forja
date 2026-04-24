@@ -342,6 +342,31 @@ Comandos útiles para mantener config.org bien formateado.
 - Para recargar config: ~C-c C-r~ (si configuraste el atajo)
 - Para abrir config rápido: ~C-c e~
 
+* 59. Información de Memoria del Sistema
+
+~C-c m m~ muestra RAM total, usada y disponible del sistema.
+
+#+begin_src emacs-lisp
+(defun my/show-memory ()
+  "Muestra RAM del sistema: total, usada y disponible."
+  (interactive)
+  (if (file-readable-p "/proc/meminfo")
+      (let* ((data (with-temp-buffer
+                     (insert-file-contents "/proc/meminfo")
+                     (buffer-string)))
+             (parse (lambda (key)
+                      (when (string-match (concat key ":[ \t]+\\([0-9]+\\)") data)
+                        (/ (string-to-number (match-string 1 data)) 1024))))
+             (total     (funcall parse "MemTotal"))
+             (available (funcall parse "MemAvailable"))
+             (used      (- total available))
+             (pct       (if (> total 0) (/ (* used 100) total) 0)))
+        (message "RAM: %d MB usados / %d MB total (%d%% uso) — %d MB libres"
+                 used total pct available))
+    (message "No se pudo leer /proc/meminfo")))
+(global-set-key (kbd "C-c m m") #'my/show-memory)
+#+end_src
+
 * 60. Forja Doctor — Diagnóstico de Instalación
 
 ~M-x my/forja-doctor~ verifica que todas las dependencias de FORJA estén instaladas.

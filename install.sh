@@ -319,7 +319,12 @@ ok "Zig instalado"
 # Java (JDK + Maven) y Kotlin
 info "Instalando Java (JDK 17), Maven y Kotlin..."
 if [ "$PLATFORM" = "termux" ]; then
-    info "Saltando Java/Maven/Kotlin (no disponible en Termux)"
+    if forja_has_feature "java"; then
+        pkg install -y openjdk-17
+        ok "Java (OpenJDK 17) instalado en Termux"
+    else
+        info "Saltando Java (no habilitado en features)"
+    fi
 elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get install -y openjdk-17-jdk maven gradle
     warn "Kotlin/WSL: instalar desde https://kotlinlang.org/docs/command-line.html"

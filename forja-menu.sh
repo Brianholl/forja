@@ -140,6 +140,72 @@ read_key() {
 # PANTALLA 1: BIENVENIDA
 # =============================================================================
 
+# Muestra el estado actual de la configuración guardada
+show_current_config() {
+    [ ! -f "$FORJA_CONF_FILE" ] && return
+
+    local saved_profile saved_features saved_platform
+    saved_profile=$(grep "^FORJA_PROFILE=" "$FORJA_CONF_FILE"  | cut -d= -f2 | tr -d '"')
+    saved_features=$(grep "^FORJA_FEATURES=" "$FORJA_CONF_FILE" | cut -d= -f2 | tr -d '"')
+    saved_platform=$(grep "^FORJA_PLATFORM=" "$FORJA_CONF_FILE" | cut -d= -f2 | tr -d '"')
+
+    # Colores por perfil
+    local pc
+    case "$saved_profile" in
+        minimal)  pc="$GREEN" ;;
+        moderado) pc="$YELLOW" ;;
+        full)     pc="$MAGENTA" ;;
+        *)        pc="$WHITE" ;;
+    esac
+
+    echo -e "  $(draw_line 56)"
+    echo -e "  ${WHITE}Configuracion actual${NC}  ${DIM}(~/.forja/profile.conf)${NC}"
+    echo ""
+    echo -e "  Plataforma : ${WHITE}${saved_platform:-?}${NC}"
+    echo -e "  Perfil     : ${pc}${saved_profile:-?}${NC}"
+    echo ""
+
+    # Features activos en esta plataforma vs. no disponibles
+    local available_features=()
+    local blocked_features=()
+
+    IFS=',' read -ra FEAT_LIST <<< "$saved_features"
+    for f in "${FEAT_LIST[@]}"; do
+        local blocked=0
+        # Features que no corren en Termux
+        if [ "$PLATFORM" = "termux" ]; then
+            case "$f" in
+                unreal|n8n|picoclaw|openclaw|aider) blocked=1 ;;
+            esac
+        fi
+        if [ "$blocked" -eq 1 ]; then
+            blocked_features+=("$f")
+        else
+            available_features+=("$f")
+        fi
+    done
+
+    if [ ${#available_features[@]} -gt 0 ]; then
+        echo -e "  ${GREEN}Activos en ${PLATFORM}:${NC}"
+        local line="    "
+        for f in "${available_features[@]}"; do
+            line+="${f}  "
+            if [ ${#line} -gt 54 ]; then
+                echo -e "$line"
+                line="    "
+            fi
+        done
+        [ ${#line} -gt 4 ] && echo -e "$line"
+        echo ""
+    fi
+
+    if [ ${#blocked_features[@]} -gt 0 ]; then
+        echo -e "  ${DIM}No disponibles en ${PLATFORM}:${NC}"
+        echo -e "    ${DIM}$(IFS=','; echo "${blocked_features[*]}")${NC}"
+        echo ""
+    fi
+}
+
 screen_welcome() {
     clear_screen
     echo ""
@@ -155,24 +221,45 @@ screen_welcome() {
     echo -e "  $(draw_line 56)"
     echo ""
     echo -e "  ${PLATFORM_ICON}  Plataforma:  ${WHITE}${PLATFORM_NAME}${NC}"
-    echo ""
     if [ "$TOTAL_RAM_MB" -gt 0 ] 2>/dev/null; then
-        echo -e "  [RAM]  Memoria:     ${RAM_COLOR}${TOTAL_RAM_GB} GB${NC} (${RAM_TIER})"
-        echo ""
+        echo -e "  [RAM]        Memoria:     ${RAM_COLOR}${TOTAL_RAM_GB} GB${NC} (${RAM_TIER})"
     fi
-    echo -e "  $(draw_line 56)"
     echo ""
-    echo -e "  Este asistente configura que componentes instalar"
-    echo -e "  segun tu hardware y necesidades."
-    echo ""
-    echo -e "  La configuracion se guarda en:"
-    echo -e "  ${DIM}~/.forja/profile.conf${NC}"
-    echo ""
-    echo -e "  $(draw_line 56)"
-    echo ""
-    echo -ne "  Presiona ${WHITE}[Enter]${NC} para comenzar o ${WHITE}[q]${NC} para salir: "
-    read -r key
-    [ "$key" = "q" ] && exit 0
+
+    # Mostrar config actual si existe
+    if [ -f "$FORJA_CONF_FILE" ]; then
+        show_current_config
+        echo -e "  ${DIM}[Enter] Reconfigurar   [v] Ver y salir   [q] Salir${NC}"
+        echo ""
+        echo -ne "  > "
+        read -r key
+        case "$key" in
+            q|Q) exit 0 ;;
+            v|V)
+                echo ""
+                echo -e "  ${DIM}--- $FORJA_CONF_FILE ---${NC}"
+                grep -v "^#" "$FORJA_CONF_FILE" | grep -v "^$" | while read -r line; do
+                    echo -e "    ${CYAN}$line${NC}"
+                done
+                echo ""
+                echo -ne "  Presiona Enter para salir..."
+                read -r
+                exit 0
+                ;;
+        esac
+    else
+        echo -e "  Este asistente configura que componentes instalar"
+        echo -e "  segun tu hardware y necesidades."
+        echo ""
+        echo -e "  La configuracion se guardara en:"
+        echo -e "  ${DIM}~/.forja/profile.conf${NC}"
+        echo ""
+        echo -e "  $(draw_line 56)"
+        echo ""
+        echo -ne "  Presiona ${WHITE}[Enter]${NC} para comenzar o ${WHITE}[q]${NC} para salir: "
+        read -r key
+        [ "$key" = "q" ] && exit 0
+    fi
 }
 
 # =============================================================================
