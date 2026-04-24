@@ -341,3 +341,90 @@ Comandos útiles para mantener config.org bien formateado.
 - Para exportar a HTML: ~C-c C-e h o~
 - Para recargar config: ~C-c C-r~ (si configuraste el atajo)
 - Para abrir config rápido: ~C-c e~
+
+* 60. Forja Doctor — Diagnóstico de Instalación
+
+~M-x my/forja-doctor~ verifica que todas las dependencias de FORJA estén instaladas.
+
+#+begin_src emacs-lisp
+(defun my/forja-doctor ()
+  "Verifica dependencias de FORJA y muestra un informe en un buffer."
+  (interactive)
+  (let ((buf (get-buffer-create "*forja-doctor*")))
+    (with-current-buffer buf
+      (read-only-mode -1)
+      (erase-buffer)
+      (insert "FORJA Doctor — Diagnóstico de instalación\n")
+      (insert (make-string 50 ?─) "\n\n")
+
+      ;; Binarios requeridos
+      (insert "[ Herramientas de lenguaje ]\n")
+      (dolist (tool '(("gcc"                  . "C/C++")
+                      ("make"                 . "C (Make)")
+                      ("clangd"               . "C/C++ LSP")
+                      ("rustc"                . "Rust")
+                      ("cargo"                . "Rust (Cargo)")
+                      ("rust-analyzer"        . "Rust LSP")
+                      ("go"                   . "Go")
+                      ("gopls"                . "Go LSP")
+                      ("python3"              . "Python")
+                      ("pyright"              . "Python LSP")
+                      ("node"                 . "Node.js")
+                      ("npm"                  . "npm")
+                      ("lua"                  . "Lua")
+                      ("lua-language-server"  . "Lua LSP")
+                      ("love"                 . "Löve2D")
+                      ("zig"                  . "Zig")
+                      ("zls"                  . "Zig LSP")
+                      ("java"                 . "Java")
+                      ("mvn"                  . "Maven")
+                      ("kotlin"               . "Kotlin")
+                      ("gradle"               . "Gradle")))
+        (let* ((bin  (car tool))
+               (desc (cdr tool))
+               (found (executable-find bin)))
+          (insert (format "  %s %-24s %s\n"
+                          (if found "✓" "✗")
+                          (concat desc ":")
+                          (if found (or found "") "NO ENCONTRADO")))))
+
+      (insert "\n[ Herramientas de juego ]\n")
+      (dolist (tool '(("godot"  . "Godot 4")
+                      ("idf.py" . "ESP-IDF")))
+        (let* ((bin  (car tool))
+               (desc (cdr tool))
+               (found (executable-find bin)))
+          (insert (format "  %s %-24s %s\n"
+                          (if found "✓" "·")
+                          (concat desc ":")
+                          (if found found "no instalado (opcional)")))))
+
+      (insert "\n[ Infraestructura ]\n")
+      (dolist (tool '(("docker"  . "Docker")
+                      ("git"     . "Git")
+                      ("ollama"  . "Ollama (IA local)")
+                      ("aider"   . "Aider (IA terminal)")
+                      ("valgrind" . "Valgrind")
+                      ("lcov"    . "lcov (cobertura)")))
+        (let* ((bin  (car tool))
+               (desc (cdr tool))
+               (found (executable-find bin)))
+          (insert (format "  %s %-24s %s\n"
+                          (if found "✓" "·")
+                          (concat desc ":")
+                          (if found found "no instalado (opcional)")))))
+
+      (insert "\n[ Emacs ]\n")
+      (insert (format "  ✓ Versión:              %s\n" emacs-version))
+      (insert (format "  ✓ Perfil:               %s\n"
+                      (cond (my/is-termux "Termux (Android)")
+                            (my/is-wsl    "WSL2 (Windows)")
+                            (t            (format "%s@%s"
+                                                  user-login-name
+                                                  (system-name))))))
+
+      (insert "\n" (make-string 50 ?─) "\n")
+      (insert "✓ = instalado   · = opcional   ✗ = requerido y faltante\n")
+      (read-only-mode 1))
+    (display-buffer buf)))
+#+end_src

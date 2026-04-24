@@ -1,0 +1,103 @@
+#+TITLE: Módulo Lua — Scripting y Löve2D
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* 10. Tree-Sitter para Lua
+
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :config
+  (add-to-list 'treesit-language-source-alist
+               '(lua "https://github.com/tree-sitter-grammars/tree-sitter-lua"
+                     "master" "lua/src"))
+  (unless (treesit-language-available-p 'lua)
+    (condition-case err
+        (treesit-install-language-grammar 'lua)
+      (error (message "42-lua: no se pudo instalar gramática lua: %s" err))))
+  (add-to-list 'auto-mode-alist '("\\.lua\\'" . lua-ts-mode)))
+#+end_src
+
+* 20. lua-mode y LSP
+
+#+begin_src emacs-lisp
+(use-package lua-mode
+  :ensure t
+  :mode "\\.lua\\'"
+  :interpreter "lua"
+  :config
+  (setq lua-indent-level 2))
+
+(add-hook 'lua-mode-hook    #'lsp-deferred)
+(add-hook 'lua-ts-mode-hook #'lsp-deferred)
+#+end_src
+
+* 30. Generadores de proyecto
+
+#+begin_src emacs-lisp
+(defun my/new-lua-project (name)
+  "Crea un proyecto Lua de scripting genérico."
+  (interactive "sNombre del proyecto Lua: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "lua/"))))
+    (make-directory (concat project-dir "/src") t)
+    (with-temp-file (concat project-dir "/src/main.lua")
+      (insert (format "-- %s\n\n" name))
+      (insert "local function main()\n")
+      (insert (format "    print(\"Hola desde %s!\")\n" name))
+      (insert "end\n\n")
+      (insert "main()\n"))
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "*.luac\n.luarocks/\n"))
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+    (message "Proyecto Lua creado: %s" project-dir)
+    (find-file (concat project-dir "/src/main.lua"))))
+
+(defun my/new-love-project (name)
+  "Crea un proyecto Löve2D (love2d) con estructura mínima."
+  (interactive "sNombre del juego Löve2D: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "lua/"))))
+    (make-directory (concat project-dir "/assets") t)
+    (with-temp-file (concat project-dir "/main.lua")
+      (insert (format "-- %s — Löve2D\n\n" name))
+      (insert "function love.load()\nend\n\n")
+      (insert "function love.update(dt)\nend\n\n")
+      (insert "function love.draw()\n")
+      (insert (format "    love.graphics.print(\"Hola desde %s!\", 10, 10)\n" name))
+      (insert "end\n"))
+    (with-temp-file (concat project-dir "/conf.lua")
+      (insert "function love.conf(t)\n")
+      (insert (format "    t.title = \"%s\"\n" name))
+      (insert "    t.version = \"11.5\"\n")
+      (insert "    t.window.width  = 800\n")
+      (insert "    t.window.height = 600\n")
+      (insert "end\n"))
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "*.love\n"))
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+    (message "Proyecto Löve2D creado: %s" project-dir)
+    (find-file (concat project-dir "/main.lua"))))
+#+end_src
+
+* 40. Compilar / Ejecutar
+
+#+begin_src emacs-lisp
+(defun my/lua-run ()
+  "Ejecuta el archivo Lua actual o el proyecto Löve2D si hay conf.lua."
+  (interactive)
+  (cond
+   ((locate-dominating-file default-directory "conf.lua")
+    (let ((root (locate-dominating-file default-directory "conf.lua")))
+      (compile (format "love %s" (expand-file-name root)))))
+   ((buffer-file-name)
+    (compile (format "lua %s" (buffer-file-name))))
+   (t (message "No hay archivo Lua activo."))))
+
+(defun my/lua-keybindings ()
+  (local-set-key (kbd "<f5>") #'my/lua-run))
+
+(add-hook 'lua-mode-hook    #'my/lua-keybindings)
+(add-hook 'lua-ts-mode-hook #'my/lua-keybindings)
+#+end_src

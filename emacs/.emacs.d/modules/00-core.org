@@ -642,11 +642,11 @@ Si hay un proceso de compilación activo, lo mata."
       (insert ".PHONY: all build test coverage asan ubsan valgrind clean\n\n")
       (insert "all: build\n\n")
       (insert "build: $(TARGET)\n\n")
-      (insert "$(TARGET): $(OBJ) | build\n")
+      (insert "$(TARGET): $(OBJ) | build/\n")
       (insert "\t$(CC) $(CFLAGS) -o $@ $^\n\n")
-      (insert "build/%%.o: src/%%.c | build\n")
+      (insert "build/%%.o: src/%%.c | build/\n")
       (insert "\t$(CC) $(CFLAGS) -c -o $@ $<\n\n")
-      (insert "build:\n\t@mkdir -p build\n\n")
+      (insert "build/:\n\t@mkdir -p $@\n\n")
       (insert "# Tests con Unity (descarga automática en primer uso)\n")
       (insert "test: $(UNITY) build\n")
       (insert "\t$(CC) $(CFLAGS) $(TESTS) $(UNITY) $(filter-out build/main.o,$(OBJ)) -o build/test_runner\n")
@@ -1856,6 +1856,7 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   ──────────────────────────────────────────
   _c_  C (genérico)          _C_  C++ (genérico)
   _g_  Game Dev C  (Raylib)  _+_  Game Dev C++ (Raylib)
+  _4_  Godot 4               _u_  Unreal Engine 4
   _r_  Rust (genérico)       _R_  Rust REST API
   _G_  Go (genérico)         _N_  C con nob.h (Tsoding)
   ──────────────────────────────────────────
@@ -1865,6 +1866,12 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   ("C" my/new-cpp-project)
   ("g" my/new-gamedev-project)
   ("+" my/new-gamedev-cpp-project)
+  ("4" (if (fboundp 'godot-create-project)
+           (call-interactively 'godot-create-project)
+         (message "Módulo Godot no cargado")) :color blue)
+  ("u" (if (fboundp 'my/new-ue-project)
+           (call-interactively 'my/new-ue-project)
+         (message "Módulo Unreal no cargado")) :color blue)
   ("r" my/new-rust-project)
   ("R" my/new-rust-api-project)
   ("G" my/new-go-project)
@@ -1881,7 +1888,9 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   _a_  Go REST API            _w_  Web (estático)
   _W_  Web (Tailwind)         _e_  Express / Node.js
   _p_  Python / FastAPI       _P_  PHP / Laravel
-  _T_  TypeScript standalone  (CLI o librería)
+  _T_  TypeScript standalone  _E_  ESP32 (ESP-IDF)
+  _l_  Lua (script/Löve2D)    _z_  Zig (sistemas)
+  _j_  Java (Maven)           _k_  Kotlin (Gradle)
   ──────────────────────────────────────────
   _b_ ← volver               _q_ cancelar
 "
@@ -1892,6 +1901,24 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   ("p" my/new-python-project)
   ("P" my/new-php-project)
   ("T" my/new-ts-project)
+  ("E" (if (fboundp 'my/new-esp32-project)
+           (call-interactively 'my/new-esp32-project)
+         (message "Módulo cpp no cargado")) :color blue)
+  ("l" (if (fboundp 'my/new-lua-project)
+           (let ((type (completing-read "Tipo Lua: " '("script" "love2d") nil t)))
+             (if (string= type "love2d")
+                 (call-interactively 'my/new-love-project)
+               (call-interactively 'my/new-lua-project)))
+         (message "Módulo Lua no cargado")) :color blue)
+  ("z" (if (fboundp 'my/new-zig-project)
+           (call-interactively 'my/new-zig-project)
+         (message "Módulo Zig no cargado")) :color blue)
+  ("j" (if (fboundp 'my/new-java-project)
+           (call-interactively 'my/new-java-project)
+         (message "Módulo Java no cargado")) :color blue)
+  ("k" (if (fboundp 'my/new-kotlin-project)
+           (call-interactively 'my/new-kotlin-project)
+         (message "Módulo Java no cargado")) :color blue)
   ("b" my/hydra-new-project/body :color blue)
   ("q" nil))
 

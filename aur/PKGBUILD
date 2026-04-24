@@ -1,0 +1,63 @@
+# Maintainer: Brian Hollweg <brianhollweg@gmail.com>
+pkgname=forja-git
+pkgver=r1.5
+pkgrel=1
+pkgdesc="Portable Educational IDE based on Emacs — Full Stack, Game Dev & Systems"
+arch=('any')
+url="https://github.com/Brianholl/forja"
+license=('MIT')
+depends=(
+    'emacs'
+    'git'
+    'gcc'
+    'make'
+    'clang'
+    'rust'
+    'go'
+    'python'
+    'nodejs'
+    'npm'
+    'lua'
+    'lua-language-server'
+    'zig'
+    'zls'
+)
+optdepends=(
+    'docker: soporte multiusuario y n8n'
+    'godot: desarrollo con Godot 4'
+    'love: proyectos Löve2D'
+    'valgrind: análisis de memoria C/C++'
+    'lcov: cobertura de código C'
+    'ollama: modelos de IA local'
+    'aider: asistente IA en terminal'
+)
+makedepends=('git')
+provides=('forja')
+conflicts=('forja')
+source=("${pkgname}::git+https://github.com/Brianholl/forja.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "${srcdir}/${pkgname}"
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+package() {
+    cd "${srcdir}/${pkgname}"
+
+    # Instalar el repo completo en /opt/forja
+    install -dm755 "${pkgdir}/opt/forja"
+    cp -r . "${pkgdir}/opt/forja/"
+
+    # Script de instalación como ejecutable del usuario
+    install -dm755 "${pkgdir}/usr/bin"
+    cat > "${pkgdir}/usr/bin/forja-install" <<'EOF'
+#!/bin/bash
+# Lanza el instalador interactivo de FORJA
+exec bash /opt/forja/forja-menu.sh "$@"
+EOF
+    chmod 755 "${pkgdir}/usr/bin/forja-install"
+
+    # Licencia
+    install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}

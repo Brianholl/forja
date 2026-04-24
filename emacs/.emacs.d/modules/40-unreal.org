@@ -267,8 +267,6 @@ Esto se ha movido aquí desde el módulo de C++ para mantener limpio el entorno 
     (message "🦖 Proyecto '%s' listo: Código, Scripts y Git configurados." name)
     (find-file (concat private-dir name ".cpp"))))
 
-;; Atajo para crearlo: C-c n u
-(global-set-key (kbd "C-c n u") 'my/new-ue-project)
 #+end_src
 
 ** Automatización de Build & Cook

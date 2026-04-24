@@ -1,0 +1,114 @@
+#+TITLE: Módulo Zig — Lenguaje de Sistemas
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* 10. Tree-Sitter para Zig
+
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :config
+  (add-to-list 'treesit-language-source-alist
+               '(zig "https://github.com/maxxnino/tree-sitter-zig"))
+  (unless (treesit-language-available-p 'zig)
+    (condition-case err
+        (treesit-install-language-grammar 'zig)
+      (error (message "43-zig: no se pudo instalar gramática zig: %s" err))))
+  (add-to-list 'auto-mode-alist '("\\.zig\\'" . zig-ts-mode)))
+#+end_src
+
+* 20. zig-mode y LSP
+
+#+begin_src emacs-lisp
+(condition-case err
+    (use-package zig-mode
+      :ensure t
+      :mode "\\.zig\\'"
+      :config
+      (setq zig-format-on-save t))
+  (error (message "43-zig: zig-mode no se pudo cargar: %s" err)))
+
+(add-hook 'zig-mode-hook    #'lsp-deferred)
+(add-hook 'zig-ts-mode-hook #'lsp-deferred)
+#+end_src
+
+* 30. Generador de proyecto
+
+#+begin_src emacs-lisp
+(defun my/new-zig-project (name)
+  "Crea un proyecto Zig ejecutable con build.zig y tests."
+  (interactive "sNombre del proyecto Zig: ")
+  (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "zig/"))))
+    (make-directory (concat project-dir "/src") t)
+    (with-temp-file (concat project-dir "/src/main.zig")
+      (insert "const std = @import(\"std\");\n\n")
+      (insert "pub fn main() !void {\n")
+      (insert (format "    std.debug.print(\"Hola desde %s!\\n\", .{});\n" name))
+      (insert "}\n\n")
+      (insert "test \"básico\" {\n")
+      (insert "    try std.testing.expect(1 + 1 == 2);\n")
+      (insert "}\n"))
+    (with-temp-file (concat project-dir "/build.zig")
+      (insert "const std = @import(\"std\");\n\n")
+      (insert "pub fn build(b: *std.Build) void {\n")
+      (insert (format "    const exe = b.addExecutable(.{\n        .name = \"%s\",\n" name))
+      (insert "        .root_source_file = b.path(\"src/main.zig\"),\n")
+      (insert "        .target = b.standardTargetOptions(.{}),\n")
+      (insert "        .optimize = b.standardOptimizeOption(.{}),\n")
+      (insert "    });\n")
+      (insert "    b.installArtifact(exe);\n\n")
+      (insert "    const run_cmd = b.addRunArtifact(exe);\n")
+      (insert "    const run_step = b.step(\"run\", \"Ejecutar el programa\");\n")
+      (insert "    run_step.dependOn(&run_cmd.step);\n\n")
+      (insert "    const unit_tests = b.addTest(.{\n")
+      (insert "        .root_source_file = b.path(\"src/main.zig\"),\n")
+      (insert "        .target = b.standardTargetOptions(.{}),\n")
+      (insert "    });\n")
+      (insert "    const test_step = b.step(\"test\", \"Ejecutar tests\");\n")
+      (insert "    test_step.dependOn(&b.addRunArtifact(unit_tests).step);\n")
+      (insert "}\n"))
+    (with-temp-file (concat project-dir "/build.zig.zon")
+      (insert ".{\n")
+      (insert (format "    .name = \"%s\",\n" name))
+      (insert "    .version = \"0.1.0\",\n")
+      (insert "    .minimum_zig_version = \"0.14.0\",\n")
+      (insert "    .dependencies = .{},\n")
+      (insert "    .paths = .{ \"\" },\n")
+      (insert "}\n"))
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert ".zig-cache/\nzig-out/\n"))
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+    (message "Proyecto Zig creado: %s" project-dir)
+    (find-file (concat project-dir "/src/main.zig"))))
+#+end_src
+
+* 40. Compilar / Ejecutar
+
+#+begin_src emacs-lisp
+(defun my/zig-run ()
+  "Ejecuta el proyecto Zig (zig build run) o el archivo actual (zig run)."
+  (interactive)
+  (let* ((root (or (locate-dominating-file default-directory "build.zig")
+                   default-directory))
+         (default-directory root))
+    (if (file-exists-p (expand-file-name "build.zig" root))
+        (compile "zig build run")
+      (compile (format "zig run %s" (buffer-file-name))))))
+
+(defun my/zig-test ()
+  "Ejecuta los tests del proyecto Zig."
+  (interactive)
+  (let* ((root (or (locate-dominating-file default-directory "build.zig")
+                   default-directory))
+         (default-directory root))
+    (compile "zig build test")))
+
+(defun my/zig-keybindings ()
+  (local-set-key (kbd "<f5>")    #'my/zig-run)
+  (local-set-key (kbd "C-c C-t") #'my/zig-test))
+
+(add-hook 'zig-mode-hook    #'my/zig-keybindings)
+(add-hook 'zig-ts-mode-hook #'my/zig-keybindings)
+#+end_src

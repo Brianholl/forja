@@ -79,11 +79,21 @@ Documento vivo de planificación. Actualizar al cerrar cada ciclo de trabajo.
 > Objetivo: ampliar cobertura sin romper los perfiles existentes.
 
 - [ ] **WSL2 testing real:** verificar instalación limpia en Windows 11 + WSL2 Ubuntu
-- [ ] **Lua:** soporte básico para scripting de juegos (Löve2D, Defold) — módulo `42-lua.org`
-- [ ] **Zig:** lenguaje de sistemas moderno — módulo `43-zig.org`
-- [ ] **Java/Kotlin:** backend JVM — evaluar si entra en perfil Full o queda en backlog
+- [x] **Lua:** soporte básico para scripting de juegos (Löve2D) — módulo `42-lua.org`; generadores `my/new-lua-project` / `my/new-love-project`; F5 detecta Löve2D por `conf.lua`; LSP via `lua-language-server`
+- [x] **Zig:** lenguaje de sistemas moderno — módulo `43-zig.org`; generador `my/new-zig-project` con `build.zig` + tests; F5 = `zig build run`; LSP via `zls`
+- [x] **Java/Kotlin:** backend JVM — implementado en v1.6
 - [ ] **Termux en Android 14+:** verificar compatibilidad, actualizar docs si hay cambios
-- [ ] **Paquete AUR:** `forja-git` para instalación en Arch con `yay -S forja-git`
+- [x] **Paquete AUR:** `forja-git` — `aur/PKGBUILD` generado; instala en `/opt/forja`, expone `forja-install`
+
+---
+
+## v1.6 — Java / Kotlin y Diagnóstico
+
+> Objetivo: soporte JVM completo y herramienta de diagnóstico para instalaciones.
+
+- [x] **Java (Maven):** módulo `44-java.org`; `my/new-java-project` con estructura Maven, JUnit 5, `pom.xml`; F5 = `mvn compile exec:java`; LSP via `lsp-java` (descarga Eclipse JDT automáticamente)
+- [x] **Kotlin (Gradle):** `my/new-kotlin-project` con `build.gradle.kts` + Kotlin DSL; F5 = `gradle run`; LSP via `kotlin-language-server`
+- [x] **`forja doctor`:** `M-x my/forja-doctor` — verifica binarios de lenguajes, LSP servers, Docker, Ollama y versión de Emacs
 
 ---
 
@@ -96,7 +106,6 @@ Ideas anotadas sin versión asignada todavía:
 - Plugin system: módulos de terceros agregables sin modificar el repo base
 - Dashboard con estado del sistema: RAM, modelos Ollama cargados, alumno activo
 - Soporte para múltiples workspaces por alumno (más de un proyecto activo)
-- `forja doctor`: comando de diagnóstico que verifica que todo esté bien instalado
 
 ---
 
@@ -109,3 +118,5 @@ Ideas anotadas sin versión asignada todavía:
 | v1.2 | Abril 2026 | C como lenguaje mimado: Unity tests, gcov/lcov, ASan/UBSan, Valgrind, GDB hydra, clang-tidy |
 | v1.3 | Abril 2026 | TypeScript standalone: generador CLI/librería, tsconfig, tsx, templates completos |
 | v1.4 | Abril 2026 | Optimización: early-init, lazy loading Unreal/agentes, esup profiler, GC tuning |
+| v1.5 | Abril 2026 | Nuevos lenguajes: Lua (script/Löve2D), Zig (sistemas); PKGBUILD AUR `forja-git` |
+| v1.6 | Abril 2026 | JVM: Java (Maven + JUnit 5) + Kotlin (Gradle); `M-x forja-doctor` |

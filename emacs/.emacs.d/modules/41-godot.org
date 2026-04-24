@@ -93,8 +93,6 @@ Genera project.godot mínimo, inicializa git y abre el directorio."
       (message "Proyecto Godot creado: %s" project-dir)
       (find-file project-dir))))
 
-;; ─── Atajo GLOBAL para crear proyecto ───────────────────────
-(global-set-key (kbd "C-c n 4") #'godot-create-project)
 
 ;; ─── gdscript-mode (protegido contra errores de instalación) ─
 (condition-case err

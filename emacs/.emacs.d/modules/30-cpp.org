@@ -293,7 +293,6 @@ No disponible en Termux (requiere ESP-IDF nativo).
     (message "🔌 Proyecto ESP32 creado en: %s" project-dir)
     (find-file (concat project-dir "/main/main.c"))))
 
-(global-set-key (kbd "C-c n e") #'my/new-esp32-project)
 
 (defun my/esp32-flash-monitor ()
   "Ejecuta idf.py flash monitor desde la raíz del proyecto."

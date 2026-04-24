@@ -1,0 +1,207 @@
+#+TITLE: Módulo Java / Kotlin — Backend JVM
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* 10. Tree-Sitter para Java y Kotlin
+
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :config
+  (dolist (src '((java   "https://github.com/tree-sitter/tree-sitter-java")
+                 (kotlin "https://github.com/nickel-lang/tree-sitter-kotlin")))
+    (add-to-list 'treesit-language-source-alist src))
+  (dolist (lang '(java kotlin))
+    (unless (treesit-language-available-p lang)
+      (condition-case err
+          (treesit-install-language-grammar lang)
+        (error (message "44-java: no se pudo instalar gramática %s: %s" lang err)))))
+  (add-to-list 'auto-mode-alist '("\\.java\\'" . java-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.kt\\'"   . kotlin-ts-mode)))
+#+end_src
+
+* 20. Java — lsp-java
+
+#+begin_src emacs-lisp
+;; lsp-java descarga Eclipse JDT automáticamente en el primer uso
+(condition-case err
+    (use-package lsp-java
+      :ensure t
+      :after lsp-mode
+      :config
+      (setq lsp-java-format-on-type-enabled t)
+      (setq lsp-java-save-actions-organize-imports t))
+  (error (message "44-java: lsp-java no se pudo cargar: %s" err)))
+
+(add-hook 'java-mode-hook    #'lsp-deferred)
+(add-hook 'java-ts-mode-hook #'lsp-deferred)
+#+end_src
+
+* 30. Kotlin — kotlin-mode y LSP
+
+#+begin_src emacs-lisp
+(condition-case err
+    (use-package kotlin-mode
+      :ensure t
+      :mode "\\.kt\\'")
+  (error (message "44-java: kotlin-mode no se pudo cargar: %s" err)))
+
+(add-hook 'kotlin-mode-hook    #'lsp-deferred)
+(add-hook 'kotlin-ts-mode-hook #'lsp-deferred)
+#+end_src
+
+* 40. Generador — Proyecto Java (Maven)
+
+#+begin_src emacs-lisp
+(defun my/new-java-project (name)
+  "Crea un proyecto Java con Maven (estructura estándar + JUnit 5)."
+  (interactive "sNombre del proyecto Java: ")
+  (let* ((project-dir (expand-file-name name (concat (my/mu-projects-base) "java/")))
+         (main-dir    (concat project-dir "/src/main/java"))
+         (test-dir    (concat project-dir "/src/test/java")))
+    (make-directory main-dir t)
+    (make-directory test-dir t)
+    (with-temp-file (concat main-dir "/Main.java")
+      (insert (format "public class Main {\n"))
+      (insert "    public static void main(String[] args) {\n")
+      (insert (format "        System.out.println(\"Hola desde %s!\");\n" name))
+      (insert "    }\n")
+      (insert "}\n"))
+    (with-temp-file (concat test-dir "/MainTest.java")
+      (insert "import org.junit.jupiter.api.Test;\n")
+      (insert "import static org.junit.jupiter.api.Assertions.*;\n\n")
+      (insert "class MainTest {\n")
+      (insert "    @Test\n")
+      (insert "    void testBasico() {\n")
+      (insert "        assertEquals(2, 1 + 1);\n")
+      (insert "    }\n")
+      (insert "}\n"))
+    (with-temp-file (concat project-dir "/pom.xml")
+      (insert "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+      (insert "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n")
+      (insert "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n")
+      (insert "         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0\n")
+      (insert "         http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n")
+      (insert "  <modelVersion>4.0.0</modelVersion>\n\n")
+      (insert "  <groupId>dev.forja</groupId>\n")
+      (insert (format "  <artifactId>%s</artifactId>\n" (downcase name)))
+      (insert "  <version>1.0-SNAPSHOT</version>\n")
+      (insert "  <packaging>jar</packaging>\n\n")
+      (insert "  <properties>\n")
+      (insert "    <maven.compiler.source>17</maven.compiler.source>\n")
+      (insert "    <maven.compiler.target>17</maven.compiler.target>\n")
+      (insert "    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n")
+      (insert "  </properties>\n\n")
+      (insert "  <dependencies>\n")
+      (insert "    <dependency>\n")
+      (insert "      <groupId>org.junit.jupiter</groupId>\n")
+      (insert "      <artifactId>junit-jupiter</artifactId>\n")
+      (insert "      <version>5.10.2</version>\n")
+      (insert "      <scope>test</scope>\n")
+      (insert "    </dependency>\n")
+      (insert "  </dependencies>\n\n")
+      (insert "  <build>\n")
+      (insert "    <plugins>\n")
+      (insert "      <plugin>\n")
+      (insert "        <groupId>org.apache.maven.plugins</groupId>\n")
+      (insert "        <artifactId>maven-surefire-plugin</artifactId>\n")
+      (insert "        <version>3.2.5</version>\n")
+      (insert "      </plugin>\n")
+      (insert "      <plugin>\n")
+      (insert "        <groupId>org.codehaus.mojo</groupId>\n")
+      (insert "        <artifactId>exec-maven-plugin</artifactId>\n")
+      (insert "        <version>3.2.0</version>\n")
+      (insert "        <configuration>\n")
+      (insert "          <mainClass>Main</mainClass>\n")
+      (insert "        </configuration>\n")
+      (insert "      </plugin>\n")
+      (insert "    </plugins>\n")
+      (insert "  </build>\n")
+      (insert "</project>\n"))
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "target/\n*.class\n*.jar\n"))
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+    (message "Proyecto Java (Maven) creado: %s" project-dir)
+    (find-file (concat main-dir "/Main.java"))))
+#+end_src
+
+* 50. Generador — Proyecto Kotlin (Gradle)
+
+#+begin_src emacs-lisp
+(defun my/new-kotlin-project (name)
+  "Crea un proyecto Kotlin con Gradle (Kotlin DSL)."
+  (interactive "sNombre del proyecto Kotlin: ")
+  (let* ((project-dir (expand-file-name name (concat (my/mu-projects-base) "kotlin/")))
+         (src-dir     (concat project-dir "/src/main/kotlin")))
+    (make-directory src-dir t)
+    (with-temp-file (concat src-dir "/Main.kt")
+      (insert "fun main() {\n")
+      (insert (format "    println(\"Hola desde %s!\")\n" name))
+      (insert "}\n"))
+    (with-temp-file (concat project-dir "/build.gradle.kts")
+      (insert "plugins {\n")
+      (insert "    kotlin(\"jvm\") version \"2.0.21\"\n")
+      (insert "    application\n")
+      (insert "}\n\n")
+      (insert "repositories {\n    mavenCentral()\n}\n\n")
+      (insert "dependencies {\n")
+      (insert "    testImplementation(kotlin(\"test\"))\n")
+      (insert "}\n\n")
+      (insert "application {\n")
+      (insert "    mainClass = \"MainKt\"\n")
+      (insert "}\n\n")
+      (insert "tasks.test {\n    useJUnitPlatform()\n}\n"))
+    (with-temp-file (concat project-dir "/settings.gradle.kts")
+      (insert (format "rootProject.name = \"%s\"\n" (downcase name))))
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert ".gradle/\nbuild/\n*.class\n"))
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+    (message "Proyecto Kotlin (Gradle) creado: %s" project-dir)
+    (find-file (concat src-dir "/Main.kt"))))
+#+end_src
+
+* 60. Compilar / Ejecutar
+
+#+begin_src emacs-lisp
+(defun my/java-run ()
+  "Compila y ejecuta el proyecto Java (mvn) o archivo suelto."
+  (interactive)
+  (let ((root (locate-dominating-file default-directory "pom.xml")))
+    (if root
+        (let ((default-directory root))
+          (compile "mvn -q compile exec:java"))
+      (compile (format "javac %s && java %s"
+                       (buffer-file-name)
+                       (file-name-sans-extension (buffer-file-name)))))))
+
+(defun my/java-test ()
+  "Ejecuta los tests del proyecto Maven."
+  (interactive)
+  (let* ((root (locate-dominating-file default-directory "pom.xml"))
+         (default-directory (or root default-directory)))
+    (compile "mvn -q test")))
+
+(defun my/kotlin-run ()
+  "Compila y ejecuta el proyecto Kotlin (Gradle)."
+  (interactive)
+  (let* ((root (locate-dominating-file default-directory "build.gradle.kts"))
+         (default-directory (or root default-directory)))
+    (if root
+        (compile "gradle -q run")
+      (message "No se encontró build.gradle.kts"))))
+
+(defun my/java-keybindings ()
+  (local-set-key (kbd "<f5>")    #'my/java-run)
+  (local-set-key (kbd "C-c C-t") #'my/java-test))
+
+(defun my/kotlin-keybindings ()
+  (local-set-key (kbd "<f5>") #'my/kotlin-run))
+
+(add-hook 'java-mode-hook      #'my/java-keybindings)
+(add-hook 'java-ts-mode-hook   #'my/java-keybindings)
+(add-hook 'kotlin-mode-hook    #'my/kotlin-keybindings)
+(add-hook 'kotlin-ts-mode-hook #'my/kotlin-keybindings)
+#+end_src
