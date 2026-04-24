@@ -293,6 +293,46 @@ else
 fi
 ok "PHP instalado"
 
+# Lua
+info "Instalando Lua y lua-language-server..."
+if [ "$PLATFORM" = "termux" ]; then
+    pkg install -y lua54
+elif [ "$PLATFORM" = "wsl" ]; then
+    sudo apt-get install -y lua5.4
+    warn "lua-language-server: instalar manualmente desde https://github.com/LuaLS/lua-language-server"
+else
+    sudo pacman -S --needed --noconfirm lua lua-language-server
+fi
+ok "Lua instalado"
+
+# Zig
+info "Instalando Zig y zls..."
+if [ "$PLATFORM" = "termux" ]; then
+    pkg install -y zig
+elif [ "$PLATFORM" = "wsl" ]; then
+    warn "Zig/WSL: instalar desde https://ziglang.org/download/"
+else
+    sudo pacman -S --needed --noconfirm zig zls
+fi
+ok "Zig instalado"
+
+# Java (JDK + Maven) y Kotlin
+info "Instalando Java (JDK 17), Maven y Kotlin..."
+if [ "$PLATFORM" = "termux" ]; then
+    info "Saltando Java/Maven/Kotlin (no disponible en Termux)"
+elif [ "$PLATFORM" = "wsl" ]; then
+    sudo apt-get install -y openjdk-17-jdk maven
+    warn "Kotlin/WSL: instalar desde https://kotlinlang.org/docs/command-line.html"
+else
+    sudo pacman -S --needed --noconfirm jdk17-openjdk maven kotlin
+    # kotlin-language-server (LSP para kotlin-mode)
+    if command -v yay &>/dev/null; then
+        yay -S --needed --noconfirm kotlin-language-server 2>/dev/null \
+            || warn "kotlin-language-server no disponible en AUR"
+    fi
+fi
+ok "Java / Maven / Kotlin instalados"
+
 # rclone (sincronizacion con Google Drive)
 if forja_has_feature "sync-drive"; then
     info "Instalando rclone (sincronizacion Google Drive)..."
