@@ -171,7 +171,12 @@ Si USB-PATH es dado, se registra para backups."
     (setq my/mu-usb-path-actual usb-path)
     (message "Alumno activo: %s | org-directory: %s%s"
              nombre dir
-             (if usb-path " (USB detectado)" ""))))
+             (if usb-path " (USB detectado)" ""))
+    ;; Log de sesión y recordatorio de backup
+    (when (fboundp 'my/mu-registrar-fin-sesion) (my/mu-registrar-fin-sesion))
+    (when (fboundp 'my/mu-registrar-inicio-sesion) (my/mu-registrar-inicio-sesion))
+    (when (and usb-path (fboundp 'my/mu-activar-recordatorio-backup))
+      (my/mu-activar-recordatorio-backup))))
 
 (defun my/mu--sync-desde-usb (usb-path local-dir)
   "Sincroniza datos desde USB-PATH al LOCAL-DIR usando rsync."
@@ -322,6 +327,9 @@ Extrae los datos en el directorio del alumno actual."
 (defun my/mu-cambiar-alumno ()
   "Cambia al alumno activo. Guarda buffers y permite seleccionar otro."
   (interactive)
+  ;; Cerrar sesión actual
+  (when (fboundp 'my/mu-desactivar-recordatorio-backup)
+    (my/mu-desactivar-recordatorio-backup))
   ;; Guardar trabajo actual
   (org-save-all-org-buffers)
   ;; Cerrar buffers org abiertos
@@ -650,10 +658,12 @@ son privadas y se respaldan junto con el resto de los datos del alumno.
    _s_ Sync → Drive     _S_ Sync ← Drive
    _D_ Configurar Drive
   ─────────────────────────────────────
+   _P_ Progreso         _l_ Sesiones
+   _V_ Vista docente    _t_ Estado
+  ─────────────────────────────────────
    _N_ n8n Workflows
    _O_ Agentes IA (PicoClaw/OpenClaw)
-   _c_ Cambiar alumno   _t_ Estado
-   _q_ Salir"
+   _c_ Cambiar alumno   _q_ Salir"
   ("u" my/mu-backup-usb)
   ("r" my/mu-restaurar-usb)
   ("e" my/mu-exportar-targz)
@@ -662,6 +672,9 @@ son privadas y se respaldan junto con el resto de los datos del alumno.
   ("s" my/mu-sync-drive-push)
   ("S" my/mu-sync-drive-pull)
   ("D" my/mu-sync-drive-setup)
+  ("P" my/mu-ver-progreso)
+  ("l" my/mu-ver-sesiones)
+  ("V" my/mu-vista-docente)
   ("N" hydra-n8n/body)
   ("O" (if (fboundp 'hydra-agentes/body)
            (hydra-agentes/body)
@@ -686,4 +699,243 @@ son privadas y se respaldan junto con el resto de los datos del alumno.
   ("q" nil))
 
 (global-set-key (kbd "C-c U") 'hydra-multiusuario/body)
+#+end_src
+
+* 12. Log de sesiones
+
+Registra automáticamente cuándo inicia y termina la sesión de cada alumno.
+Se engancha a `my/mu-activar-alumno` y a `kill-emacs-hook`.
+
+#+begin_src emacs-lisp
+(defvar my/mu-sesion-inicio nil
+  "Tiempo de inicio de la sesión activa (valor de `current-time`).")
+
+(defun my/mu--sesion-log-file ()
+  "Retorna la ruta al archivo de log de sesiones del alumno activo."
+  (when my/mu-alumno-actual
+    (expand-file-name "sesiones.org"
+                      (expand-file-name my/mu-alumno-actual my/mu-base-dir))))
+
+(defun my/mu-registrar-inicio-sesion ()
+  "Escribe el inicio de sesión en sesiones.org del alumno activo."
+  (when my/mu-alumno-actual
+    (setq my/mu-sesion-inicio (current-time))
+    (let ((log-file (my/mu--sesion-log-file))
+          (ts (format-time-string "%Y-%m-%d %H:%M")))
+      (with-temp-buffer
+        (when (file-exists-p log-file)
+          (insert-file-contents log-file))
+        (goto-char (point-min))
+        (unless (re-search-forward "#\\+TITLE" nil t)
+          (insert "#+TITLE: Sesiones\n#+STARTUP: content\n\n")
+          (goto-char (point-max)))
+        (goto-char (point-max))
+        (insert (format "\n* Sesión %s\n  :INICIO: %s\n  :FIN:    —\n  :DURACION: —\n"
+                        ts ts))
+        (write-region (point-min) (point-max) log-file)))))
+
+(defun my/mu-registrar-fin-sesion ()
+  "Completa el registro de fin de sesión en sesiones.org."
+  (when (and my/mu-alumno-actual my/mu-sesion-inicio)
+    (let* ((log-file (my/mu--sesion-log-file))
+           (ts-fin (format-time-string "%Y-%m-%d %H:%M"))
+           (duracion (round (/ (float-time
+                                (time-subtract (current-time) my/mu-sesion-inicio))
+                               60))))
+      (when (and log-file (file-exists-p log-file))
+        (with-temp-buffer
+          (insert-file-contents log-file)
+          (goto-char (point-max))
+          (when (re-search-backward ":FIN:    —" nil t)
+            (replace-match (format ":FIN:    %s" ts-fin))
+            (when (re-search-forward ":DURACION: —" nil t)
+              (replace-match (format ":DURACION: %d min" duracion))))
+          (write-region (point-min) (point-max) log-file))))))
+
+(defun my/mu-ver-sesiones ()
+  "Abre el log de sesiones del alumno activo."
+  (interactive)
+  (unless my/mu-alumno-actual
+    (user-error "No hay alumno activo"))
+  (let ((log-file (my/mu--sesion-log-file)))
+    (if (file-exists-p log-file)
+        (find-file log-file)
+      (message "Sin sesiones registradas para %s" my/mu-alumno-actual))))
+
+(add-hook 'kill-emacs-hook #'my/mu-registrar-fin-sesion)
+#+end_src
+
+* 13. Vista de progreso por alumno
+
+Escanea el directorio `projects/` del alumno activo y presenta un
+resumen por lenguaje con fechas de modificación.
+
+#+begin_src emacs-lisp
+(defun my/mu-ver-progreso ()
+  "Muestra un buffer con los proyectos del alumno activo por lenguaje."
+  (interactive)
+  (unless my/mu-alumno-actual
+    (user-error "No hay alumno activo"))
+  (let* ((projects-dir (my/mu-projects-base))
+         (buf (get-buffer-create "*FORJA — Progreso*")))
+    (with-current-buffer buf
+      (read-only-mode -1)
+      (erase-buffer)
+      (insert (propertize
+               (format "Progreso de %s\n" my/mu-alumno-actual)
+               'face '(:weight bold :height 1.2)))
+      (insert (propertize (make-string 52 ?─) 'face 'font-lock-comment-face))
+      (insert "\n\n")
+      (if (and (file-directory-p projects-dir)
+               (directory-files projects-dir nil "^[^.]"))
+          (let ((total 0))
+            (dolist (lang-path (sort
+                                (seq-filter #'file-directory-p
+                                            (directory-files projects-dir t "^[^.]"))
+                                (lambda (a b) (string< (file-name-nondirectory a)
+                                                        (file-name-nondirectory b)))))
+              (let* ((proyectos (seq-filter #'file-directory-p
+                                            (directory-files lang-path t "^[^.]")))
+                     (n (length proyectos)))
+                (when (> n 0)
+                  (setq total (+ total n))
+                  (insert (propertize
+                           (format "  %s  (%d)\n"
+                                   (upcase (file-name-nondirectory lang-path)) n)
+                           'face '(:foreground "#7c3aed" :weight bold)))
+                  (dolist (proj (sort proyectos
+                                      (lambda (a b)
+                                        (time-less-p
+                                         (file-attribute-modification-time (file-attributes b))
+                                         (file-attribute-modification-time (file-attributes a))))))
+                    (let ((mtime (format-time-string
+                                  "%Y-%m-%d"
+                                  (file-attribute-modification-time (file-attributes proj)))))
+                      (insert (format "    · %-32s %s\n"
+                                      (file-name-nondirectory proj) mtime))))
+                  (insert "\n"))))
+            (insert (propertize (format "  Total: %d proyecto%s\n" total (if (= total 1) "" "s"))
+                                'face 'font-lock-comment-face)))
+        (insert (propertize "  Sin proyectos todavía — usa C-c n para crear uno.\n"
+                            'face 'font-lock-comment-face)))
+      (goto-char (point-min))
+      (special-mode))
+    (switch-to-buffer buf)))
+#+end_src
+
+* 14. Auto-backup con recordatorio
+
+Temporizador que recuerda hacer backup al USB si han pasado más de
+`my/mu-backup-intervalo-minutos` minutos desde el inicio de la sesión.
+
+#+begin_src emacs-lisp
+(defvar my/mu-backup-intervalo-minutos 30
+  "Minutos entre recordatorios de backup cuando hay USB conectado.")
+
+(defvar my/mu-backup-timer nil
+  "Timer activo para el recordatorio de backup, o nil.")
+
+(defun my/mu--recordatorio-backup ()
+  "Pregunta si hacer backup si hay USB y pasaron N minutos."
+  (when (and my/mu-alumno-actual
+             my/mu-usb-path-actual
+             my/mu-sesion-inicio)
+    (let ((minutos (round (/ (float-time
+                               (time-subtract (current-time) my/mu-sesion-inicio))
+                              60))))
+      (when (> minutos my/mu-backup-intervalo-minutos)
+        (when (yes-or-no-p
+               (format "Han pasado %d min de trabajo. ¿Hacer backup al USB ahora? " minutos))
+          (my/mu-backup-usb))))))
+
+(defun my/mu-activar-recordatorio-backup ()
+  "Activa el timer de recordatorio de backup."
+  (when my/mu-backup-timer
+    (cancel-timer my/mu-backup-timer))
+  (setq my/mu-backup-timer
+        (run-with-timer
+         (* my/mu-backup-intervalo-minutos 60)
+         (* my/mu-backup-intervalo-minutos 60)
+         #'my/mu--recordatorio-backup)))
+
+(defun my/mu-desactivar-recordatorio-backup ()
+  "Cancela el timer de recordatorio de backup."
+  (when my/mu-backup-timer
+    (cancel-timer my/mu-backup-timer)
+    (setq my/mu-backup-timer nil)))
+#+end_src
+
+* 15. Vista del docente
+
+Buffer que muestra el estado de todos los alumnos: última sesión,
+cantidad de proyectos y fecha del último backup.
+
+#+begin_src emacs-lisp
+(defun my/mu--leer-ultima-sesion (alumno-dir)
+  "Lee la última sesión desde sesiones.org del alumno en ALUMNO-DIR."
+  (let ((log-file (expand-file-name "sesiones.org" alumno-dir)))
+    (if (file-exists-p log-file)
+        (with-temp-buffer
+          (insert-file-contents log-file)
+          (goto-char (point-max))
+          (if (re-search-backward ":INICIO: \\([0-9-]+ [0-9:]+\\)" nil t)
+              (match-string 1)
+            "sin sesiones"))
+      "sin sesiones")))
+
+(defun my/mu--contar-proyectos (alumno-dir)
+  "Cuenta el total de proyectos en projects/ dentro de ALUMNO-DIR."
+  (let ((projects-dir (expand-file-name "projects/" alumno-dir))
+        (total 0))
+    (when (file-directory-p projects-dir)
+      (dolist (lang (seq-filter #'file-directory-p
+                                (directory-files projects-dir t "^[^.]")))
+        (setq total (+ total
+                       (length (seq-filter #'file-directory-p
+                                           (directory-files lang t "^[^.]\"")))))))
+    total))
+
+(defun my/mu-vista-docente ()
+  "Muestra un resumen de todos los alumnos para el docente."
+  (interactive)
+  (unless (file-directory-p my/mu-base-dir)
+    (user-error "No existe el directorio base de alumnos: %s" my/mu-base-dir))
+  (let* ((alumnos (my/mu-listar-alumnos))
+         (buf (get-buffer-create "*FORJA — Vista Docente*")))
+    (with-current-buffer buf
+      (read-only-mode -1)
+      (erase-buffer)
+      (insert (propertize "FORJA — Vista Docente\n" 'face '(:weight bold :height 1.3)))
+      (insert (propertize (format-time-string "Actualizado: %Y-%m-%d %H:%M\n")
+                          'face 'font-lock-comment-face))
+      (insert (propertize (make-string 62 ?─) 'face 'font-lock-comment-face))
+      (insert "\n\n")
+      (if (null alumnos)
+          (insert (propertize "  Sin alumnos registrados.\n" 'face 'font-lock-comment-face))
+        (insert (propertize
+                 (format "  %-22s  %-18s  %s\n" "Alumno" "Última sesión" "Proyectos")
+                 'face '(:weight bold)))
+        (insert (propertize (concat "  " (make-string 58 ?─) "\n")
+                            'face 'font-lock-comment-face))
+        (dolist (alumno alumnos)
+          (let* ((dir (expand-file-name alumno my/mu-base-dir))
+                 (activo (string= alumno my/mu-alumno-actual))
+                 (ultima (my/mu--leer-ultima-sesion dir))
+                 (proyectos (my/mu--contar-proyectos dir))
+                 (cara (if activo
+                           '(:foreground "#10b981" :weight bold)
+                         'default)))
+            (insert (propertize
+                     (format "  %-22s  %-18s  %d proyecto%s%s\n"
+                             alumno ultima proyectos
+                             (if (= proyectos 1) "" "s")
+                             (if activo "  ← activo" ""))
+                     'face cara)))))
+      (insert "\n")
+      (insert (propertize
+               (format "  Total: %d alumno%s\n" (length alumnos) (if (= (length alumnos) 1) "" "s"))
+               'face 'font-lock-comment-face))
+      (goto-char (point-min))
+      (special-mode))
+    (switch-to-buffer buf)))
 #+end_src
