@@ -78,6 +78,9 @@ if [ "$PLATFORM" != "termux" ]; then
     check gradle           "Gradle"          required
     check love             "Löve2D"          optional
 fi
+if [ "$PLATFORM" = "arch" ]; then
+    check cppman           "cppman (C++ docs)" optional
+fi
 
 # --- Juego / embebido ---
 echo ""

@@ -426,16 +426,17 @@ Comandos custom para mejorar productividad.
 
 #+begin_src emacs-lisp
 ;; --- Compilación Asíncrona en VTerm (Nativo) ---
-;; Reemplazamos el paquete inexistente en MELPA por una función propia
-(defun my/vterm-compile (cmd)
-  "Ejecuta compilaciones asíncronas bloqueando menos UI usando el emulador nativo."
-  (interactive "sComando a ejecutar en VTerm: ")
-  (let* ((vterm-buffer-name "*vterm-compilation*")
-         (buf (get-buffer vterm-buffer-name)))
-    (when (buffer-live-p buf)
-      (kill-buffer buf))
-    (with-current-buffer (vterm vterm-buffer-name)
-      (vterm-send-string (concat cmd "\n")))))
+;; vterm no está disponible en Termux (requiere compilación nativa)
+(unless (bound-and-true-p my/is-termux)
+  (defun my/vterm-compile (cmd)
+    "Ejecuta compilaciones asíncronas bloqueando menos UI usando el emulador nativo."
+    (interactive "sComando a ejecutar en VTerm: ")
+    (let* ((vterm-buffer-name "*vterm-compilation*")
+           (buf (get-buffer vterm-buffer-name)))
+      (when (buffer-live-p buf)
+        (kill-buffer buf))
+      (with-current-buffer (vterm vterm-buffer-name)
+        (vterm-send-string (concat cmd "\n"))))))
 
 ;; --- Aislamiento por Directorio (Direnv) ---
 (use-package envrc
@@ -490,7 +491,7 @@ En Termux sugiere usar vterm; en PC usa alacritty."
   (let ((dir (expand-file-name (or (projectile-project-root) default-directory))))
     (cond
      ((bound-and-true-p my/is-termux)
-      (message "📱 En Termux, usá C-c t (vterm) para terminal"))
+      (message "📱 En Termux, usá M-x shell o M-x multi-term para terminal"))
      ((executable-find "alacritty")
       (start-process "terminal" nil "alacritty" "--working-directory" dir))
      (t
