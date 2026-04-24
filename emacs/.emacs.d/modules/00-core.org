@@ -962,6 +962,8 @@ Si hay un proceso de compilación activo, lo mata."
 (defun my/new-rust-project (name)
   "Crea un nuevo proyecto Rust con cargo."
   (interactive "sNombre del proyecto: ")
+  (unless (executable-find "cargo")
+    (user-error "cargo no encontrado — instala Rust con: curl https://sh.rustup.rs -sSf | sh"))
   (let ((base-dir (concat (my/mu-projects-base) "rust/"))
         (project-dir (expand-file-name name (concat (my/mu-projects-base) "rust/"))))
     (make-directory base-dir t)
@@ -1082,6 +1084,9 @@ Si hay un proceso de compilación activo, lo mata."
 (defun my/new-go-project (name)
   "Crea un nuevo proyecto Go con go mod init."
   (interactive "sNombre del proyecto: ")
+  (unless (executable-find "go")
+    (user-error "go no encontrado — instala con: %s"
+                (if (bound-and-true-p my/is-wsl) "sudo apt install golang-go" "sudo pacman -S go")))
   (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "go/"))))
     (make-directory project-dir t)
     ;; Inicializar módulo de Go
@@ -1985,5 +1990,41 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   ("q" nil))
 
 (global-set-key (kbd "C-c F") #'my/hydra-forja/body)
+#+end_src
+
+* 95. Sistema de advertencias de dependencias
+
+Cada módulo de lenguaje llama a ~my/forja-warn-missing~ al cargarse.
+Al terminar el startup, ~my/forja-report-missing~ muestra un resumen
+compacto en el echo area y sugiere correr ~M-x my/forja-doctor~.
+
+#+begin_src emacs-lisp
+(defvar my/forja-missing-deps nil
+  "Lista de dependencias faltantes detectadas al cargar módulos.
+Cada entrada es (MODULO BINARIO HINT-INSTALACION).")
+
+(defun my/forja-warn-missing (module binary
+                               &optional arch-pkg wsl-pkg termux-pkg)
+  "Registra una advertencia si BINARY no está en PATH.
+MODULE es el nombre del módulo que lo necesita.
+ARCH-PKG, WSL-PKG, TERMUX-PKG son los nombres de paquete por plataforma."
+  (unless (executable-find binary)
+    (let ((hint (cond
+                  ((bound-and-true-p my/is-termux)
+                   (when termux-pkg (format "pkg install %s" termux-pkg)))
+                  ((bound-and-true-p my/is-wsl)
+                   (when wsl-pkg (format "sudo apt install %s" wsl-pkg)))
+                  (t
+                   (when arch-pkg (format "sudo pacman -S %s" arch-pkg))))))
+      (push (list module binary hint) my/forja-missing-deps))))
+
+(defun my/forja-report-missing ()
+  "Muestra resumen de dependencias faltantes al terminar el startup."
+  (when my/forja-missing-deps
+    (let ((n (length my/forja-missing-deps)))
+      (message "FORJA: %d dependencia%s faltante%s — M-x my/forja-doctor para ver cuales"
+               n (if (= n 1) "" "s") (if (= n 1) "" "s")))))
+
+(add-hook 'emacs-startup-hook #'my/forja-report-missing 90)
 #+end_src
 

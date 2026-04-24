@@ -64,3 +64,11 @@
 
 (add-hook 'go-ts-mode-hook #'my/go-keybindings)
 #+end_src
+
+* Verificación de dependencias
+
+#+begin_src emacs-lisp
+(when (fboundp 'my/forja-warn-missing)
+  (my/forja-warn-missing "go" "go"    "go" "golang-go" nil)
+  (my/forja-warn-missing "go" "gopls" "gopls" "golang-golang-x-tools" nil))
+#+end_src

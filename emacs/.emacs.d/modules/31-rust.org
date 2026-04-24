@@ -110,3 +110,11 @@
 (add-hook 'rust-mode-hook    #'my/rust-keybindings)
 (add-hook 'rust-ts-mode-hook #'my/rust-keybindings)
 #+end_src
+
+* Verificación de dependencias
+
+#+begin_src emacs-lisp
+(when (fboundp 'my/forja-warn-missing)
+  (my/forja-warn-missing "rust" "cargo"  "rustup" "rustup" "rust")
+  (my/forja-warn-missing "rust" "rustc"  "rustup" "rustup" nil))
+#+end_src

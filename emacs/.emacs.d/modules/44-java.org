@@ -56,6 +56,11 @@
 (defun my/new-java-project (name)
   "Crea un proyecto Java con Maven (estructura estándar + JUnit 5)."
   (interactive "sNombre del proyecto Java: ")
+  (unless (executable-find "mvn")
+    (user-error "Maven no encontrado — instala con: %s"
+                (cond ((bound-and-true-p my/is-termux) "pkg install maven")
+                      ((bound-and-true-p my/is-wsl)    "sudo apt install maven")
+                      (t "sudo pacman -S maven"))))
   (let* ((project-dir (expand-file-name name (concat (my/mu-projects-base) "java/")))
          (main-dir    (concat project-dir "/src/main/java"))
          (test-dir    (concat project-dir "/src/test/java")))
@@ -132,6 +137,11 @@
 (defun my/new-kotlin-project (name)
   "Crea un proyecto Kotlin con Gradle (Kotlin DSL)."
   (interactive "sNombre del proyecto Kotlin: ")
+  (unless (executable-find "gradle")
+    (user-error "Gradle no encontrado — instala con: %s"
+                (cond ((bound-and-true-p my/is-termux) "pkg install gradle")
+                      ((bound-and-true-p my/is-wsl)    "sudo apt install gradle")
+                      (t "sudo pacman -S gradle"))))
   (let* ((project-dir (expand-file-name name (concat (my/mu-projects-base) "kotlin/")))
          (src-dir     (concat project-dir "/src/main/kotlin")))
     (make-directory src-dir t)
@@ -203,4 +213,13 @@
 (add-hook 'java-ts-mode-hook   #'my/java-keybindings)
 (add-hook 'kotlin-mode-hook    #'my/kotlin-keybindings)
 (add-hook 'kotlin-ts-mode-hook #'my/kotlin-keybindings)
+#+end_src
+
+* 70. Verificación de dependencias
+
+#+begin_src emacs-lisp
+(when (fboundp 'my/forja-warn-missing)
+  (my/forja-warn-missing "java"   "java"   "jdk17-openjdk"  "default-jdk"  "openjdk-17")
+  (my/forja-warn-missing "java"   "mvn"    "maven"          "maven"        "maven")
+  (my/forja-warn-missing "kotlin" "gradle" "gradle"         "gradle"       "gradle"))
 #+end_src

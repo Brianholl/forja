@@ -138,3 +138,12 @@ Detecta pytest, Django test o unittest."
 (add-hook 'python-ts-mode-hook #'my/python-keybindings)
 (add-hook 'python-mode-hook    #'my/python-keybindings)
 #+end_src
+
+* Verificación de dependencias
+
+#+begin_src emacs-lisp
+(when (fboundp 'my/forja-warn-missing)
+  (my/forja-warn-missing "python" "python3" "python"            "python3"          "python")
+  (my/forja-warn-missing "python" "pylsp"   "python-lsp-server" "python3-pylsp"    nil)
+  (my/forja-warn-missing "python" "ruff"    "ruff"              "ruff"             nil))
+#+end_src

@@ -38,6 +38,8 @@
 (defun my/new-zig-project (name)
   "Crea un proyecto Zig ejecutable con build.zig y tests."
   (interactive "sNombre del proyecto Zig: ")
+  (unless (executable-find "zig")
+    (user-error "zig no encontrado — instala con: sudo pacman -S zig"))
   (let ((project-dir (expand-file-name name (concat (my/mu-projects-base) "zig/"))))
     (make-directory (concat project-dir "/src") t)
     (with-temp-file (concat project-dir "/src/main.zig")
@@ -110,4 +112,12 @@
 
 (add-hook 'zig-mode-hook    #'my/zig-keybindings)
 (add-hook 'zig-ts-mode-hook #'my/zig-keybindings)
+#+end_src
+
+* Verificación de dependencias
+
+#+begin_src emacs-lisp
+(when (fboundp 'my/forja-warn-missing)
+  (my/forja-warn-missing "zig" "zig" "zig" nil nil)
+  (my/forja-warn-missing "zig" "zls" "zls" nil nil))
 #+end_src

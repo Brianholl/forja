@@ -101,3 +101,11 @@
 (add-hook 'lua-mode-hook    #'my/lua-keybindings)
 (add-hook 'lua-ts-mode-hook #'my/lua-keybindings)
 #+end_src
+
+* Verificación de dependencias
+
+#+begin_src emacs-lisp
+(when (fboundp 'my/forja-warn-missing)
+  (my/forja-warn-missing "lua" "lua"                 "lua" "lua5.4" "lua")
+  (my/forja-warn-missing "lua" "lua-language-server" "lua-language-server" nil nil))
+#+end_src

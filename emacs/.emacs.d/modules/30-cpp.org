@@ -551,3 +551,15 @@ Submenú de herramientas avanzadas de C, accesible desde cualquier buffer C/C++.
 
 ) ;; fin (unless my/is-termux) — GDB hydra
 #+end_src
+
+* Verificación de dependencias
+
+#+begin_src emacs-lisp
+(when (fboundp 'my/forja-warn-missing)
+  (my/forja-warn-missing "cpp" "gcc"      "gcc"   "build-essential" "clang")
+  (my/forja-warn-missing "cpp" "g++"      "gcc"   "build-essential" "clang")
+  (my/forja-warn-missing "cpp" "clangd"   "clang" "clangd"          "clang")
+  (my/forja-warn-missing "cpp" "make"     "make"  "make"            "make")
+  (unless (bound-and-true-p my/is-termux)
+    (my/forja-warn-missing "cpp" "valgrind" "valgrind" "valgrind" nil)))
+#+end_src
