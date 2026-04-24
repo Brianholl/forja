@@ -10,8 +10,7 @@
   :ensure nil
   :config
   (add-to-list 'treesit-language-source-alist
-               '(lua "https://github.com/tree-sitter-grammars/tree-sitter-lua"
-                     "master" "lua/src"))
+               '(lua "https://github.com/tree-sitter-grammars/tree-sitter-lua"))
   (unless (treesit-language-available-p 'lua)
     (condition-case err
         (treesit-install-language-grammar 'lua)

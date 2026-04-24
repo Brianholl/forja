@@ -3,22 +3,21 @@
 #+STARTUP: indent showeverything
 #+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
 
-* 10. Tree-Sitter para Java y Kotlin
+* 10. Tree-Sitter para Java
 
 #+begin_src emacs-lisp
 (use-package emacs
   :ensure nil
   :config
-  (dolist (src '((java   "https://github.com/tree-sitter/tree-sitter-java")
-                 (kotlin "https://github.com/nickel-lang/tree-sitter-kotlin")))
-    (add-to-list 'treesit-language-source-alist src))
-  (dolist (lang '(java kotlin))
-    (unless (treesit-language-available-p lang)
-      (condition-case err
-          (treesit-install-language-grammar lang)
-        (error (message "44-java: no se pudo instalar gramática %s: %s" lang err)))))
+  (add-to-list 'treesit-language-source-alist
+               '(java "https://github.com/tree-sitter/tree-sitter-java"))
+  (unless (treesit-language-available-p 'java)
+    (condition-case err
+        (treesit-install-language-grammar 'java)
+      (error (message "44-java: no se pudo instalar gramática java: %s" err))))
   (add-to-list 'auto-mode-alist '("\\.java\\'" . java-ts-mode))
-  (add-to-list 'auto-mode-alist '("\\.kt\\'"   . kotlin-ts-mode)))
+  ;; kotlin-ts-mode no está incluido en Emacs 29 — usa kotlin-mode (MELPA)
+  (add-to-list 'auto-mode-alist '("\\.kt\\'" . kotlin-mode)))
 #+end_src
 
 * 20. Java — lsp-java
