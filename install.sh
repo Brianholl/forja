@@ -25,6 +25,103 @@ warn() { echo -e "${YELLOW}[!!] $1${NC}"; }
 info() { echo -e "${BLUE}[..] $1${NC}"; }
 err()  { echo -e "${RED}[XX] $1${NC}"; exit 1; }
 
+# Instala un paquete npm global solo si el binario no está en PATH
+npm_install_if_missing() {
+    local pkg="$1" bin="${2:-$1}"
+    if command -v "$bin" &>/dev/null; then
+        info "$bin ya instalado (omitiendo)"
+    else
+        if [ "$PLATFORM" = "wsl" ] || [ "$PLATFORM" = "arch" ]; then
+            sudo npm install -g "$pkg" || warn "No se pudo instalar npm: $pkg"
+        else
+            npm install -g "$pkg" || warn "No se pudo instalar npm: $pkg"
+        fi
+    fi
+}
+
+# =============================================================================
+# VERIFICACION DE HERRAMIENTAS (llamada al final o con --verify)
+# =============================================================================
+run_verification() {
+    local pass=() fail=()
+
+    check_tool() {
+        local label="$1" bin="${2:-$1}"
+        if command -v "$bin" &>/dev/null; then
+            pass+=("$label")
+        else
+            fail+=("$label")
+        fi
+    }
+
+    echo ""
+    echo "=============================================="
+    echo "  FORJA — Verificacion de dependencias"
+    echo "  Plataforma: $PLATFORM"
+    echo "=============================================="
+
+    # Base
+    check_tool "Emacs"        emacs
+    check_tool "Git"          git
+    check_tool "Stow"         stow
+    check_tool "Ripgrep"      rg
+    # C/C++
+    check_tool "GCC"          gcc
+    check_tool "Clangd"       clangd
+    check_tool "Make"         make
+    check_tool "GDB"          gdb
+    # Rust
+    check_tool "Cargo"        cargo
+    check_tool "rust-analyzer" rust-analyzer
+    # Go
+    check_tool "Go"           go
+    check_tool "gopls"        gopls
+    # Python
+    check_tool "Python3"      python3
+    check_tool "pylsp"        pylsp
+    check_tool "ruff"         ruff
+    # Node / Web
+    check_tool "Node.js"      node
+    check_tool "TypeScript LSP" typescript-language-server
+    check_tool "Prettier"     prettier
+    # Java / Kotlin
+    check_tool "Java"         java
+    check_tool "Maven"        mvn
+    check_tool "Gradle"       gradle
+    # Zig / Lua
+    check_tool "Zig"          zig
+    check_tool "Lua"          lua
+    # Opcional segun plataforma
+    if [ "$PLATFORM" != "termux" ]; then
+        check_tool "Valgrind"  valgrind
+        check_tool "Rclone"    rclone
+    fi
+    if [ "$PLATFORM" = "arch" ]; then
+        check_tool "Ollama"    ollama
+        check_tool "Aider"     aider
+    fi
+
+    echo ""
+    if [ ${#pass[@]} -gt 0 ]; then
+        echo -e "${GREEN}Instaladas (${#pass[@]}):${NC}"
+        for t in "${pass[@]}"; do printf "  ${GREEN}✓${NC} %s\n" "$t"; done
+    fi
+    if [ ${#fail[@]} -gt 0 ]; then
+        echo ""
+        echo -e "${RED}Faltantes (${#fail[@]}):${NC}"
+        for t in "${fail[@]}"; do printf "  ${RED}✗${NC} %s\n" "$t"; done
+        echo ""
+        warn "Ejecuta ./install.sh para instalar las dependencias faltantes"
+        echo ""
+        return 1
+    else
+        echo ""
+        ok "Todas las dependencias verificadas correctamente"
+        echo ""
+        return 0
+    fi
+}
+
 # --- Deteccion de plataforma ---
 if [ -n "$TERMUX_VERSION" ] || [[ "$HOME" == /data/data/com.termux* ]]; then
     PLATFORM="termux"
@@ -72,8 +169,10 @@ if [ -f "$FORJA_CONF_FILE" ]; then
 fi
 
 # --- Permitir override por CLI (modo legacy) ---
+ONLY_VERIFY=0
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --verify) ONLY_VERIFY=1; shift ;;
         --perfil) PERFIL="$2"; shift 2 ;;
         casa|escuela|minimal) PERFIL="$1"; shift ;;
         --menu)
@@ -137,6 +236,12 @@ echo "  Plataforma: $PLATFORM"
 echo "  Perfil: $PERFIL"
 echo "=============================================="
 echo ""
+
+# Si solo se pidio verificacion, ejecutar y salir
+if [ "$ONLY_VERIFY" = "1" ]; then
+    run_verification
+    exit $?
+fi
 
 # =============================================================================
 # 1. ACTUALIZAR SISTEMA
@@ -519,55 +624,34 @@ fi
 # 10. LSPs Y HERRAMIENTAS NPM GLOBALES
 # =============================================================================
 info "[9/11] LSPs web y herramientas npm globales..."
-if [ "$PLATFORM" = "termux" ]; then
-    npm install -g \
-        typescript \
-        typescript-language-server \
-        vscode-langservers-extracted \
-        live-server \
-        prettier \
-        intelephense \
-        @prettier/plugin-php
-    ok "LSPs web + PHP instalados (Termux)"
-elif [ "$PLATFORM" = "wsl" ]; then
-    sudo npm install -g \
-        typescript \
-        typescript-language-server \
-        vscode-langservers-extracted \
-        live-server \
-        prettier \
-        intelephense \
-        @prettier/plugin-php
-    ok "LSPs web + PHP instalados (WSL)"
-else
-    sudo npm install -g \
-        typescript \
-        typescript-language-server \
-        vscode-langservers-extracted \
-        live-server \
-        prettier \
-        intelephense \
-        @prettier/plugin-php
 
-    # mermaid-cli necesita Chromium
+npm_install_if_missing typescript                    tsc
+npm_install_if_missing typescript-language-server   typescript-language-server
+npm_install_if_missing vscode-langservers-extracted  vscode-css-language-server
+npm_install_if_missing live-server                   live-server
+npm_install_if_missing prettier                      prettier
+npm_install_if_missing intelephense                  intelephense
+npm_install_if_missing @prettier/plugin-php          prettier
+
+if [ "$PLATFORM" = "arch" ]; then
+    # mermaid-cli necesita Chromium — solo desktop
     sudo pacman -S --needed --noconfirm chromium
-    sudo PUPPETEER_SKIP_DOWNLOAD=true npm install -g @mermaid-js/mermaid-cli
-
-    MMDC_DIR=$(npm root -g)/@mermaid-js/mermaid-cli
-    if [ -d "$MMDC_DIR" ]; then
-        sudo tee "$MMDC_DIR/.puppeteerrc.cjs" > /dev/null <<'EOF'
+    if ! command -v mmdc &>/dev/null; then
+        sudo PUPPETEER_SKIP_DOWNLOAD=true npm install -g @mermaid-js/mermaid-cli
+        MMDC_DIR=$(npm root -g)/@mermaid-js/mermaid-cli
+        if [ -d "$MMDC_DIR" ]; then
+            sudo tee "$MMDC_DIR/.puppeteerrc.cjs" > /dev/null <<'PUPPETEER'
 const { join } = require('path');
-module.exports = {
-    executablePath: '/usr/bin/chromium',
-};
-EOF
-        ok "mermaid-cli configurado con chromium del sistema"
+module.exports = { executablePath: '/usr/bin/chromium' };
+PUPPETEER
+            ok "mermaid-cli configurado con chromium del sistema"
+        fi
     else
-        warn "Directorio de mermaid-cli no encontrado"
+        info "mmdc ya instalado (omitiendo)"
     fi
-
-    ok "LSPs web instalados"
 fi
+
+ok "LSPs web instalados"
 
 # =============================================================================
 # 11. AIDER (CONDICIONAL)
@@ -836,3 +920,8 @@ if [ "$PLATFORM" = "termux" ]; then
         ok "Termux settings recargadas (cerrar y reabrir Termux para ver extra-keys)"
     fi
 fi
+
+# =============================================================================
+# VERIFICACION FINAL
+# =============================================================================
+run_verification
