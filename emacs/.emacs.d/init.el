@@ -3,7 +3,8 @@
 (setq package-enable-at-startup nil)
 (require 'org)
 
-;; 0. Detección de plataforma
+;; === 0. Detección de plataforma ===
+
 (defvar my/is-termux
   (or (getenv "TERMUX_VERSION")
       (and (getenv "HOME")
@@ -21,28 +22,51 @@
          (string-match-p "microsoft\\|WSL" (buffer-string))))
   "Non-nil si estamos corriendo en WSL2 (Windows Subsystem for Linux).")
 
-;; 1. Definir dónde viven los módulos
+;; === 0b. Leer profile.conf ===
+
+(defun my/forja--read-conf ()
+  "Lee ~/.forja/profile.conf y retorna un alist de (KEY . VALUE)."
+  (let ((conf (expand-file-name "~/.forja/profile.conf"))
+        result)
+    (when (file-exists-p conf)
+      (with-temp-buffer
+        (insert-file-contents conf)
+        (goto-char (point-min))
+        (while (re-search-forward
+                "^\\([A-Z_]+\\)=\"?\\([^\"\\n]*\\)\"?" nil t)
+          (push (cons (match-string 1) (match-string 2)) result))))
+    result))
+
+(defvar my/forja-conf (my/forja--read-conf)
+  "Alist con los valores de ~/.forja/profile.conf.")
+
+(defun my/forja-feature-p (feature)
+  "Retorna t si FEATURE está habilitado en FORJA_FEATURES del profile.conf."
+  (let ((features (cdr (assoc "FORJA_FEATURES" my/forja-conf))))
+    (when features
+      (member feature (split-string features ",")))))
+
+;; === 1. Directorios y listas de módulos ===
+
 (defconst my-modules-dir (expand-file-name "modules/" user-emacs-directory))
 
-;; 2. Definir Módulos BASE (Se cargan SIEMPRE en cualquier máquina)
 (defvar my-base-modules '())
-
-;; 3. Definir Perfiles por Máquina
 (defvar my-extra-modules '())
-
-;; 3b. Módulos pesados — cargados tras 3 segundos de idle post-startup
 (defvar my-lazy-modules '())
 
+;; === 2. Selección de módulos por plataforma ===
+
 (cond
- ;; CASO TERMUX: Android (se evalúa primero)
+
+ ;; ── TERMUX (Android) ──────────────────────────────────────────────────────
  (my/is-termux
-  (message "📱 Detectado entorno TERMUX (Android)")
+  (message "Detectado entorno TERMUX")
   (setq my-base-modules
-        '("02-termux.org"   ; Parches Termux ANTES de core
+        '("02-termux.org"
           "00-core.org"
           "01-dashboard.org"
           "10-git.org"
-          "30-cpp.org"      ; C/C++ (sin GDB, sin FASM, sin ESP32)
+          "30-cpp.org"
           "31-rust.org"
           "32-go.org"
           "34-python.org"
@@ -59,78 +83,60 @@
           "52-vision-sistemica.org"
           "53-soporte.org")))
 
- ;; CASO WSL: Windows Subsystem for Linux (PCs del hogar con Windows)
+ ;; ── WSL2 (Windows) ────────────────────────────────────────────────────────
  (my/is-wsl
-  (message "🪟 Detectado entorno WSL2 (Windows)")
+  (message "Detectado entorno WSL2")
   (setq my-base-modules
-        '("00-core.org"
-          "01-dashboard.org"
-          "10-git.org"
-          "30-cpp.org"
-          "31-rust.org"
-          "32-go.org"
-          "34-python.org"
-          "35-php.org"
-          "20-web.org"
-          "42-lua.org"
-          "43-zig.org"
-          "44-java.org"))
+        (append
+         '("00-core.org"
+           "01-dashboard.org"
+           "10-git.org"
+           "30-cpp.org"
+           "31-rust.org"
+           "32-go.org"
+           "34-python.org"
+           "35-php.org"
+           "20-web.org"
+           "36-modelos.org"
+           "42-lua.org"
+           "43-zig.org"
+           "44-java.org")
+         (when (my/forja-feature-p "aider")  '("33-aider.org"))
+         (when (my/forja-feature-p "godot")  '("41-godot.org"))))
   (setq my-extra-modules
-        '("36-modelos.org"
-          "99-misc.org"
+        '("99-misc.org"
           "49-multiusuario.org"
           "50-gtd.org"
           "51-estandarizacion.org"
           "52-vision-sistemica.org"
           "53-soporte.org")))
 
- ;; CASO 1: ESCUELA (Usuario "estudiante" en hostname "archlinux")
- ((and (string-equal (system-name) "archlinux")
-       (string-equal user-login-name "estudiante"))
-  (message "🏫 Detectado entorno ESCUELA (Usuario: estudiante)")
-  (setq my-base-modules
-        '("00-core.org"
-          "01-dashboard.org"
-          "10-git.org"
-          "30-cpp.org"    ; Solo C/C++, ASM y ESP32
-          "31-rust.org"
-          "32-go.org"
-          "34-python.org"
-          "35-php.org"
-          "33-aider.org"
-          "36-modelos.org"
-          "41-godot.org"
-          "42-lua.org"
-          "43-zig.org"
-          "44-java.org"))
-  (setq my-extra-modules
-        '("20-web.org"
-          "99-misc.org"
-          "49-multiusuario.org"
-          "50-gtd.org"
-          "51-estandarizacion.org"
-          "52-vision-sistemica.org"
-          "53-soporte.org")))
+ ;; ── LINUX NATIVO (Arch, Ubuntu, cualquier distro) ─────────────────────────
+ ;; No se requiere hostname específico — funciona en cualquier máquina
+ ;; con Linux nativo donde FORJA haya sido instalado.
+ (t
+  (message "Detectado entorno LINUX NATIVO (usuario: %s, host: %s)"
+           user-login-name (system-name))
 
- ;; CASO 2: CASA (Usuario "casa" en hostname "archlinux")
- ((and (string-equal (system-name) "archlinux")
-       (string-equal user-login-name "casa"))
-  (message "🏠 Detectado entorno CASA (Usuario: casa)")
+  ;; Módulos base: siempre presentes en Linux nativo
   (setq my-base-modules
-        '("00-core.org"
-          "01-dashboard.org"
-          "10-git.org"
-          "30-cpp.org"
-          "31-rust.org"
-          "32-go.org"
-          "34-python.org"
-          "35-php.org"
-          "33-aider.org"
-          "36-modelos.org"
-          "41-godot.org"
-          "42-lua.org"
-          "43-zig.org"
-          "44-java.org"))
+        (append
+         '("00-core.org"
+           "01-dashboard.org"
+           "10-git.org"
+           "30-cpp.org"
+           "31-rust.org"
+           "32-go.org"
+           "34-python.org"
+           "35-php.org"
+           "36-modelos.org"
+           "42-lua.org"
+           "43-zig.org"
+           "44-java.org")
+         ;; Opcionales según FORJA_FEATURES en profile.conf
+         (when (my/forja-feature-p "aider")  '("33-aider.org"))
+         (when (my/forja-feature-p "godot")  '("41-godot.org"))))
+
   (setq my-extra-modules
         '("20-web.org"
           "99-misc.org"
@@ -139,44 +145,24 @@
           "51-estandarizacion.org"
           "52-vision-sistemica.org"
           "53-soporte.org"))
+
+  ;; Módulos pesados — cargados lazy si están en features
   (setq my-lazy-modules
-        '("40-unreal.org"
-          "55-picoclaw.org"
-          "56-openclaw.org")))
+        (append
+         (when (my/forja-feature-p "unreal")   '("40-unreal.org"))
+         (when (my/forja-feature-p "picoclaw")  '("55-picoclaw.org"))
+         (when (my/forja-feature-p "openclaw")  '("56-openclaw.org"))))))
 
- ;; CASO 3: Fallback (Cualquier otra máquina desconocida)
- (t
-  (message "⚠️ Máquina desconocida: Cargando configuración segura por defecto")
-  (setq my-base-modules
-        '("00-core.org"
-          "01-dashboard.org"
-          "10-git.org"
-          "30-cpp.org"
-          "31-rust.org"
-          "32-go.org"
-          "34-python.org"
-          "35-php.org"
-          "33-aider.org"
-          "36-modelos.org"
-          "42-lua.org"
-          "43-zig.org"))
-  (setq my-extra-modules
-        '("20-web.org"
-          "99-misc.org"
-          "49-multiusuario.org"
-          "50-gtd.org"
-          "51-estandarizacion.org"
-          "52-vision-sistemica.org"
-          "53-soporte.org"))))
+;; === 3. Bucle de carga ===
 
-;; 4. Bucle de Carga (The Loader)
 (dolist (module (append my-base-modules my-extra-modules))
   (let ((file (expand-file-name module my-modules-dir)))
     (if (file-exists-p file)
         (org-babel-load-file file)
-      (message "⚠️ ALERTA: No encuentro el módulo %s" module))))
+      (message "ALERTA: No encuentro el modulo %s" module))))
 
-;; 4b. Carga lazy de módulos pesados (tras 3s de idle, post-startup)
+;; === 4. Carga lazy de módulos pesados (3s post-startup) ===
+
 (when my-lazy-modules
   (run-with-idle-timer
    3 nil
@@ -185,12 +171,13 @@
        (let ((file (expand-file-name module my-modules-dir)))
          (if (file-exists-p file)
              (progn
-               (message "🦥 Cargando lazy: %s" module)
+               (message "Cargando lazy: %s" module)
                (org-babel-load-file file))
-           (message "⚠️ Módulo lazy no encontrado: %s" module))))
-     (message "✅ Módulos lazy listos"))))
+           (message "Modulo lazy no encontrado: %s" module))))
+     (message "Modulos lazy listos"))))
 
-;; 5. Cargar customizaciones automáticas (si existen)
+;; === 5. Customizaciones automáticas ===
+
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (when (file-exists-p custom-file)
   (load custom-file))
