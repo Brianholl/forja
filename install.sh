@@ -789,8 +789,9 @@ ok "Paquetes de Emacs pre-instalados"
 
 # =============================================================================
 # CPPMAN (SOLO PC)
+# SKIP_CPPMAN=1 cuando es llamado desde update.sh (cppman -c va al final)
 # =============================================================================
-if [ "$PLATFORM" = "arch" ]; then
+if [ "$PLATFORM" = "arch" ] && [ -z "$SKIP_CPPMAN" ]; then
     info "Configurando cppman con cppreference..."
     cppman -s cppreference && cppman -c \
         || warn "cppman: revisa manualmente con: cppman -s cppreference && cppman -c"

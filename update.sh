@@ -65,7 +65,7 @@ echo ""
 # =============================================================================
 # 1. GIT PULL — traer el último código de FORJA
 # =============================================================================
-info "[1/6] Trayendo últimos cambios de FORJA..."
+info "[1/7] Trayendo últimos cambios de FORJA..."
 cd "$SCRIPT_DIR"
 
 if git remote -v 2>/dev/null | grep -q origin; then
@@ -79,9 +79,9 @@ fi
 # =============================================================================
 # 2. INSTALL.SH — instalar/verificar todas las dependencias
 # =============================================================================
-info "[2/6] Instalando/verificando dependencias..."
+info "[2/7] Instalando/verificando dependencias..."
 if [ -f "$SCRIPT_DIR/install.sh" ]; then
-    bash "$SCRIPT_DIR/install.sh"
+    SKIP_CPPMAN=1 bash "$SCRIPT_DIR/install.sh"
     ok "Dependencias verificadas"
 else
     warn "install.sh no encontrado en $SCRIPT_DIR"
@@ -90,7 +90,7 @@ fi
 # =============================================================================
 # 3. STOW — aplicar dotfiles actualizados
 # =============================================================================
-info "[3/6] Aplicando dotfiles actualizados (stow)..."
+info "[3/7] Aplicando dotfiles actualizados (stow)..."
 cd "$SCRIPT_DIR"
 
 if [ -d emacs ]; then
@@ -109,7 +109,7 @@ fi
 # =============================================================================
 # 4. UPGRADES — actualizar herramientas (lo que install.sh no actualiza)
 # =============================================================================
-info "[4/6] Actualizando herramientas..."
+info "[4/7] Actualizando herramientas..."
 
 # Rust
 if command -v rustup &>/dev/null; then
@@ -159,7 +159,7 @@ fi
 # =============================================================================
 # 5. EMACS — re-tangle módulos + actualizar paquetes MELPA
 # =============================================================================
-info "[5/6] Re-tangling módulos y actualizando paquetes MELPA..."
+info "[5/7] Re-tangling módulos y actualizando paquetes MELPA..."
 
 # Borrar .el generados para forzar re-tangle en próximo inicio
 if [ -d ~/.emacs.d/modules ]; then
@@ -192,7 +192,7 @@ ok "Paquetes MELPA actualizados"
 # =============================================================================
 # 6. SANIDAD — verificar que Emacs carga sin errores
 # =============================================================================
-info "[6/6] Verificando que Emacs carga sin errores..."
+info "[6/7] Verificando que Emacs carga sin errores..."
 SANITY_LOG="$TMPDIR/forja-sanity.log"
 emacs --batch \
     --load "$HOME/.emacs.d/init.el" \
@@ -209,6 +209,18 @@ fi
 rm -f "$SANITY_LOG"
 
 # =============================================================================
+# 7. CPPMAN — cachear páginas de cppreference (paso lento, al final)
+# =============================================================================
+info "[7/7] Configurando cppman con cppreference..."
+if [ "$PLATFORM" = "arch" ] && command -v cppman &>/dev/null; then
+    cppman -s cppreference && cppman -c \
+        && ok "cppman configurado" \
+        || warn "cppman: error al cachear — ejecuta manualmente: cppman -s cppreference && cppman -c"
+else
+    [ "$PLATFORM" != "arch" ] || warn "cppman no instalado, saltando"
+fi
+
+# =============================================================================
 # RESUMEN
 # =============================================================================
 echo ""
@@ -223,6 +235,7 @@ echo "    3. stow — dotfiles aplicados"
 echo "    4. upgrades — Rust / npm / pylsp / Aider / Ollama"
 echo "    5. Emacs — módulos re-tangled + MELPA actualizado"
 echo "    6. Sanidad — init.el sin errores"
+echo "    7. cppman — cppreference cacheado"
 echo ""
 echo "  → Reinicia Emacs para aplicar los cambios"
 echo "=============================================="
