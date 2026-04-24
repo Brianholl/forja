@@ -199,14 +199,13 @@ fi
 # =============================================================================
 info "[3/11] Toolchain C/C++..."
 if [ "$PLATFORM" = "termux" ]; then
-    pkg install -y clang
-    ok "Clang instalado (sin GDB/FASM en Termux)"
+    pkg install -y clang binutils
+    ok "Clang instalado (sin GDB/valgrind en Termux ARM)"
 elif [ "$PLATFORM" = "wsl" ]; then
-    sudo apt-get install -y clang llvm gdb
-    ok "Clang + GDB instalados (WSL)"
+    sudo apt-get install -y build-essential clang llvm gdb valgrind lcov
+    ok "Toolchain C/C++ completo (WSL)"
 else
-    ARCH_CPP_PKGS="clang llvm lldb gdb benchmark binutils"
-    # FASM solo si esta habilitado
+    ARCH_CPP_PKGS="gcc clang llvm lldb gdb valgrind lcov benchmark binutils"
     if forja_has_feature "fasm"; then
         ARCH_CPP_PKGS="$ARCH_CPP_PKGS fasm"
     fi
@@ -269,10 +268,10 @@ else
     sudo pacman -S --needed --noconfirm python python-pip python-black
 fi
 pip install --user --break-system-packages \
-    python-lsp-server pylsp-mypy python-lsp-black 2>/dev/null \
-    || pip install --user python-lsp-server pylsp-mypy python-lsp-black 2>/dev/null \
-    || pip3 install --user python-lsp-server pylsp-mypy python-lsp-black 2>/dev/null \
-    || warn "No se pudieron instalar pip packages (pylsp)"
+    python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
+    || pip install --user python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
+    || pip3 install --user python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
+    || warn "No se pudieron instalar pip packages (pylsp/ruff)"
 ok "Python instalado"
 
 # PHP
@@ -297,9 +296,12 @@ ok "PHP instalado"
 info "Instalando Lua y lua-language-server..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y lua54
+    pkg install -y lua-language-server 2>/dev/null \
+        || warn "lua-language-server no disponible en pkg, LSP Lua desactivado"
 elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get install -y lua5.4 love
-    warn "lua-language-server/WSL: instalar desde https://github.com/LuaLS/lua-language-server"
+    sudo apt-get install -y lua-language-server 2>/dev/null \
+        || warn "lua-language-server no disponible en apt, LSP Lua desactivado"
 else
     sudo pacman -S --needed --noconfirm lua lua-language-server love
 fi
@@ -309,8 +311,28 @@ ok "Lua + Löve2D instalados"
 info "Instalando Zig y zls..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y zig
+    pkg install -y zig-zls 2>/dev/null || pkg install -y zls 2>/dev/null \
+        || warn "zls no disponible en pkg, LSP Zig desactivado"
 elif [ "$PLATFORM" = "wsl" ]; then
-    warn "Zig/WSL: instalar desde https://ziglang.org/download/"
+    # Zig no está en apt, descargar binario
+    ZIG_VER="0.14.0"
+    ZIG_TAR="zig-linux-x86_64-${ZIG_VER}.tar.xz"
+    ZIG_URL="https://ziglang.org/download/${ZIG_VER}/${ZIG_TAR}"
+    if ! command -v zig &>/dev/null; then
+        curl -Lo "/tmp/${ZIG_TAR}" "$ZIG_URL" \
+            && sudo tar -xf "/tmp/${ZIG_TAR}" -C /usr/local \
+            && sudo ln -sf "/usr/local/zig-linux-x86_64-${ZIG_VER}/zig" /usr/local/bin/zig \
+            && rm "/tmp/${ZIG_TAR}" \
+            || warn "No se pudo instalar Zig automáticamente"
+    fi
+    # zls (Zig LSP) via descarga
+    ZLS_URL="https://github.com/zigtools/zls/releases/download/${ZIG_VER}/zls-x86_64-linux.tar.gz"
+    if ! command -v zls &>/dev/null; then
+        curl -Lo /tmp/zls.tar.gz "$ZLS_URL" 2>/dev/null \
+            && sudo tar -xf /tmp/zls.tar.gz -C /usr/local/bin --wildcards "*/zls" --strip-components=1 2>/dev/null \
+            && rm /tmp/zls.tar.gz \
+            || warn "zls no se pudo instalar, LSP Zig desactivado"
+    fi
 else
     sudo pacman -S --needed --noconfirm zig zls
 fi
@@ -321,7 +343,8 @@ info "Instalando Java (JDK 17), Maven y Kotlin..."
 if [ "$PLATFORM" = "termux" ]; then
     if forja_has_feature "java"; then
         pkg install -y openjdk-17
-        ok "Java (OpenJDK 17) instalado en Termux"
+        pkg install -y gradle 2>/dev/null || warn "gradle no disponible en pkg"
+        ok "Java (OpenJDK 17 + Gradle) instalado en Termux"
     else
         info "Saltando Java (no habilitado en features)"
     fi

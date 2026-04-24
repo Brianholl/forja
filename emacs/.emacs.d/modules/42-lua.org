@@ -27,7 +27,8 @@
   :config
   (setq lua-indent-level 2))
 
-(add-hook 'lua-mode-hook #'lsp-deferred)
+(when (executable-find "lua-language-server")
+  (add-hook 'lua-mode-hook #'lsp-deferred))
 #+end_src
 
 * 30. Generadores de proyecto

@@ -28,7 +28,8 @@
       (setq zig-format-on-save t))
   (error (message "43-zig: zig-mode no se pudo cargar: %s" err)))
 
-(add-hook 'zig-mode-hook #'lsp-deferred)
+(when (executable-find "zls")
+  (add-hook 'zig-mode-hook #'lsp-deferred))
 #+end_src
 
 * 30. Generador de proyecto
