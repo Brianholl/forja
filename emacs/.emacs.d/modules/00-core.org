@@ -544,7 +544,7 @@ Si hay un proceso de compilación activo, lo mata."
  _r_: Run (F5)        _b_: Build
  _t_: Test            _k_: Stop server
 ------ Navegación ------
- _7_: Treemacs (F7)   _._: Definición (F12)
+ _7_: Árbol (F7)      _._: Definición (F12)
  _,_: Referencias     _e_: Errores
 ------ Formato ------
  _f_: Format          _d_: Debug (PC)
@@ -564,6 +564,15 @@ Si hay un proceso de compilación activo, lo mata."
          (if (fboundp 'my/node-run) (my/node-run) (compile "node .")))
         ((derived-mode-p 'html-ts-mode 'css-ts-mode 'web-mode 'mhtml-mode)
          (if (fboundp 'my/run-live-server) (my/run-live-server) (message "live-server no disponible")))
+        ((derived-mode-p 'java-ts-mode 'java-mode)
+         (if (fboundp 'my/java-run) (my/java-run) (compile "mvn -q compile exec:java")))
+        ((derived-mode-p 'kotlin-mode 'kotlin-ts-mode)
+         (if (fboundp 'my/kotlin-run) (my/kotlin-run) (compile "gradle -q run")))
+        ((derived-mode-p 'zig-mode 'zig-ts-mode)
+         (if (fboundp 'my/zig-run) (my/zig-run) (compile "zig build run")))
+        ((derived-mode-p 'lua-mode 'lua-ts-mode)
+         (if (fboundp 'my/lua-run) (my/lua-run)
+           (compile (format "lua %s" (buffer-file-name)))))
         (t (compile (read-string "Comando: ")))))
   ("b" (cond
         ((derived-mode-p 'c-mode 'c++-mode)    (my/find-and-compile))
@@ -577,6 +586,12 @@ Si hay un proceso de compilación activo, lo mata."
          (compile "composer install"))
         ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode)
          (compile "npm install"))
+        ((derived-mode-p 'java-ts-mode 'java-mode)
+         (compile "mvn -q compile"))
+        ((derived-mode-p 'kotlin-mode 'kotlin-ts-mode)
+         (compile "gradle -q assemble"))
+        ((derived-mode-p 'zig-mode 'zig-ts-mode)
+         (compile "zig build"))
         (t (compile (read-string "Build cmd: ")))))
   ("t" (cond
         ((derived-mode-p 'c-mode 'c++-mode)
@@ -591,11 +606,19 @@ Si hay un proceso de compilación activo, lo mata."
          (if (fboundp 'my/php-test) (my/php-test) (compile "php artisan test")))
         ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode)
          (if (fboundp 'my/node-test) (my/node-test) (compile "npm test")))
+        ((derived-mode-p 'java-ts-mode 'java-mode)
+         (if (fboundp 'my/java-test) (my/java-test) (compile "mvn -q test")))
+        ((derived-mode-p 'kotlin-mode 'kotlin-ts-mode)
+         (compile "gradle -q test"))
+        ((derived-mode-p 'zig-mode 'zig-ts-mode)
+         (if (fboundp 'my/zig-test) (my/zig-test) (compile "zig build test")))
         (t (compile (read-string "Test cmd: ")))))
   ("d" (if (bound-and-true-p my/is-termux)
            (message "Debug no disponible en Termux")
          (if (fboundp 'my/debug-current-file) (my/debug-current-file) (gdb (read-string "GDB: ")))))
-  ("7" treemacs)
+  ("7" (if (bound-and-true-p my/is-termux)
+           (if (fboundp 'my/termux-sidebar) (my/termux-sidebar) (dired default-directory))
+         (treemacs)))
   ("." lsp-find-definition)
   ("," lsp-find-references)
   ("e" flycheck-list-errors)
@@ -1927,5 +1950,40 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   ("q" nil))
 
 (global-set-key (kbd "C-c n") #'my/hydra-new-project/body)
+
+;; === Menú maestro FORJA (C-c F) ===
+
+(defhydra my/hydra-forja (:color blue :hint nil)
+  "
+  FORJA — Centro de Control
+  ──────────────────────────────────────────────
+  _x_  Compilar / Ejecutar   _n_  Nuevo Proyecto
+  _g_  GTD / Agenda          _S_  Docs / Estándares
+  _M_  Modelos IA            _U_  Multiusuario
+  _d_  Dashboard             _h_  Doctor (salud)
+  ──────────────────────────────────────────────
+  _q_  cancelar
+"
+  ("x" my/hydra-build/body)
+  ("n" my/hydra-new-project/body)
+  ("g" (if (fboundp 'my/hydra-gtd/body)
+           (my/hydra-gtd/body)
+         (message "Módulo GTD no cargado")))
+  ("S" (if (fboundp 'my/hydra-docs/body)
+           (my/hydra-docs/body)
+         (message "Módulo Estandarización no cargado")))
+  ("M" (if (fboundp 'hydra-modelos/body)
+           (hydra-modelos/body)
+         (message "Módulo Modelos IA no cargado")))
+  ("U" (if (fboundp 'hydra-multiusuario/body)
+           (hydra-multiusuario/body)
+         (message "Módulo Multiusuario no cargado")))
+  ("d" (switch-to-buffer (get-buffer-create "*dashboard*")))
+  ("h" (if (fboundp 'my/forja-doctor)
+           (my/forja-doctor)
+         (message "Doctor no disponible")))
+  ("q" nil))
+
+(global-set-key (kbd "C-c F") #'my/hydra-forja/body)
 #+end_src
 
