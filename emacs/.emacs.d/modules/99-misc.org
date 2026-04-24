@@ -368,7 +368,7 @@ Comandos útiles para mantener config.org bien formateado.
                       ("go"                   . "Go")
                       ("gopls"                . "Go LSP")
                       ("python3"              . "Python")
-                      ("pyright"              . "Python LSP")
+                      ("pylsp"                . "Python LSP")
                       ("node"                 . "Node.js")
                       ("npm"                  . "npm")
                       ("lua"                  . "Lua")
@@ -389,15 +389,19 @@ Comandos útiles para mantener config.org bien formateado.
                           (if found (or found "") "NO ENCONTRADO")))))
 
       (insert "\n[ Herramientas de juego ]\n")
-      (dolist (tool '(("godot"  . "Godot 4")
-                      ("idf.py" . "ESP-IDF")))
-        (let* ((bin  (car tool))
-               (desc (cdr tool))
-               (found (executable-find bin)))
-          (insert (format "  %s %-24s %s\n"
-                          (if found "✓" "·")
-                          (concat desc ":")
-                          (if found found "no instalado (opcional)")))))
+      ;; Godot — binario normal
+      (let* ((found (executable-find "godot")))
+        (insert (format "  %s %-24s %s\n"
+                        (if found "✓" "·") "Godot 4:"
+                        (if found found "no instalado (opcional)"))))
+      ;; ESP-IDF — no va en PATH, se verifica por directorio
+      (let* ((path (cond ((file-exists-p "/opt/esp-idf/export.sh") "/opt/esp-idf")
+                         ((file-exists-p (expand-file-name "~/esp/esp-idf/export.sh"))
+                          (expand-file-name "~/esp/esp-idf"))
+                         (t nil))))
+        (insert (format "  %s %-24s %s\n"
+                        (if path "✓" "·") "ESP-IDF:"
+                        (if path path "no instalado (opcional)"))))
 
       (insert "\n[ Infraestructura ]\n")
       (dolist (tool '(("docker"  . "Docker")

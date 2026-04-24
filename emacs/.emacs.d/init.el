@@ -155,10 +155,8 @@
           "35-php.org"
           "33-aider.org"
           "36-modelos.org"
-          "41-godot.org"
           "42-lua.org"
-          "43-zig.org"
-          "44-java.org"))
+          "43-zig.org"))
   (setq my-extra-modules
         '("20-web.org"
           "99-misc.org"

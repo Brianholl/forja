@@ -38,9 +38,10 @@ Ivy/Counsel/Swiper + Avy + Which-key = Navegación ultra rápida.
   (setq ivy-count-format "(%d/%d) ")
   (setq ivy-wrap t))
 
-;; Ivy mejorado con iconos
-(use-package all-the-icons-ivy-rich
-  :init (all-the-icons-ivy-rich-mode 1))
+;; Ivy mejorado con iconos (solo en PC — en terminal los iconos se ven como basura)
+(unless (bound-and-true-p my/is-termux)
+  (use-package all-the-icons-ivy-rich
+    :init (all-the-icons-ivy-rich-mode 1)))
 
 (use-package ivy-rich
   :after ivy
@@ -76,7 +77,9 @@ Ivy/Counsel/Swiper + Avy + Which-key = Navegación ultra rápida.
 * 20. Explorador de Árbol de Proyecto (Treemacs)
 
 #+begin_src emacs-lisp
-;; Treemacs: Explorador de archivos lateral (estilo VS Code)
+;; Treemacs: solo en PC — muy pesado en móvil (file watchers, git status)
+;; En Termux, 02-termux.org usa dired como reemplazo ligero
+(unless (bound-and-true-p my/is-termux)
 (use-package treemacs
   :ensure t
   :defer t
@@ -159,6 +162,7 @@ Ivy/Counsel/Swiper + Avy + Which-key = Navegación ultra rápida.
   :ensure t
   :config
   (treemacs-load-theme "all-the-icons"))
+) ;; fin (unless my/is-termux) — Treemacs
 #+end_src
 * 30. Orquestación de Proyectos (Projectile)
 Projectile: Navegación tipo IDE entre proyectos.
@@ -234,13 +238,14 @@ Magit: La mejor interfaz de Git del mundo.
 Acceso a shell sin salir de Emacs.
 
 #+begin_src emacs-lisp
-;; Vterm: Terminal emulada completa (mejor rendimiento)
-(use-package vterm
-  :commands vterm
-  :bind ("C-c t" . vterm)
-  :config
-  (setq vterm-max-scrollback 10000)
-  (setq vterm-kill-buffer-on-exit t))
+;; Vterm: Terminal emulada completa — requiere compilación nativa, no disponible en Termux
+(unless (bound-and-true-p my/is-termux)
+  (use-package vterm
+    :commands vterm
+    :bind ("C-c t" . vterm)
+    :config
+    (setq vterm-max-scrollback 10000)
+    (setq vterm-kill-buffer-on-exit t)))
 
 ;; Multi-term: Alternativa ligera
 (use-package multi-term

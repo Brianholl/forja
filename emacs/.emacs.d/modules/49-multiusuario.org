@@ -535,7 +535,7 @@ Si rclone está instalado, ofrece abrir rclone config."
     (when (and (my/mu-rclone-available-p)
                (not (my/mu-rclone-remote-configured-p)))
       (when (yes-or-no-p "¿Abrir rclone config en una terminal?")
-        (if (fboundp 'vterm)
+        (if (and (not (bound-and-true-p my/is-termux)) (fboundp 'vterm))
             (progn
               (vterm "*rclone-config*")
               (vterm-send-string "rclone config\n"))

@@ -168,10 +168,12 @@
         (man symbol)
       (man (read-string "Manual entry: ")))))
 
-(add-hook 'c++-mode-hook
-          (lambda () (local-set-key (kbd "C-c h") #'my/cppman-at-point)))
-(add-hook 'c-mode-hook
-          (lambda () (local-set-key (kbd "C-c h") #'my/system-man-at-point)))
+(if (bound-and-true-p my/is-termux)
+    (progn
+      (add-hook 'c++-mode-hook (lambda () (local-set-key (kbd "C-c h") #'my/system-man-at-point)))
+      (add-hook 'c-mode-hook   (lambda () (local-set-key (kbd "C-c h") #'my/system-man-at-point))))
+  (add-hook 'c++-mode-hook (lambda () (local-set-key (kbd "C-c h") #'my/cppman-at-point)))
+  (add-hook 'c-mode-hook   (lambda () (local-set-key (kbd "C-c h") #'my/system-man-at-point))))
 
 ;; --- Consultar error con IA ---
 (defun my/consultar-error-ia ()
@@ -208,10 +210,11 @@ y dame pistas para que yo mismo pueda arreglarlo."
 ** Herramientas de Análisis (Disassembly)
 
 #+begin_src emacs-lisp
-(use-package disaster
-  :ensure t
-  :bind (:map c-mode-base-map
-              ("C-c d a" . disaster)))
+(unless (bound-and-true-p my/is-termux)
+  (use-package disaster
+    :ensure t
+    :bind (:map c-mode-base-map
+                ("C-c d a" . disaster))))
 #+end_src
 
 * 20. Análisis Estático y Navegación (Clangd)
