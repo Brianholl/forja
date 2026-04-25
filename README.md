@@ -16,7 +16,7 @@ Incluye **IA local** via Aider + Ollama (modelos seleccionables), **agentes auto
 ## Caracteristicas Principales
 
 - **Instalador interactivo:** Menu TUI (`forja-menu.sh`) con deteccion de hardware, perfiles y seleccion de modelos IA
-- **Arquitectura modular:** 21 modulos `.org` (literate config) con carga selectiva por maquina
+- **Arquitectura modular:** 22 modulos `.org` (literate config) con carga selectiva por maquina
 - **Multiplataforma:** Arch Linux (PC), Termux (Android) y WSL2 (Windows) con adaptacion automatica
 - **Tres perfiles de instalacion:** Minimal (celular), Moderado (PC con poca RAM), Full (desktop)
 - **Full Stack REST APIs:** Templates para Express, FastAPI, Laravel, Gin, Actix-web
@@ -189,17 +189,17 @@ forja/
 │   └── .emacs.d/
 │       ├── init.el              # Orquestador: detecta maquina y carga modulos
 │       └── modules/
-│           ├── 00-core.org      # UX, fuentes, LSP, snippets, templates, hydra
+│           ├── 00-core.org      # UX, fuentes, LSP, snippets, hydra maestro
 │           ├── 01-dashboard.org # Dashboard de inicio
 │           ├── 02-termux.org    # Parches y adaptaciones para Termux
 │           ├── 10-git.org       # Magit, Projectile, Treemacs
-│           ├── 20-web.org       # JS, TS, HTML, CSS, Node.js, Live Server
-│           ├── 30-cpp.org       # C, C++, FASM, GDB, ESP32
-│           ├── 31-rust.org      # Rust: tree-sitter, LSP, cargo
-│           ├── 32-go.org        # Go: tree-sitter, LSP, go build/test
+│           ├── 20-web.org       # JS, TS, HTML, CSS, Node.js, Live Server, generadores web
+│           ├── 30-cpp.org       # C, C++, FASM, GDB, ESP32, generadores C/Raylib
+│           ├── 31-rust.org      # Rust: tree-sitter, LSP, cargo, generadores
+│           ├── 32-go.org        # Go: tree-sitter, LSP, go build/test, generadores
 │           ├── 33-aider.org     # Aider: Code Agent con Ollama local
-│           ├── 34-python.org    # Python: tree-sitter, pylsp, black, FastAPI
-│           ├── 35-php.org       # PHP: tree-sitter, intelephense, Laravel
+│           ├── 34-python.org    # Python: tree-sitter, pylsp, black, FastAPI, generadores
+│           ├── 35-php.org       # PHP: tree-sitter, intelephense, Laravel, generadores
 │           ├── 36-modelos.org   # Config central modelos IA, C-c M, C-c T
 │           ├── 40-unreal.org    # Unreal Engine (solo PC)
 │           ├── 41-godot.org     # Godot (GDScript)
@@ -234,7 +234,7 @@ FORJA_FEATURES="aider,godot,raylib,n8n,picoclaw,openclaw,latex,esp32,fasm,sync-d
 FORJA_MODEL_CODE="qwen2.5-coder:7b"
 FORJA_MODEL_CHAT="qwen2.5:7b"
 FORJA_CONFIG_DATE="2026-04-10"
-FORJA_CONFIG_VERSION="2"
+FORJA_CONFIG_VERSION="2.0"
 ```
 
 Tambien leido por Emacs (`36-modelos.org`) para configurar los modelos al iniciar.
@@ -247,17 +247,17 @@ Tambien leido por Emacs (`36-modelos.org`) para configurar los modelos al inicia
 
 | Modulo | Descripcion | Termux | WSL | Escuela | Casa |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **00-core** | UX, fuentes, LSP, snippets, generadores, hydra | ✅ | ✅ | ✅ | ✅ |
+| **00-core** | UX, fuentes, LSP, snippets, hydra maestro | ✅ | ✅ | ✅ | ✅ |
 | **01-dashboard** | Dashboard de inicio personalizado | ✅ | ✅ | ✅ | ✅ |
 | **02-termux** | Parches Termux (teclado, UI, stubs IA) | ✅ | ❌ | ❌ | ❌ |
 | **10-git** | Magit, Projectile, Treemacs, diff-hl | ✅ | ✅ | ✅ | ✅ |
-| **20-web** | JS, TS, HTML, CSS, Node.js, Live Server | ✅ | ✅ | ✅ | ✅ |
-| **30-cpp** | C/C++, FASM, GDB, ESP32, clang/gcc | ✅ | ✅ | ✅ | ✅ |
-| **31-rust** | Rust: tree-sitter, rust-analyzer, cargo | ✅ | ✅ | ✅ | ✅ |
-| **32-go** | Go: tree-sitter, gopls, go build/test | ✅ | ✅ | ✅ | ✅ |
+| **20-web** | JS, TS, HTML, CSS, Node.js, Live Server, generadores web/express | ✅ | ✅ | ✅ | ✅ |
+| **30-cpp** | C/C++, FASM, GDB, ESP32, clang/gcc, generadores C/Raylib | ✅ | ✅ | ✅ | ✅ |
+| **31-rust** | Rust: tree-sitter, rust-analyzer, cargo, generadores | ✅ | ✅ | ✅ | ✅ |
+| **32-go** | Go: tree-sitter, gopls, go build/test, generadores | ✅ | ✅ | ✅ | ✅ |
 | **33-aider** | Aider + Ollama (IA local para codigo) | ❌ | ❌ | ✅ | ✅ |
-| **34-python** | Python: pylsp, black, FastAPI/Django | ✅ | ✅ | ✅ | ✅ |
-| **35-php** | PHP: intelephense, prettier, Laravel | ✅ | ✅ | ✅ | ✅ |
+| **34-python** | Python: pylsp, black, FastAPI/Django, generadores | ✅ | ✅ | ✅ | ✅ |
+| **35-php** | PHP: intelephense, prettier, Laravel, generadores | ✅ | ✅ | ✅ | ✅ |
 | **36-modelos** | Config central modelos IA, traduccion, C-c M/T | ❌ | ✅ | ✅ | ✅ |
 | **40-unreal** | Unreal Engine 4/5 | ❌ | ❌ | ❌ | ✅ |
 | **41-godot** | Godot: GDScript, gdformat | ❌ | ❌ | ✅ | ✅ |
