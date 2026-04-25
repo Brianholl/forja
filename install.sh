@@ -367,16 +367,26 @@ ok "Node.js instalado"
 info "Instalando Python y herramientas..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y python python-pip
+    # pylsp: solo paquetes pure-Python — ruff tiene Rust nativo, no hay wheel ARM64
+    # Se intenta pkg install ruff primero; si no está disponible, se omite (es opcional)
+    pip install python-lsp-server pylsp-mypy 2>/dev/null \
+        || warn "No se pudo instalar pylsp en Termux"
+    pkg install -y ruff 2>/dev/null \
+        || pip install --only-binary :all: ruff 2>/dev/null \
+        || info "ruff no disponible en Termux — se omite (es opcional)"
 elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get install -y python3 python3-pip python3-venv
+    pip install --user --break-system-packages \
+        python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
+        || pip install --user python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
+        || warn "No se pudieron instalar pip packages (pylsp/ruff)"
 else
     sudo pacman -S --needed --noconfirm python python-pip python-black
+    pip install --user --break-system-packages \
+        python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
+        || pip install --user python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
+        || warn "No se pudieron instalar pip packages (pylsp/ruff)"
 fi
-pip install --user --break-system-packages \
-    python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
-    || pip install --user python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
-    || pip3 install --user python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
-    || warn "No se pudieron instalar pip packages (pylsp/ruff)"
 ok "Python instalado"
 
 # PHP
