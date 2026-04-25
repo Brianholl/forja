@@ -267,6 +267,30 @@ screen_welcome() {
 # =============================================================================
 
 screen_profile() {
+    # En Termux solo existe Minimal: Ollama/ESP32/Unreal/n8n no corren en ARM Android
+    if [ "$PLATFORM" = "termux" ]; then
+        PERFIL="minimal"
+        clear_screen
+        draw_header "PERFIL -- Termux (Android)"
+        echo -e "  Plataforma movil detectada."
+        echo ""
+        echo -e "  Perfil: ${BG_GREEN}${WHITE}  MINIMAL  ${NC}  (unico disponible en Termux)"
+        echo ""
+        echo -e "  ${DIM}Incluye: Emacs, LSPs, C/Rust/Go/Python/PHP/JS,${NC}"
+        echo -e "  ${DIM}         Git, GTD, Sync Drive, Multiusuario.${NC}"
+        echo ""
+        echo -e "  ${DIM}No disponible en Android ARM:${NC}"
+        echo -e "  ${DIM}  x Ollama / Aider / agentes IA${NC}"
+        echo -e "  ${DIM}  x ESP32 (toolchain Xtensa requiere x86)${NC}"
+        echo -e "  ${DIM}  x Unreal Engine / n8n / FASM${NC}"
+        echo ""
+        echo -e "  $(draw_line 56)"
+        echo ""
+        echo -ne "  Presiona ${WHITE}[Enter]${NC} para continuar: "
+        read -r
+        return 0
+    fi
+
     local selected=0
     local options=3
 
@@ -491,8 +515,8 @@ MODEL_CODE=""
 MODEL_CHAT=""
 
 screen_models() {
-    # Solo mostrar si el perfil tiene IA
-    if [ "$PERFIL" = "minimal" ]; then
+    # Ollama no corre en Android ARM — saltar siempre en Termux
+    if [ "$PLATFORM" = "termux" ] || [ "$PERFIL" = "minimal" ]; then
         MODEL_CODE="ninguno"
         MODEL_CHAT="ninguno"
         return 0
@@ -825,6 +849,7 @@ screen_confirm() {
     echo ""
     echo -e "    ${GREEN}+${NC} Emacs 29+ con configuracion modular"
     echo -e "    ${GREEN}+${NC} C/C++ (clang, gcc) + autocompletado LSP"
+    [ "$PLATFORM" != "termux" ] && echo -e "    ${GREEN}+${NC} GDB Debugger"
     echo -e "    ${GREEN}+${NC} Rust (rust-analyzer, cargo)"
     echo -e "    ${GREEN}+${NC} Go (gopls)"
     echo -e "    ${GREEN}+${NC} Python (pylsp, black)"

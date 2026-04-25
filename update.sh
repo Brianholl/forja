@@ -132,7 +132,8 @@ fi
 PIP_PKGS="python-lsp-server pylsp-mypy python-lsp-black"
 [ "$PLATFORM" = "arch" ] && forja_has_feature "godot" && PIP_PKGS="$PIP_PKGS gdtoolkit"
 if [ "$PLATFORM" = "termux" ]; then
-    pip install --upgrade $PIP_PKGS 2>/dev/null \
+    pip install --break-system-packages --upgrade $PIP_PKGS 2>/dev/null \
+        || pip install --upgrade $PIP_PKGS 2>/dev/null \
         || warn "No se pudo actualizar pylsp en Termux"
 else
     pip install --user --upgrade --break-system-packages $PIP_PKGS 2>/dev/null \

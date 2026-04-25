@@ -71,7 +71,7 @@ run_verification() {
     check_tool "GCC"          gcc
     check_tool "Clangd"       clangd
     check_tool "Make"         make
-    check_tool "GDB"          gdb
+    [ "$PLATFORM" != "termux" ] && check_tool "GDB" gdb
     # Rust
     check_tool "Cargo"        cargo
     check_tool "rust-analyzer" rust-analyzer
@@ -313,7 +313,8 @@ fi
 info "[3/11] Toolchain C/C++..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y clang binutils
-    ok "Clang instalado (sin GDB/valgrind en Termux ARM)"
+    pkg install -y gdb 2>/dev/null || info "GDB no disponible en este dispositivo (opcional en Termux)"
+    ok "Clang instalado"
 elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get install -y build-essential clang llvm gdb valgrind lcov
     ok "Toolchain C/C++ completo (WSL)"
@@ -334,6 +335,8 @@ info "[4/11] Lenguajes: Rust, Go, Node.js..."
 # Rust
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y rust
+    pkg install -y rust-analyzer 2>/dev/null \
+        || warn "rust-analyzer no disponible via pkg — instala manualmente con: pkg install rust-analyzer"
     ok "Rust instalado (Termux pkg)"
 elif [ "$PLATFORM" = "wsl" ]; then
     if ! command -v rustup &>/dev/null; then
@@ -375,9 +378,9 @@ ok "Node.js instalado"
 info "Instalando Python y herramientas..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y python python-pip
-    # pylsp: solo paquetes pure-Python — ruff tiene Rust nativo, no hay wheel ARM64
-    # Se intenta pkg install ruff primero; si no está disponible, se omite (es opcional)
-    pip install python-lsp-server pylsp-mypy 2>/dev/null \
+    # pylsp: --break-system-packages requerido en Termux moderno (PEP 668)
+    pip install --break-system-packages python-lsp-server pylsp-mypy 2>/dev/null \
+        || pip install python-lsp-server pylsp-mypy 2>/dev/null \
         || warn "No se pudo instalar pylsp en Termux"
     pkg install -y ruff 2>/dev/null \
         || pip install --only-binary :all: ruff 2>/dev/null \
