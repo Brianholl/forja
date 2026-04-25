@@ -139,11 +139,20 @@ Detecta pytest, Django test o unittest."
 (add-hook 'python-mode-hook    #'my/python-keybindings)
 #+end_src
 
-* Verificación de dependencias
+* Dependencias y registro
 
 #+begin_src emacs-lisp
-(when (fboundp 'my/forja-warn-missing)
-  (my/forja-warn-missing "python" "python3" "python"            "python3"          "python")
-  (my/forja-warn-missing "python" "pylsp"   "python-lsp-server" "python3-pylsp"    nil)
-  (my/forja-warn-missing "python" "ruff"    "ruff"              "ruff"             nil))
+(my/forja-dep :module "python" :binary "python3" :type :required
+              :arch "python" :wsl "python3" :termux "python")
+(my/forja-dep :module "python" :binary "pylsp"   :type :required
+              :arch "python-lsp-server" :wsl "python3-pylsp" :termux nil)
+(my/forja-dep :module "python" :binary "ruff"    :type :optional
+              :arch "ruff" :wsl "ruff" :termux nil)
+
+(my/forja-register-lang
+ :modes   '(python-mode python-ts-mode)
+ :run     'my/python-run    :run-fallback    "python main.py"
+ :build   nil               :build-fallback  "pip install -r requirements.txt"
+ :test    'my/python-test   :test-fallback   "python -m pytest -v"
+ :format  'lsp-format-buffer :format-fallback nil)
 #+end_src

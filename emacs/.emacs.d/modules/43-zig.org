@@ -114,10 +114,16 @@
 (add-hook 'zig-ts-mode-hook #'my/zig-keybindings)
 #+end_src
 
-* Verificación de dependencias
+* Dependencias y registro
 
 #+begin_src emacs-lisp
-(when (fboundp 'my/forja-warn-missing)
-  (my/forja-warn-missing "zig" "zig" "zig" nil nil)
-  (my/forja-warn-missing "zig" "zls" "zls" nil nil))
+(my/forja-dep :module "zig" :binary "zig" :type :required :arch "zig" :wsl nil :termux nil)
+(my/forja-dep :module "zig" :binary "zls" :type :required :arch "zls" :wsl nil :termux nil)
+
+(my/forja-register-lang
+ :modes   '(zig-mode zig-ts-mode)
+ :run     'my/zig-run       :run-fallback    "zig build run"
+ :build   nil               :build-fallback  "zig build"
+ :test    'my/zig-test      :test-fallback   "zig build test"
+ :format  'lsp-format-buffer :format-fallback nil)
 #+end_src

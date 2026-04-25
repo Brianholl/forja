@@ -113,4 +113,11 @@ Detecta Laravel (artisan test) o PHPUnit."
 
 (add-hook 'php-ts-mode-hook #'my/php-keybindings)
 (add-hook 'php-mode-hook    #'my/php-keybindings)
+
+(my/forja-register-lang
+ :modes   '(php-mode php-ts-mode)
+ :run     'my/php-run           :run-fallback    "php -S localhost:8000"
+ :build   nil                   :build-fallback  "composer install"
+ :test    'my/php-test          :test-fallback   "php artisan test"
+ :format  'my/php-format-buffer :format-fallback nil)
 #+end_src

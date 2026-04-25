@@ -102,10 +102,18 @@
 (add-hook 'lua-ts-mode-hook #'my/lua-keybindings)
 #+end_src
 
-* Verificación de dependencias
+* Dependencias y registro
 
 #+begin_src emacs-lisp
-(when (fboundp 'my/forja-warn-missing)
-  (my/forja-warn-missing "lua" "lua"                 "lua" "lua5.4" "lua")
-  (my/forja-warn-missing "lua" "lua-language-server" "lua-language-server" nil nil))
+(my/forja-dep :module "lua" :binary "lua"                 :type :required
+              :arch "lua" :wsl "lua5.4" :termux "lua")
+(my/forja-dep :module "lua" :binary "lua-language-server" :type :optional
+              :arch "lua-language-server" :wsl nil :termux nil)
+
+(my/forja-register-lang
+ :modes   '(lua-mode lua-ts-mode)
+ :run     'my/lua-run       :run-fallback    nil
+ :build   nil               :build-fallback  nil
+ :test    nil               :test-fallback   nil
+ :format  'lsp-format-buffer :format-fallback nil)
 #+end_src

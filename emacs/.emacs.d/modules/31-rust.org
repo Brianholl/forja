@@ -111,10 +111,18 @@
 (add-hook 'rust-ts-mode-hook #'my/rust-keybindings)
 #+end_src
 
-* Verificación de dependencias
+* Dependencias y registro
 
 #+begin_src emacs-lisp
-(when (fboundp 'my/forja-warn-missing)
-  (my/forja-warn-missing "rust" "cargo"  "rustup" "rustup" "rust")
-  (my/forja-warn-missing "rust" "rustc"  "rustup" "rustup" nil))
+(my/forja-dep :module "rust" :binary "cargo" :type :required
+              :arch "rustup" :wsl "rustup" :termux "rust")
+(my/forja-dep :module "rust" :binary "rustc" :type :required
+              :arch "rustup" :wsl "rustup" :termux nil)
+
+(my/forja-register-lang
+ :modes   '(rust-mode rust-ts-mode)
+ :run     'my/rust-run      :run-fallback    "cargo run"
+ :build   'my/rust-build    :build-fallback  "cargo build"
+ :test    'my/rust-test     :test-fallback   "cargo test"
+ :format  'lsp-format-buffer :format-fallback "cargo fmt")
 #+end_src

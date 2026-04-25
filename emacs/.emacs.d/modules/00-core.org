@@ -421,6 +421,54 @@ Yasnippet: Templates de código como en VS Code.
 
 ;; Consejo: Crea snippets personalizados con M-x yas-new-snippet
 #+end_src
+* 65. Infraestructura FORJA (Dispatch & Macros)
+
+Herramientas centrales del sistema. Deben cargarse antes del hydra de compilación.
+- ~my/forja-call-if-loaded~ — reemplaza el patrón =(if (fboundp ...))= repetido en hydras.
+- ~my/forja-lang-table~ — dispatch table: los módulos de lenguaje se registran aquí al cargarse.
+- ~my/hydra-build~ consulta esta tabla; agregar un lenguaje nuevo = tocar solo su módulo.
+
+#+begin_src emacs-lisp
+;;; ── my/forja-call-if-loaded ─────────────────────────────────────────────────
+
+(defmacro my/forja-call-if-loaded (fn &optional msg)
+  "Llama FN interactivamente si está definido; muestra MSG si no.
+Permite que hydras referencien funciones de módulos opcionales sin errores."
+  `(if (fboundp ',fn)
+       (call-interactively ',fn)
+     (message ,(or msg (format "Módulo no disponible: %s" (symbol-name fn))))))
+
+;;; ── Dispatch Table de Lenguajes ─────────────────────────────────────────────
+
+(defvar my/forja-lang-table (make-hash-table :test #'eq)
+  "Registro de lenguajes FORJA.
+Clave: símbolo de major-mode.
+Valor: plist con :run :run-fallback :build :build-fallback
+              :test :test-fallback :format :format-fallback")
+
+(defun my/forja-register-lang (&rest args)
+  "Registra un lenguaje en la dispatch table de FORJA.
+ARGS es un plist con :modes (lista de major-modes) y acciones opcionales:
+  :run :build :test :format  — símbolos de función definidos en el módulo
+  :run-fallback :build-fallback :test-fallback :format-fallback — strings para compile"
+  (dolist (mode (plist-get args :modes))
+    (puthash mode args my/forja-lang-table)))
+
+(defun my/forja-dispatch (action)
+  "Ejecuta ACTION para el lenguaje del buffer actual.
+ACTION: :run | :build | :test | :format
+Prioridad: 1) función del módulo, 2) fallback string, 3) pide al usuario."
+  (let* ((entry    (gethash major-mode my/forja-lang-table))
+         (fn       (and entry (plist-get entry action)))
+         (fb-key   (intern (concat (substring (symbol-name action) 1) "-fallback")))
+         (fallback (and entry (plist-get entry fb-key))))
+    (cond
+     ((and fn (fboundp fn)) (call-interactively fn))
+     ((stringp fallback)    (compile fallback))
+     (t                     (compile (read-string
+                                      (format "%s cmd: " (symbol-name action))))))))
+#+end_src
+
 * 70. Utilidades Globales y Atajos Custom
 Comandos custom para mejorar productividad.
 
@@ -540,98 +588,32 @@ Si hay un proceso de compilación activo, lo mata."
 
 (defhydra my/hydra-build (:color blue :hint nil)
   "
------- Compilar / Ejecutar ------
+------ Compilar / Ejecutar ──────
  _r_: Run (F5)        _b_: Build
- _t_: Test            _k_: Stop server
------- Navegación ------
+ _t_: Test            _k_: Stop servidor
+------ Navegación ───────────────
  _7_: Árbol (F7)      _._: Definición (F12)
  _,_: Referencias     _e_: Errores
------- Formato ------
+------ Herramientas ─────────────
  _f_: Format          _d_: Debug (PC)
                       _q_: Salir
 "
-  ("r" (cond
-        ((derived-mode-p 'c-mode 'c++-mode)    (my/find-and-compile))
-        ((derived-mode-p 'rust-ts-mode 'rust-mode)
-         (if (fboundp 'my/rust-run) (my/rust-run) (compile "cargo run")))
-        ((derived-mode-p 'go-ts-mode 'go-mode)
-         (if (fboundp 'my/go-run) (my/go-run) (compile "go run .")))
-        ((derived-mode-p 'python-ts-mode 'python-mode)
-         (if (fboundp 'my/python-run) (my/python-run) (compile "python main.py")))
-        ((derived-mode-p 'php-ts-mode 'php-mode)
-         (if (fboundp 'my/php-run) (my/php-run) (compile "php -S localhost:8000")))
-        ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode)
-         (if (fboundp 'my/node-run) (my/node-run) (compile "node .")))
-        ((derived-mode-p 'html-ts-mode 'css-ts-mode 'web-mode 'mhtml-mode)
-         (if (fboundp 'my/run-live-server) (my/run-live-server) (message "live-server no disponible")))
-        ((derived-mode-p 'java-ts-mode 'java-mode)
-         (if (fboundp 'my/java-run) (my/java-run) (compile "mvn -q compile exec:java")))
-        ((derived-mode-p 'kotlin-mode 'kotlin-ts-mode)
-         (if (fboundp 'my/kotlin-run) (my/kotlin-run) (compile "gradle -q run")))
-        ((derived-mode-p 'zig-mode 'zig-ts-mode)
-         (if (fboundp 'my/zig-run) (my/zig-run) (compile "zig build run")))
-        ((derived-mode-p 'lua-mode 'lua-ts-mode)
-         (if (fboundp 'my/lua-run) (my/lua-run)
-           (compile (format "lua %s" (buffer-file-name)))))
-        (t (compile (read-string "Comando: ")))))
-  ("b" (cond
-        ((derived-mode-p 'c-mode 'c++-mode)    (my/find-and-compile))
-        ((derived-mode-p 'rust-ts-mode 'rust-mode)
-         (if (fboundp 'my/rust-build) (my/rust-build) (compile "cargo build")))
-        ((derived-mode-p 'go-ts-mode 'go-mode)
-         (if (fboundp 'my/go-build) (my/go-build) (compile "go build ./...")))
-        ((derived-mode-p 'python-ts-mode 'python-mode)
-         (compile "pip install -r requirements.txt"))
-        ((derived-mode-p 'php-ts-mode 'php-mode)
-         (compile "composer install"))
-        ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode)
-         (compile "npm install"))
-        ((derived-mode-p 'java-ts-mode 'java-mode)
-         (compile "mvn -q compile"))
-        ((derived-mode-p 'kotlin-mode 'kotlin-ts-mode)
-         (compile "gradle -q assemble"))
-        ((derived-mode-p 'zig-mode 'zig-ts-mode)
-         (compile "zig build"))
-        (t (compile (read-string "Build cmd: ")))))
-  ("t" (cond
-        ((derived-mode-p 'c-mode 'c++-mode)
-         (if (fboundp 'my/c-run-tests) (my/c-run-tests) (compile "make test")))
-        ((derived-mode-p 'rust-ts-mode 'rust-mode)
-         (if (fboundp 'my/rust-test) (my/rust-test) (compile "cargo test")))
-        ((derived-mode-p 'go-ts-mode 'go-mode)
-         (if (fboundp 'my/go-test) (my/go-test) (compile "go test ./...")))
-        ((derived-mode-p 'python-ts-mode 'python-mode)
-         (if (fboundp 'my/python-test) (my/python-test) (compile "python -m pytest -v")))
-        ((derived-mode-p 'php-ts-mode 'php-mode)
-         (if (fboundp 'my/php-test) (my/php-test) (compile "php artisan test")))
-        ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode)
-         (if (fboundp 'my/node-test) (my/node-test) (compile "npm test")))
-        ((derived-mode-p 'java-ts-mode 'java-mode)
-         (if (fboundp 'my/java-test) (my/java-test) (compile "mvn -q test")))
-        ((derived-mode-p 'kotlin-mode 'kotlin-ts-mode)
-         (compile "gradle -q test"))
-        ((derived-mode-p 'zig-mode 'zig-ts-mode)
-         (if (fboundp 'my/zig-test) (my/zig-test) (compile "zig build test")))
-        (t (compile (read-string "Test cmd: ")))))
+  ("r" (my/forja-dispatch :run))
+  ("b" (my/forja-dispatch :build))
+  ("t" (my/forja-dispatch :test))
+  ("f" (my/forja-dispatch :format))
   ("d" (if (bound-and-true-p my/is-termux)
            (message "Debug no disponible en Termux")
-         (if (fboundp 'my/debug-current-file) (my/debug-current-file) (gdb (read-string "GDB: ")))))
+         (my/forja-call-if-loaded my/debug-current-file
+                                  "Debug: carga módulo C/C++ primero")))
   ("7" (if (bound-and-true-p my/is-termux)
-           (if (fboundp 'my/termux-sidebar) (my/termux-sidebar) (dired default-directory))
+           (if (fboundp 'my/termux-sidebar)
+               (my/termux-sidebar)
+             (dired default-directory))
          (treemacs)))
   ("." lsp-find-definition)
   ("," lsp-find-references)
   ("e" flycheck-list-errors)
-  ("f" (cond
-        ((derived-mode-p 'c-mode 'c++-mode) (clang-format-buffer))
-        ((derived-mode-p 'rust-ts-mode 'rust-mode) (lsp-format-buffer))
-        ((derived-mode-p 'go-ts-mode 'go-mode) (lsp-format-buffer))
-        ((derived-mode-p 'python-ts-mode 'python-mode) (lsp-format-buffer))
-        ((derived-mode-p 'php-ts-mode 'php-mode)
-         (if (fboundp 'my/php-format-buffer) (my/php-format-buffer) (lsp-format-buffer)))
-        ((derived-mode-p 'js-ts-mode 'typescript-ts-mode 'tsx-ts-mode
-                         'css-ts-mode 'html-ts-mode) (prettier-js))
-        (t (lsp-format-buffer))))
   ("k" (my/stop-server))
   ("q" nil))
 
@@ -1898,18 +1880,12 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   ("C" my/new-cpp-project)
   ("g" my/new-gamedev-project)
   ("+" my/new-gamedev-cpp-project)
-  ("4" (if (fboundp 'godot-create-project)
-           (call-interactively 'godot-create-project)
-         (message "Módulo Godot no cargado")) :color blue)
-  ("u" (if (fboundp 'my/new-ue-project)
-           (call-interactively 'my/new-ue-project)
-         (message "Módulo Unreal no cargado")) :color blue)
+  ("4" (my/forja-call-if-loaded godot-create-project "Módulo Godot no cargado") :color blue)
+  ("u" (my/forja-call-if-loaded my/new-ue-project   "Módulo Unreal no cargado") :color blue)
   ("r" my/new-rust-project)
   ("R" my/new-rust-api-project)
   ("G" my/new-go-project)
-  ("N" (if (fboundp 'my/new-nob-project)
-           (call-interactively 'my/new-nob-project)
-         (message "Módulo cpp no cargado")) :color blue)
+  ("N" (my/forja-call-if-loaded my/new-nob-project  "Módulo cpp no cargado") :color blue)
   ("n" my/hydra-new-project-2/body :color blue)
   ("q" nil))
 
@@ -1933,24 +1909,16 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   ("p" my/new-python-project)
   ("P" my/new-php-project)
   ("T" my/new-ts-project)
-  ("E" (if (fboundp 'my/new-esp32-project)
-           (call-interactively 'my/new-esp32-project)
-         (message "Módulo cpp no cargado")) :color blue)
+  ("E" (my/forja-call-if-loaded my/new-esp32-project "Módulo cpp no cargado") :color blue)
   ("l" (if (fboundp 'my/new-lua-project)
            (let ((type (completing-read "Tipo Lua: " '("script" "love2d") nil t)))
              (if (string= type "love2d")
                  (call-interactively 'my/new-love-project)
                (call-interactively 'my/new-lua-project)))
          (message "Módulo Lua no cargado")) :color blue)
-  ("z" (if (fboundp 'my/new-zig-project)
-           (call-interactively 'my/new-zig-project)
-         (message "Módulo Zig no cargado")) :color blue)
-  ("j" (if (fboundp 'my/new-java-project)
-           (call-interactively 'my/new-java-project)
-         (message "Módulo Java no cargado")) :color blue)
-  ("k" (if (fboundp 'my/new-kotlin-project)
-           (call-interactively 'my/new-kotlin-project)
-         (message "Módulo Java/Kotlin no cargado")) :color blue)
+  ("z" (my/forja-call-if-loaded my/new-zig-project    "Módulo Zig no cargado") :color blue)
+  ("j" (my/forja-call-if-loaded my/new-java-project   "Módulo Java no cargado") :color blue)
+  ("k" (my/forja-call-if-loaded my/new-kotlin-project "Módulo Java/Kotlin no cargado") :color blue)
   ("b" my/hydra-new-project/body :color blue)
   ("q" nil))
 
@@ -1971,59 +1939,105 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
 "
   ("x" my/hydra-build/body)
   ("n" my/hydra-new-project/body)
-  ("g" (if (fboundp 'my/hydra-gtd/body)
-           (my/hydra-gtd/body)
-         (message "Módulo GTD no cargado")))
-  ("S" (if (fboundp 'my/hydra-docs/body)
-           (my/hydra-docs/body)
-         (message "Módulo Estandarización no cargado")))
-  ("M" (if (fboundp 'hydra-modelos/body)
-           (hydra-modelos/body)
-         (message "Módulo Modelos IA no cargado")))
-  ("U" (if (fboundp 'hydra-multiusuario/body)
-           (hydra-multiusuario/body)
-         (message "Módulo Multiusuario no cargado")))
+  ("g" (my/forja-call-if-loaded my/hydra-gtd/body          "Módulo GTD no cargado"))
+  ("S" (my/forja-call-if-loaded my/hydra-docs/body         "Módulo Estandarización no cargado"))
+  ("M" (my/forja-call-if-loaded hydra-modelos/body         "Módulo Modelos IA no cargado"))
+  ("U" (my/forja-call-if-loaded hydra-multiusuario/body    "Módulo Multiusuario no cargado"))
   ("d" (switch-to-buffer (get-buffer-create "*dashboard*")))
-  ("h" (if (fboundp 'my/forja-doctor)
-           (my/forja-doctor)
-         (message "Doctor no disponible")))
+  ("h" (my/forja-call-if-loaded my/forja-doctor            "Doctor no disponible"))
   ("q" nil))
 
 (global-set-key (kbd "C-c F") #'my/hydra-forja/body)
 #+end_src
 
-* 95. Sistema de advertencias de dependencias
+* 95. Sistema de dependencias
 
-Cada módulo de lenguaje llama a ~my/forja-warn-missing~ al cargarse.
-Al terminar el startup, ~my/forja-report-missing~ muestra un resumen
-compacto en el echo area y sugiere correr ~M-x my/forja-doctor~.
+Cada módulo de lenguaje registra sus dependencias con ~my/forja-dep~ al cargarse.
+~my/forja-warn-missing~ se mantiene como alias para compatibilidad con módulos existentes.
+Al terminar el startup, ~my/forja-report-missing~ muestra:
+- Solo opcionales → mensaje breve en el echo area.
+- Alguna requerida → buffer =*FORJA — Dependencias Faltantes*= con tabla y comandos.
 
 #+begin_src emacs-lisp
 (defvar my/forja-missing-deps nil
-  "Lista de dependencias faltantes detectadas al cargar módulos.
-Cada entrada es (MODULO BINARIO HINT-INSTALACION).")
+  "Lista de dependencias faltantes.
+Cada entrada es un plist: (:module :binary :type :hint).")
 
-(defun my/forja-warn-missing (module binary
-                               &optional arch-pkg wsl-pkg termux-pkg)
-  "Registra una advertencia si BINARY no está en PATH.
-MODULE es el nombre del módulo que lo necesita.
-ARCH-PKG, WSL-PKG, TERMUX-PKG son los nombres de paquete por plataforma."
-  (unless (executable-find binary)
-    (let ((hint (cond
-                  ((bound-and-true-p my/is-termux)
-                   (when termux-pkg (format "pkg install %s" termux-pkg)))
-                  ((bound-and-true-p my/is-wsl)
-                   (when wsl-pkg (format "sudo apt install %s" wsl-pkg)))
-                  (t
-                   (when arch-pkg (format "sudo pacman -S %s" arch-pkg))))))
-      (push (list module binary hint) my/forja-missing-deps))))
+(defun my/forja-dep (&rest args)
+  "Registra una dependencia si su binario no está en PATH.
+ARGS plist: :module (string) :binary (string) :type (:required|:optional)
+            :arch (string|nil) :wsl (string|nil) :termux (string|nil)"
+  (let ((module  (plist-get args :module))
+        (binary  (plist-get args :binary))
+        (type    (or (plist-get args :type) :required))
+        (arch    (plist-get args :arch))
+        (wsl     (plist-get args :wsl))
+        (termux  (plist-get args :termux)))
+    (unless (executable-find binary)
+      (let ((hint (cond
+                    ((bound-and-true-p my/is-termux)
+                     (when termux (format "pkg install %s" termux)))
+                    ((bound-and-true-p my/is-wsl)
+                     (when wsl (format "sudo apt install %s" wsl)))
+                    (t
+                     (when arch (format "sudo pacman -S %s" arch))))))
+        (push (list :module module :binary binary :type type :hint hint)
+              my/forja-missing-deps)))))
+
+(defun my/forja-warn-missing (module binary &optional arch-pkg wsl-pkg termux-pkg)
+  "Alias de compatibilidad — delega a my/forja-dep con tipo :required."
+  (my/forja-dep :module module :binary binary :type :required
+                :arch arch-pkg :wsl wsl-pkg :termux termux-pkg))
 
 (defun my/forja-report-missing ()
-  "Muestra resumen de dependencias faltantes al terminar el startup."
+  "Muestra dependencias faltantes al terminar el startup.
+Si hay requeridas abre un buffer detallado; si solo opcionales, mensaje breve."
   (when my/forja-missing-deps
-    (let ((n (length my/forja-missing-deps)))
-      (message "FORJA: %d dependencia%s faltante%s — M-x my/forja-doctor para ver cuales"
-               n (if (= n 1) "" "s") (if (= n 1) "" "s")))))
+    (let* ((required (cl-remove-if-not
+                      (lambda (d) (eq (plist-get d :type) :required))
+                      my/forja-missing-deps))
+           (optional (cl-remove-if-not
+                      (lambda (d) (eq (plist-get d :type) :optional))
+                      my/forja-missing-deps))
+           (n-opt (length optional)))
+      (if (null required)
+          (message "FORJA: %d herramienta%s opcional%s no encontrada%s — M-x my/forja-doctor"
+                   n-opt
+                   (if (= n-opt 1) "" "s")
+                   (if (= n-opt 1) "" "es")
+                   (if (= n-opt 1) "" "s"))
+        (with-current-buffer (get-buffer-create "*FORJA — Dependencias Faltantes*")
+          (read-only-mode -1)
+          (erase-buffer)
+          (insert (propertize "  FORJA — Dependencias Faltantes\n"
+                              'face '(:foreground "#ef4444" :weight bold :height 1.1)))
+          (insert (propertize (concat "  " (make-string 50 ?─) "\n\n")
+                              'face 'font-lock-comment-face))
+          (insert (propertize "  Requeridas:\n" 'face '(:weight bold)))
+          (dolist (dep required)
+            (insert (format "  ✗  %-22s  [módulo: %s]\n"
+                            (plist-get dep :binary)
+                            (plist-get dep :module)))
+            (when (plist-get dep :hint)
+              (insert (propertize (format "       → %s\n" (plist-get dep :hint))
+                                  'face '(:foreground "#f59e0b")))))
+          (when optional
+            (insert "\n")
+            (insert (propertize "  Opcionales:\n" 'face '(:weight bold)))
+            (dolist (dep optional)
+              (insert (format "  ○  %-22s  [módulo: %s]\n"
+                              (plist-get dep :binary)
+                              (plist-get dep :module)))
+              (when (plist-get dep :hint)
+                (insert (propertize (format "       → %s\n" (plist-get dep :hint))
+                                    'face '(:foreground "#94a3b8"))))))
+          (insert "\n")
+          (insert (propertize "  M-x my/forja-doctor para diagnóstico completo.\n"
+                              'face 'font-lock-comment-face))
+          (read-only-mode 1)
+          (goto-char (point-min)))
+        (display-buffer "*FORJA — Dependencias Faltantes*"
+                        '(display-buffer-pop-up-window (window-height . 0.3)))))))
 
 (add-hook 'emacs-startup-hook #'my/forja-report-missing 90)
 #+end_src

@@ -215,11 +215,27 @@
 (add-hook 'kotlin-ts-mode-hook #'my/kotlin-keybindings)
 #+end_src
 
-* 70. Verificación de dependencias
+* 70. Dependencias y registro
 
 #+begin_src emacs-lisp
-(when (fboundp 'my/forja-warn-missing)
-  (my/forja-warn-missing "java"   "java"   "jdk17-openjdk"  "default-jdk"  "openjdk-17")
-  (my/forja-warn-missing "java"   "mvn"    "maven"          "maven"        "maven")
-  (my/forja-warn-missing "kotlin" "gradle" "gradle"         "gradle"       "gradle"))
+(my/forja-dep :module "java"   :binary "java"   :type :required
+              :arch "jdk17-openjdk" :wsl "default-jdk" :termux "openjdk-17")
+(my/forja-dep :module "java"   :binary "mvn"    :type :required
+              :arch "maven" :wsl "maven" :termux "maven")
+(my/forja-dep :module "kotlin" :binary "gradle" :type :required
+              :arch "gradle" :wsl "gradle" :termux "gradle")
+
+(my/forja-register-lang
+ :modes   '(java-mode java-ts-mode)
+ :run     'my/java-run      :run-fallback    "mvn -q compile exec:java"
+ :build   nil               :build-fallback  "mvn -q compile"
+ :test    'my/java-test     :test-fallback   "mvn -q test"
+ :format  'lsp-format-buffer :format-fallback nil)
+
+(my/forja-register-lang
+ :modes   '(kotlin-mode kotlin-ts-mode)
+ :run     'my/kotlin-run    :run-fallback    "gradle -q run"
+ :build   nil               :build-fallback  "gradle -q assemble"
+ :test    nil               :test-fallback   "gradle -q test"
+ :format  'lsp-format-buffer :format-fallback nil)
 #+end_src

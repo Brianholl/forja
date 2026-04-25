@@ -330,5 +330,19 @@ Pregunta el tipo con completing-read."
     (insert (format "export function saludo(nombre: string): string {\n"))
     (insert (format "  return `Hola desde %s, ${nombre}!`;\n" name))
     (insert "}\n")))
+
+(my/forja-register-lang
+ :modes   '(js-mode js-ts-mode typescript-mode typescript-ts-mode tsx-ts-mode)
+ :run     'my/node-run          :run-fallback    "node ."
+ :build   nil                   :build-fallback  "npm install"
+ :test    'my/node-test         :test-fallback   "npm test"
+ :format  'my/node-format-buffer :format-fallback nil)
+
+(my/forja-register-lang
+ :modes   '(html-mode html-ts-mode mhtml-mode css-mode css-ts-mode web-mode)
+ :run     'my/run-live-server   :run-fallback    "python -m http.server"
+ :build   nil                   :build-fallback  "npm install"
+ :test    nil                   :test-fallback   nil
+ :format  nil                   :format-fallback nil)
 #+end_src
 

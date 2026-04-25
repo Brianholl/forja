@@ -65,10 +65,18 @@
 (add-hook 'go-ts-mode-hook #'my/go-keybindings)
 #+end_src
 
-* Verificación de dependencias
+* Dependencias y registro
 
 #+begin_src emacs-lisp
-(when (fboundp 'my/forja-warn-missing)
-  (my/forja-warn-missing "go" "go"    "go" "golang-go" nil)
-  (my/forja-warn-missing "go" "gopls" "gopls" "golang-golang-x-tools" nil))
+(my/forja-dep :module "go" :binary "go"    :type :required
+              :arch "go" :wsl "golang-go" :termux nil)
+(my/forja-dep :module "go" :binary "gopls" :type :required
+              :arch "gopls" :wsl "golang-golang-x-tools" :termux nil)
+
+(my/forja-register-lang
+ :modes   '(go-mode go-ts-mode)
+ :run     'my/go-run        :run-fallback    "go run ."
+ :build   'my/go-build      :build-fallback  "go build ./..."
+ :test    'my/go-test       :test-fallback   "go test ./..."
+ :format  'lsp-format-buffer :format-fallback nil)
 #+end_src

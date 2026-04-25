@@ -552,14 +552,20 @@ Submenú de herramientas avanzadas de C, accesible desde cualquier buffer C/C++.
 ) ;; fin (unless my/is-termux) — GDB hydra
 #+end_src
 
-* Verificación de dependencias
+* Dependencias y registro
 
 #+begin_src emacs-lisp
-(when (fboundp 'my/forja-warn-missing)
-  (my/forja-warn-missing "cpp" "gcc"      "gcc"   "build-essential" "clang")
-  (my/forja-warn-missing "cpp" "g++"      "gcc"   "build-essential" "clang")
-  (my/forja-warn-missing "cpp" "clangd"   "clang" "clangd"          "clang")
-  (my/forja-warn-missing "cpp" "make"     "make"  "make"            "make")
-  (unless (bound-and-true-p my/is-termux)
-    (my/forja-warn-missing "cpp" "valgrind" "valgrind" "valgrind" nil)))
+(my/forja-dep :module "cpp" :binary "gcc"    :type :required :arch "gcc"   :wsl "build-essential" :termux "clang")
+(my/forja-dep :module "cpp" :binary "g++"    :type :required :arch "gcc"   :wsl "build-essential" :termux "clang")
+(my/forja-dep :module "cpp" :binary "clangd" :type :required :arch "clang" :wsl "clangd"          :termux "clang")
+(my/forja-dep :module "cpp" :binary "make"   :type :required :arch "make"  :wsl "make"            :termux "make")
+(unless (bound-and-true-p my/is-termux)
+  (my/forja-dep :module "cpp" :binary "valgrind" :type :optional :arch "valgrind" :wsl "valgrind" :termux nil))
+
+(my/forja-register-lang
+ :modes   '(c-mode c-ts-mode c++-mode c++-ts-mode)
+ :run     'my/find-and-compile :run-fallback    "make run"
+ :build   'my/find-and-compile :build-fallback  "make"
+ :test    'my/c-run-tests      :test-fallback   "make test"
+ :format  'clang-format-buffer :format-fallback nil)
 #+end_src
