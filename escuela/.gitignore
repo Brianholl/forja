@@ -1,0 +1,7 @@
+# Binarios C/C++
+clase-01-c/oraculo
+clase-02-cpp/forja
+
+# Rust build artifacts
+clase-03-rust/target/
+clase-03-rust/Cargo.lock
