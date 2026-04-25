@@ -32,14 +32,22 @@ Cada archivo cumple un rol específico en el flujo GTD.
   (message "📁 Directorio GTD creado en: %s" my/gtd-dir))
 
 ;; --- Archivos del sistema ---
-(defvar my/gtd-inbox    (expand-file-name "inbox.org"      my/gtd-dir))
-(defvar my/gtd-projects (expand-file-name "proyectos.org"  my/gtd-dir))
-(defvar my/gtd-someday  (expand-file-name "algun-dia.org"  my/gtd-dir))
-(defvar my/gtd-tickler  (expand-file-name "tickler.org"    my/gtd-dir))
-(defvar my/gtd-archivo  (expand-file-name "archivo.org"    my/gtd-dir))
-(defvar my/gtd-habitos  (expand-file-name "habitos.org"    my/gtd-dir))
-(defvar my/gtd-calendar (expand-file-name "calendario.org" my/gtd-dir))
-(defvar my/gtd-soporte  (expand-file-name "soporte.org"    my/gtd-dir))
+(defvar my/gtd-inbox       (expand-file-name "inbox.org"       my/gtd-dir))
+(defvar my/gtd-projects    (expand-file-name "proyectos.org"   my/gtd-dir))
+(defvar my/gtd-someday     (expand-file-name "algun-dia.org"   my/gtd-dir))
+(defvar my/gtd-tickler     (expand-file-name "tickler.org"     my/gtd-dir))
+(defvar my/gtd-archivo     (expand-file-name "archivo.org"     my/gtd-dir))
+(defvar my/gtd-habitos     (expand-file-name "habitos.org"     my/gtd-dir))
+(defvar my/gtd-calendar    (expand-file-name "calendario.org"  my/gtd-dir))
+(defvar my/gtd-soporte     (expand-file-name "soporte.org"     my/gtd-dir))
+(defvar my/gtd-seguimiento (expand-file-name "seguimiento.org" my/gtd-dir))
+
+;; --- Google Calendar sync (org-caldav) ---
+;; Activar: definir en ~/.emacs.d/local.el las variables my/caldav-*
+;; Ver how_to/13_Flujo_TAO.md para el proceso completo de OAuth.
+(defvar my/caldav-calendar-id   nil "ID del calendario Google (ej: usuario@gmail.com).")
+(defvar my/caldav-client-id     nil "OAuth2 client_id de Google Cloud Console.")
+(defvar my/caldav-client-secret nil "OAuth2 client_secret de Google Cloud Console.")
 
 ;; --- Función para crear archivos semilla si no existen ---
 (defun my/gtd-ensure-file (filepath title &optional content)
@@ -75,6 +83,9 @@ Cada archivo cumple un rol específico en el flujo GTD.
 
 (my/gtd-ensure-file my/gtd-soporte "Tickets de Soporte"
   "* Abiertos\n* En Progreso\n* Resueltos\n")
+
+(my/gtd-ensure-file my/gtd-seguimiento "Seguimiento de Alumnos"
+  "* Activos\n* Evaluación\n* Completados\n")
 #+end_src
 
 * 20. Estados y Workflow de Tareas
@@ -136,7 +147,8 @@ Plantillas disponibles:
 - =n= Nota de referencia → inbox.org
 - =p= Nueva tarea de proyecto → proyectos.org
 - =c= Compromiso con fecha → calendario.org
-- =s= Ticket de soporte → soporte.org (Módulo 4)
+- =s= Ticket de soporte → soporte.org (Módulo 4 TAO)
+- =a= Seguimiento de alumno → seguimiento.org (TAO)
 - =h= Nuevo hábito → habitos.org
 
 #+begin_src emacs-lisp
@@ -180,6 +192,20 @@ Plantillas disponibles:
                   "** Resolución\n")
          :empty-lines 1)
 
+        ;; --- Seguimiento de alumno (TAO) ---
+        ("a" "Seguimiento de alumno"
+         entry (file+headline ,my/gtd-seguimiento "Activos")
+         ,(concat "* NEXT [#B] %^{Nombre del alumno}\n"
+                  ":PROPERTIES:\n"
+                  ":CREATED:  %U\n"
+                  ":ALUMNO:   %^{Nombre completo}\n"
+                  ":MODULO:   %^{Módulo|1|2|3|4}\n"
+                  ":ESTADO:   %^{Estado|inicio|desarrollo|evaluación|completado}\n"
+                  ":END:\n"
+                  "** Observaciones\n%?\n"
+                  "** Próxima acción\n")
+         :empty-lines 1)
+
         ;; --- Hábitos ---
         ("h" "Nuevo hábito"
          entry (file+headline ,my/gtd-habitos "Rutina Diaria")
@@ -194,11 +220,12 @@ Plantillas disponibles:
 
 ;; --- Refile: mover tareas procesadas a su destino ---
 (setq org-refile-targets
-      `((,my/gtd-projects . (:maxlevel . 3))
-        (,my/gtd-someday  . (:maxlevel . 2))
-        (,my/gtd-tickler  . (:maxlevel . 2))
-        (,my/gtd-archivo  . (:maxlevel . 2))
-        (,my/gtd-soporte  . (:maxlevel . 2))))
+      `((,my/gtd-projects    . (:maxlevel . 3))
+        (,my/gtd-someday     . (:maxlevel . 2))
+        (,my/gtd-tickler     . (:maxlevel . 2))
+        (,my/gtd-archivo     . (:maxlevel . 2))
+        (,my/gtd-soporte     . (:maxlevel . 2))
+        (,my/gtd-seguimiento . (:maxlevel . 2))))
 
 (setq org-refile-use-outline-path 'file)
 (setq org-outline-path-complete-in-steps nil) ; Completar ruta completa en ivy/counsel
@@ -225,7 +252,8 @@ Vistas incluidas:
             my/gtd-calendar
             my/gtd-habitos
             my/gtd-tickler
-            my/gtd-soporte))
+            my/gtd-soporte
+            my/gtd-seguimiento))
 
 ;; --- Vistas personalizadas ---
 (setq org-agenda-custom-commands
@@ -420,8 +448,10 @@ Ideal para la rutina diaria del Módulo 1 (revisión de inbox, time-blocking).
 #+end_src
 
 * 80. Calendario e Integración Externa
-Vista de calendario gráfico con calfw + integración con org-agenda.
-Si necesitás sincronizar con Google Calendar, descomenta la sección de org-caldav.
+Vista de calendario gráfico con calfw + sincronización bidireccional con Google Calendar via org-caldav.
+
+Para activar la sync con Google Calendar: definir =my/caldav-calendar-id= en =~/.emacs.d/local.el=.
+Ver =how_to/13_Flujo_TAO.md= para el proceso completo de OAuth.
 
 #+begin_src emacs-lisp
 ;; --- Calendario visual (calfw) ---
@@ -449,16 +479,27 @@ Si necesitás sincronizar con Google Calendar, descomenta la sección de org-cal
    (list (cfw:org-create-source "medium purple"))))
 
 ;; --- org-caldav (Google Calendar sync) ---
-;; Descomentar cuando se necesite sincronización bidireccional.
-;; Requiere: crear credenciales OAuth en Google Cloud Console.
-;;
-;; (use-package org-caldav
-;;   :defer t
-;;   :config
-;;   (setq org-caldav-url "https://www.googleapis.com/caldav/v2")
-;;   (setq org-caldav-calendar-id "TU_CALENDAR_ID@group.calendar.google.com")
-;;   (setq org-caldav-inbox my/gtd-calendar)
-;;   (setq org-caldav-files (list my/gtd-calendar)))
+;; Activo si my/caldav-calendar-id está definido en ~/.emacs.d/local.el
+(when my/caldav-calendar-id
+  (use-package org-caldav
+    :defer t
+    :config
+    (setq org-caldav-url             "https://apidata.googleusercontent.com/caldav/v2")
+    (setq org-caldav-calendar-id     my/caldav-calendar-id)
+    (setq org-caldav-inbox           my/gtd-calendar)
+    (setq org-caldav-files           (list my/gtd-calendar))
+    (setq org-caldav-sync-direction  'twoway)
+    (setq org-caldav-delete-calendar-entries 'ask)
+    (when my/caldav-client-id
+      (setq org-caldav-oauth2-client-id     my/caldav-client-id)
+      (setq org-caldav-oauth2-client-secret my/caldav-client-secret))))
+
+(defun my/gtd-caldav-sync ()
+  "Sincroniza con Google Calendar si org-caldav está configurado."
+  (interactive)
+  (if (and my/caldav-calendar-id (fboundp 'org-caldav-sync))
+      (progn (message "Sincronizando con Google Calendar...") (org-caldav-sync))
+    (message "org-caldav no configurado. Ver how_to/13_Flujo_TAO.md para activarlo.")))
 #+end_src
 
 * 90. IA Local para Organización (gptel + Ollama)
@@ -558,11 +599,12 @@ El hydra permite navegación rápida sin recordar cada combinación.
 
 #+begin_src emacs-lisp
 ;; --- Funciones de navegación rápida ---
-(defun my/gtd-open-inbox ()    (interactive) (find-file my/gtd-inbox))
-(defun my/gtd-open-projects () (interactive) (find-file my/gtd-projects))
-(defun my/gtd-open-someday ()  (interactive) (find-file my/gtd-someday))
-(defun my/gtd-open-soporte ()  (interactive) (find-file my/gtd-soporte))
-(defun my/gtd-open-habitos ()  (interactive) (find-file my/gtd-habitos))
+(defun my/gtd-open-inbox ()       (interactive) (find-file my/gtd-inbox))
+(defun my/gtd-open-projects ()    (interactive) (find-file my/gtd-projects))
+(defun my/gtd-open-someday ()     (interactive) (find-file my/gtd-someday))
+(defun my/gtd-open-soporte ()     (interactive) (find-file my/gtd-soporte))
+(defun my/gtd-open-habitos ()     (interactive) (find-file my/gtd-habitos))
+(defun my/gtd-open-seguimiento () (interactive) (find-file my/gtd-seguimiento))
 
 ;; --- Hydra: menú visual de GTD ---
 (use-package hydra
@@ -571,17 +613,19 @@ El hydra permite navegación rápida sin recordar cada combinación.
 (defhydra my/hydra-gtd (:color blue :hint nil)
   "
    SISTEMA GTD
-  --------------------------------------------------
+  ---------------------------------------------------------------
    ARCHIVOS         AGENDA          HERRAMIENTAS
    _i_: Inbox        _d_: Dashboard    _c_: Capturar
    _p_: Proyectos    _n_: Next         _e_: Eisenhower
    _s_: Soporte      _w_: Waiting      _r_: Revision
    _h_: Habitos      _@_: Contextos    _k_: Calendario
-   _m_: Algun dia    _R_: Rev.Semanal  _q_: Salir
+   _m_: Algun dia    _R_: Rev.Semanal  _y_: Sync Gcal
+   _A_: Alumnos
 
    IA LOCAL
-   _a p_: Procesar item  _a c_: Gen.Checklist
-   _a r_: Resumir notas
+   _a p_: Procesar item  _a c_: Gen.Checklist  _a r_: Resumir
+  ---------------------------------------------------------------
+   _q_: Salir
 "
   ;; Archivos
   ("i" my/gtd-open-inbox)
@@ -589,6 +633,7 @@ El hydra permite navegación rápida sin recordar cada combinación.
   ("s" my/gtd-open-soporte)
   ("h" my/gtd-open-habitos)
   ("m" my/gtd-open-someday)
+  ("A" my/gtd-open-seguimiento)
   ;; Agenda
   ("d" (org-agenda nil "d"))
   ("n" (org-agenda nil "n"))
@@ -600,6 +645,7 @@ El hydra permite navegación rápida sin recordar cada combinación.
   ("e" my/gtd-eisenhower-classify)
   ("r" my/gtd-revision-semanal)
   ("k" my/gtd-calendar)
+  ("y" my/gtd-caldav-sync)
   ;; IA
   ("a p" my/gtd-ai-procesar-item)
   ("a c" my/gtd-ai-generar-checklist)

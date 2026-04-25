@@ -956,25 +956,71 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
 (defhydra my/hydra-forja (:color blue :hint nil)
   "
   FORJA — Centro de Control
-  ──────────────────────────────────────────────
+  ──────────────────────────────────────────────────────
   _x_  Compilar / Ejecutar   _n_  Nuevo Proyecto
   _g_  GTD / Agenda          _S_  Docs / Estándares
   _M_  Modelos IA            _U_  Multiusuario
   _d_  Dashboard             _h_  Doctor (salud)
-  ──────────────────────────────────────────────
+  _e_  Modo Examen (toggle)
+  ──────────────────────────────────────────────────────
   _q_  cancelar
 "
   ("x" my/hydra-build/body)
   ("n" my/hydra-new-project/body)
   ("g" (my/forja-call-if-loaded my/hydra-gtd/body          "Módulo GTD no cargado"))
   ("S" (my/forja-call-if-loaded my/hydra-docs/body         "Módulo Estandarización no cargado"))
-  ("M" (my/forja-call-if-loaded my/hydra-modelos/body         "Módulo Modelos IA no cargado"))
-  ("U" (my/forja-call-if-loaded my/hydra-multiusuario/body    "Módulo Multiusuario no cargado"))
+  ("M" (my/forja-call-if-loaded my/hydra-modelos/body      "Módulo Modelos IA no cargado"))
+  ("U" (my/forja-call-if-loaded my/hydra-multiusuario/body "Módulo Multiusuario no cargado"))
   ("d" (switch-to-buffer (get-buffer-create "*dashboard*")))
   ("h" (my/forja-call-if-loaded my/forja-doctor            "Doctor no disponible"))
+  ("e" my/forja-toggle-exam-mode)
   ("q" nil))
 
 (global-set-key (kbd "C-c F") #'my/hydra-forja/body)
+
+;; === Modo Examen (TAO) ===
+
+(defvar my/forja-exam-mode-active nil
+  "t cuando el modo examen está activo. Suspende IA y marca el entorno.")
+
+(defun my/forja-exam--block (&rest _)
+  "Señal de error si el modo examen está activo."
+  (when my/forja-exam-mode-active
+    (user-error "[MODO EXAMEN] IA deshabilitada — desactivá con C-c F e")))
+
+(defun my/forja-exam-mode-enable ()
+  "Activa el modo examen: suspende IA local y muestra indicador en modeline."
+  (interactive)
+  (setq my/forja-exam-mode-active t)
+  (advice-add 'gptel-send    :before #'my/forja-exam--block)
+  (advice-add 'gptel-request :before #'my/forja-exam--block)
+  (dolist (buf (buffer-list))
+    (when (string-prefix-p "*aider" (buffer-name buf))
+      (let ((proc (get-buffer-process buf)))
+        (when proc (delete-process proc)))))
+  (add-to-list 'global-mode-string
+               '(:eval (when my/forja-exam-mode-active
+                         (propertize "  [EXAMEN]  "
+                                     'face '(:foreground "#ef4444" :weight bold)))))
+  (force-mode-line-update t)
+  (message "MODO EXAMEN ACTIVO — IA suspendida. Desactivar: C-c F e"))
+
+(defun my/forja-exam-mode-disable ()
+  "Desactiva el modo examen: restaura acceso a IA."
+  (interactive)
+  (setq my/forja-exam-mode-active nil)
+  (advice-remove 'gptel-send    #'my/forja-exam--block)
+  (advice-remove 'gptel-request #'my/forja-exam--block)
+  (force-mode-line-update t)
+  (message "Modo examen desactivado — IA habilitada"))
+
+(defun my/forja-toggle-exam-mode ()
+  "Alterna el modo examen."
+  (interactive)
+  (if my/forja-exam-mode-active
+      (my/forja-exam-mode-disable)
+    (when (yes-or-no-p "¿Activar MODO EXAMEN? Se suspenderá la IA hasta que lo desactives. ")
+      (my/forja-exam-mode-enable))))
 #+end_src
 
 * 95. Sistema de dependencias

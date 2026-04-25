@@ -4,108 +4,134 @@ Documento vivo de planificación. Actualizar al cerrar cada ciclo de trabajo.
 
 ---
 
-## Estado Actual — v1.0 (Abril 2026)
+## Estado Actual — v2.0 (Abril 2026)
 
 ### Implementado
 
 | Área | Detalle |
 |:---|:---|
-| **Módulos** | 22 módulos `.org` completos (00-core → 99-misc) |
+| **Módulos** | 22 módulos `.org` (00-core → 99-misc); generadores en sus módulos de lenguaje |
 | **Plataformas** | Arch Linux · Termux (Android) · WSL2 |
 | **Perfiles** | Minimal · Moderado · Full |
-| **Lenguajes** | C/C++ · Rust · Go · Python · PHP · JS/TS · GDScript |
-| **IA local** | Aider + Ollama, modelos seleccionables (0.5b–32b) |
-| **Agentes** | PicoClaw (ligero) + OpenClaw (completo) |
-| **Multiusuario** | Gestión de alumnos, sync Google Drive, backup USB |
-| **Automatización** | n8n por alumno, webhooks, GTD |
-| **Instalador** | `forja-menu.sh` TUI + `install.sh` / `update.sh` |
-| **Docs** | 13 guías how-to pedagógicas (00–12) |
+| **Lenguajes** | C/C++ · Rust · Go · Python · PHP · JS/TS · GDScript · Lua · Zig · Java · Kotlin |
+| **IA local** | Aider + Ollama, modelos seleccionables (0.5b–32b); traducción integrada `C-c T` |
+| **Agentes** | PicoClaw (ligero) + OpenClaw (completo), lazy-load 3s post-startup |
+| **Multiusuario** | Alumnos, sesiones y progreso, sync Drive (rclone), backup USB, vista docente |
+| **GTD** | inbox · proyectos · tickler · hábitos · calendario · revisión semanal · IA-GTD |
+| **Soporte (TAO)** | Tickets integrados en GTD (`50-gtd.el`), dashboard de soporte en agenda |
+| **Automatización** | n8n por alumno, webhooks, GTD + n8n |
+| **Instalador** | `forja-menu.sh` TUI + `install.sh` / `update.sh` / `--verify` + `forja doctor` |
+| **Distribución** | PKGBUILD AUR `forja-git` generado |
+| **Arquitectura** | Encapsulamiento: generadores en módulos, hydras `my/hydra-*`, dispatch table |
+| **Docs** | 13 guías how-to (00–12) + README v2.0 |
 
 ---
 
-## v1.1 — UX y Dashboard
+## Pendientes para Producto Terminado
 
-> Objetivo: mejorar la experiencia desde el primer segundo de uso.
+Los ítems con `[ ]` son los que quedan antes de llamar a FORJA un producto **publicable y cerrado**.
 
-- [x] **Dashboard — saludo personalizado:** mostrar nombre del usuario activo al abrir Emacs
-- [x] **Dashboard — versión de Forja:** mostrar la versión actual (leída desde `~/.forja/profile.conf`)
-- [x] **Dashboard — proyectos recientes:** listar proyectos del usuario ordenados por fecha de modificación
-- [x] **Dashboard — acceso directo a `C-c n`:** botón visible desde el dashboard para crear proyecto nuevo
-- [x] **Menú `C-c n` paginado:** hydra de 2 páginas, máx. 7 elementos por página, navegación n/b/q
+### Bloque A — Taller de Asistencia Operativa (TAO) ✓ v2.1
 
----
+- [x] **org-caldav:** activado y documentado (`C-c g y`, configurable desde `local.el`)
+- [x] **Modo examen `C-c F e`:** suspende gptel/Aider/agentes; indicador en modeline
+- [x] **Template `a` (alumno):** `seguimiento.org` integrado en GTD
+- [x] **Widget GTD en dashboard:** tickets, alumnos activos e inbox al arrancar
+- [x] **How-to 13 — Flujo TAO:** guía docente completa
 
-## v1.2 — C como lenguaje mimado
+### Bloque B — Compatibilidad y Distribución
 
-> Objetivo: C debe tener el soporte más completo y pulido de todos los lenguajes.
-
-- [x] **Unit testing:** Unity Test Framework — `C-c x t` → `make test` (descarga Unity automáticamente)
-- [x] **Cobertura de código:** gcov + lcov → `make coverage`, abre `coverage/index.html`
-- [x] **Sanitizers:** ASan + UBSan → `make asan` / `make ubsan` desde `C-c X`
-- [x] **Valgrind:** `make valgrind` desde `C-c X v`
-- [x] **GDB hydra mejorada:** `my/hydra-gdb` con run/step/next/finish/break/watch/print — `C-c G`
-- [x] **Análisis estático:** clang-tidy desde `C-c X s` (clangd ya usa `--clang-tidy`)
-- [x] **Template C profesional:** Makefile con targets `build`, `test`, `coverage`, `asan`, `ubsan`, `valgrind`, `clean`
-- [ ] **FASM completo:** snippets y hydra — pendiente (movido a backlog)
+- [ ] **Matriz de compatibilidad:** tabla plataforma × perfil × lenguaje generada desde `test.sh` → `COMPATIBILITY.md`
+- [ ] **WSL2 real:** instalar y verificar en Windows 11 + WSL2 Ubuntu (sin test real hasta ahora)
+- [ ] **Android 14+:** verificar Termux con permisos nuevos; actualizar docs
+- [ ] **AUR publicación:** probar `forja-git` desde AUR en instalación limpia (`makepkg -si`)
+- [ ] **FASM:** decisión final — snippets básicos incluidos o descartado formalmente del backlog
 
 ---
 
-## v1.3 — TypeScript independiente
+## v1.7 — Hydra Maestro y Dashboard de Updates
 
-> Objetivo: soporte para apps TypeScript puras, sin depender del stack web completo.
+> Objetivo: mejorar navegación y mantener al usuario informado de cambios.
 
-- [x] **Generador `C-c n T`:** proyecto TypeScript standalone — elige CLI o librería con `completing-read`
-- [x] **tsconfig.json** base estricto incluido en ambos templates
-- [x] **Ejecutar con `tsx`** — `F5` detecta `.ts` y usa `tsx` si está disponible; `dev: tsx watch` en scripts
-- [x] **Template CLI:** `src/index.ts` con `process.argv`, `package.json` con campo `bin`
-- [x] **Template librería:** `src/index.ts` con exports, `package.json` con `types` y `files`
+- [x] **Hydra maestro `C-c F`:** menú unificado de FORJA accesible desde cualquier buffer
+- [x] **Lua/Zig/Java/Kotlin en build hydra:** todos los lenguajes nuevos integrados en `C-c x`
+- [x] **Notificación de updates:** dashboard avisa cuando hay versión nueva disponible
 
 ---
 
-## v1.4 — Optimización y Rendimiento
+## v1.8 — Dashboard de Estado del Sistema
 
-> Objetivo: tiempos de carga rápidos en todos los perfiles, especialmente Termux.
+> Objetivo: ver el estado del entorno de trabajo desde el primer segundo.
 
-- [x] **Benchmark por perfil:** `my/forja-benchmark` → script bash, 3 runs, ms por run
-- [x] **Lazy loading agresivo:** `40-unreal`, `55-picoclaw`, `56-openclaw` → idle timer 3s post-startup
-- [x] **Profiling:** `esup` instalado — `M-x esup` analiza tiempo de carga por módulo
-- [x] **Minimal más liviano:** Termux ya no carga Unreal/agentes; perfil revisado y limpio
-- [x] **GC tuning:** `early-init.el` con 128 MB pre-startup; PC 1 GB / Termux 16 MB vía gcmh
+- [x] **RAM en dashboard:** uso actual de memoria visible al abrir Emacs
+- [x] **Estado Ollama:** muestra si el servidor está activo y qué modelos están en memoria
+- [x] **Modelos en memoria:** lista de modelos Ollama cargados en el dashboard
 
 ---
 
-## v1.5 — Plataformas y Lenguajes Nuevos
+## v1.9 — Multiusuario Avanzado y Estabilización
 
-> Objetivo: ampliar cobertura sin romper los perfiles existentes.
+> Objetivo: robustecer el sistema multiusuario y el instalador antes del refactor v2.0.
 
-- [ ] **WSL2 testing real:** verificar instalación limpia en Windows 11 + WSL2 Ubuntu
-- [x] **Lua:** soporte básico para scripting de juegos (Löve2D) — módulo `42-lua.org`; generadores `my/new-lua-project` / `my/new-love-project`; F5 detecta Löve2D por `conf.lua`; LSP via `lua-language-server`
-- [x] **Zig:** lenguaje de sistemas moderno — módulo `43-zig.org`; generador `my/new-zig-project` con `build.zig` + tests; F5 = `zig build run`; LSP via `zls`
-- [x] **Java/Kotlin:** backend JVM — implementado en v1.6
-- [ ] **Termux en Android 14+:** verificar compatibilidad, actualizar docs si hay cambios
-- [x] **Paquete AUR:** `forja-git` — `aur/PKGBUILD` generado; instala en `/opt/forja`, expone `forja-install`
-
----
-
-## v1.6 — Java / Kotlin y Diagnóstico
-
-> Objetivo: soporte JVM completo y herramienta de diagnóstico para instalaciones.
-
-- [x] **Java (Maven):** módulo `44-java.org`; `my/new-java-project` con estructura Maven, JUnit 5, `pom.xml`; F5 = `mvn compile exec:java`; LSP via `lsp-java` (descarga Eclipse JDT automáticamente)
-- [x] **Kotlin (Gradle):** `my/new-kotlin-project` con `build.gradle.kts` + Kotlin DSL; F5 = `gradle run`; LSP via `kotlin-language-server`
-- [x] **`forja doctor`:** `M-x my/forja-doctor` — verifica binarios de lenguajes, LSP servers, Docker, Ollama y versión de Emacs
+- [x] **Sesiones de alumno:** registro de sesiones con timestamps y duración
+- [x] **Progreso de alumno:** tracking de actividad por alumno en `49-multiusuario.el`
+- [x] **Auto-backup mejorado:** backup automático en cambio de alumno y al salir
+- [x] **Vista docente:** resumen de actividad de todos los alumnos
+- [x] **Detección por profile.conf:** `init.el` ya no depende del hostname para detectar el perfil
+- [x] **Advertencias de dependencias:** aviso en startup si falta un binario requerido por el perfil
+- [x] **`install.sh --verify`:** post-instalación verifica que todo esté correctamente instalado
+- [x] **Test suite de integración:** `test.sh` verifica carga de módulos por lenguaje y plataforma
+- [ ] **Matriz de compatibilidad (Fase 5):** tabla completa — movido a v2.2
 
 ---
 
-## Backlog / Ideas Futuras
+## v2.0 — Encapsulamiento y Arquitectura Limpia
 
-Ideas anotadas sin versión asignada todavía:
+> Objetivo: refactorizar el núcleo antes de seguir creciendo.
 
-- Modo "examen": deshabilitar IA y acceso externo para evaluaciones presenciales
-- Integración con GitHub Projects para seguimiento de tickets desde Emacs
-- Plugin system: módulos de terceros agregables sin modificar el repo base
-- Dashboard con estado del sistema: RAM, modelos Ollama cargados, alumno activo
-- Soporte para múltiples workspaces por alumno (más de un proyecto activo)
+- [x] **Generadores a sus módulos:** extraídos de `00-core.el`; cada lenguaje gestiona su propio generador
+- [x] **Hydras normalizadas:** todos los nombres `my/hydra-*` sin excepciones
+- [x] **Dispatch table de lenguajes:** `my/hydra-build` usa tabla en vez de `cond` por lenguaje
+- [x] **Sistema de dependencias mejorado:** declaración de deps por módulo, carga con guards
+- [x] **README v2.0:** actualizado con arquitectura nueva y conteo de módulos
+
+---
+
+## v2.1 — Taller de Asistencia Operativa (TAO)
+
+> Objetivo: FORJA como herramienta completa para el TAO — flujo docente cerrado de punta a punta.
+
+- [x] **org-caldav activado:** guarded por `my/caldav-calendar-id` en `local.el`; sync `C-c g y`; OAuth documentado en how-to 13
+- [x] **Modo examen `C-c F e`:** suspende gptel/Aider/agentes; indicador `[EXAMEN]` en modeline; confirmación al activar
+- [x] **Template `a` (alumno/seguimiento):** archivo `seguimiento.org`; captura con módulo, estado y observaciones
+- [x] **Widget GTD en dashboard:** tickets, alumnos activos e inbox sin procesar al arrancar Emacs
+- [x] **`seguimiento.org` integrado:** refile targets, agenda files y nav `C-c g A`
+- [x] **How-to 13 — Flujo TAO:** guía docente completa: tickets, seguimiento, calendario, caldav, modo examen, revisión semanal
+
+---
+
+## v2.2 — Compatibilidad y Cierre
+
+> Objetivo: verificar todas las plataformas y dejar FORJA publicable.
+
+- [ ] **Matriz de compatibilidad:** `COMPATIBILITY.md` generado automáticamente desde `test.sh`
+- [ ] **WSL2 real:** instalar en Windows 11 + WSL2 Ubuntu, documentar diferencias
+- [ ] **Android 14+:** Termux con nuevos permisos; actualizar how-to si hay cambios
+- [ ] **AUR publish:** probar `forja-git` desde AUR en instalación limpia
+- [ ] **FASM:** snippets ASM básicos en `30-cpp.el` o ítem descartado con nota en backlog
+- [ ] **Release notes v2.2:** changelog completo y anuncio en README
+
+---
+
+## v3.0 — Arquitectura Extensible (largo plazo)
+
+Ideas post-release sin compromiso de fecha:
+
+- **Plugin system:** módulos de terceros instalables sin modificar el repo base
+- **GitHub Projects:** seguimiento de tickets desde Emacs (`forge` + Issues API)
+- **Múltiples workspaces por alumno:** más de un proyecto activo simultáneo
+- **Modo kiosk:** arrancar Emacs directamente en el proyecto del alumno activo
+- **Historial de sesiones visual:** dashboard con tiempo activo, commits y builds por alumno
 
 ---
 
@@ -113,10 +139,15 @@ Ideas anotadas sin versión asignada todavía:
 
 | Versión | Fecha | Descripción |
 |:---:|:---:|:---|
-| v1.0 | Abril 2026 | Release inicial: 22 módulos, 3 plataformas, 3 perfiles, IA local, agentes, multiusuario |
-| v1.1 | Abril 2026 | Dashboard personalizado: saludo, versión, proyectos recientes, botón nuevo proyecto |
-| v1.2 | Abril 2026 | C como lenguaje mimado: Unity tests, gcov/lcov, ASan/UBSan, Valgrind, GDB hydra, clang-tidy |
-| v1.3 | Abril 2026 | TypeScript standalone: generador CLI/librería, tsconfig, tsx, templates completos |
-| v1.4 | Abril 2026 | Optimización: early-init, lazy loading Unreal/agentes, esup profiler, GC tuning |
-| v1.5 | Abril 2026 | Nuevos lenguajes: Lua (script/Löve2D), Zig (sistemas); PKGBUILD AUR `forja-git` |
-| v1.6 | Abril 2026 | JVM: Java (Maven + JUnit 5) + Kotlin (Gradle); `M-x forja-doctor` |
+| v1.0 | Abr 2026 | Release inicial: 22 módulos, 3 plataformas, 3 perfiles, IA local, agentes, multiusuario |
+| v1.1 | Abr 2026 | Dashboard personalizado: saludo, versión, proyectos recientes, botón nuevo proyecto |
+| v1.2 | Abr 2026 | C como lenguaje mimado: Unity tests, gcov/lcov, ASan/UBSan, Valgrind, GDB hydra, clang-tidy |
+| v1.3 | Abr 2026 | TypeScript standalone: generador CLI/librería, tsconfig, tsx, templates completos |
+| v1.4 | Abr 2026 | Optimización: early-init, lazy loading Unreal/agentes, esup profiler, GC tuning |
+| v1.5 | Abr 2026 | Nuevos lenguajes: Lua (Löve2D), Zig (sistemas); PKGBUILD AUR `forja-git` |
+| v1.6 | Abr 2026 | JVM: Java (Maven + JUnit 5) + Kotlin (Gradle); `M-x forja-doctor` |
+| v1.7 | Abr 2026 | Hydra maestro `C-c F`; Lua/Zig/Java/Kotlin en build hydra; notificación de updates |
+| v1.8 | Abr 2026 | Dashboard: RAM, estado Ollama, modelos en memoria |
+| v1.9 | Abr 2026 | Multiusuario: sesiones y progreso; advertencias deps; `--verify`; test suite integración |
+| v2.0 | Abr 2026 | Encapsulamiento: generadores a módulos, hydras `my/hydra-*`, dispatch table |
+| v2.1 | Abr 2026 | TAO completo: org-caldav, modo examen, seguimiento.org, widget GTD, how-to 13 |

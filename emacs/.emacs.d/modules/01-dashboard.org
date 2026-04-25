@@ -259,6 +259,40 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
       (insert (propertize "  Sin proyectos aún — usa C-c n para crear uno.\n"
                           'face 'font-lock-comment-face)))))
 
+(defun my/dashboard-gtd-count (file state)
+  "Cuenta entradas con TODO STATE en FILE sin cargar org completo."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (count-matches (concat "^\\*+ " (regexp-quote state) " ")
+                     (point-min) (point-max)))))
+
+(defun my/dashboard-insert-gtd-status (_list-size)
+  "Widget TAO: tickets abiertos, alumnos activos e inbox sin procesar."
+  (when (and (boundp 'my/gtd-soporte) (boundp 'my/gtd-seguimiento)
+             (boundp 'my/gtd-inbox))
+    (let* ((tickets   (+ (or (my/dashboard-gtd-count my/gtd-soporte "INBOX") 0)
+                         (or (my/dashboard-gtd-count my/gtd-soporte "NEXT")  0)))
+           (alumnos   (or (my/dashboard-gtd-count my/gtd-seguimiento "NEXT") 0))
+           (inbox     (or (my/dashboard-gtd-count my/gtd-inbox "INBOX") 0))
+           (t-face    (if (> tickets 0)
+                          '(:foreground "#ef4444" :weight bold)
+                        '(:foreground "#10b981")))
+           (i-face    (if (> inbox 0)
+                          '(:foreground "#f59e0b" :weight bold)
+                        '(:foreground "#10b981"))))
+      (insert (propertize "  TAO   " 'face 'font-lock-comment-face))
+      (insert (propertize (format "tickets: %d" tickets) 'face t-face))
+      (insert (propertize "   alumnos activos: " 'face 'font-lock-comment-face))
+      (insert (propertize (number-to-string alumnos)
+                          'face '(:foreground "#7c3aed" :weight bold)))
+      (insert (propertize "   inbox: " 'face 'font-lock-comment-face))
+      (insert (propertize (format "%d sin procesar" inbox) 'face i-face))
+      (when (bound-and-true-p my/forja-exam-mode-active)
+        (insert (propertize "   [EXAMEN ACTIVO]"
+                            'face '(:foreground "#ef4444" :weight bold))))
+      (insert "\n"))))
+
 (defun my/dashboard-insert-updates (_list-size)
   "Notificación de actualizaciones disponibles."
   (pcase my/forja-update-status
@@ -296,11 +330,14 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
                '(forja-updates   . my/dashboard-insert-updates))
   (add-to-list 'dashboard-item-generators
                '(deps-status     . my/dashboard-insert-deps-status))
+  (add-to-list 'dashboard-item-generators
+               '(gtd-status      . my/dashboard-insert-gtd-status))
 
   (setq dashboard-items '((forja-header    . 1)
                           (new-project-btn . 1)
                           (separator       . 1)
                           (system-status   . 1)
+                          (gtd-status      . 1)
                           (deps-status     . 1)
                           (forja-updates   . 1)
                           (user-projects   . 5)
