@@ -215,7 +215,7 @@ security:
 * 5. Hydra de OpenClaw
 
 #+begin_src emacs-lisp
-(defhydra hydra-openclaw (:color blue :hint nil)
+(defhydra my/hydra-openclaw (:color blue :hint nil)
   "
    OPENCLAW — Agente Completo
    Estado: %-20s(if (my/openclaw-running-p) \"corriendo\" \"detenido\")

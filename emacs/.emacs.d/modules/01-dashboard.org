@@ -174,7 +174,7 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
     (insert "\n")))
 
 (defun my/dashboard-insert-new-project-btn (_list-size)
-  "Botón para crear un nuevo proyecto desde el dashboard."
+  "Botón para crear un nuevo proyecto y botón de refresco."
   (widget-create 'push-button
                  :action (lambda (&rest _)
                            (if (fboundp 'my/hydra-new-project/body)
@@ -185,7 +185,51 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
                  "  [ + Nuevo Proyecto ]")
   (insert "   ")
   (insert (propertize "(C-c n)" 'face 'font-lock-comment-face))
+  (insert "     ")
+  (widget-create 'push-button
+                 :action (lambda (&rest _)
+                           (my/dashboard-check-ollama-async)
+                           (my/forja-check-updates)
+                           (run-with-timer 0.1 nil #'dashboard-refresh-buffer))
+                 :mouse-face 'highlight
+                 "[ ↻ ]")
   (insert "\n"))
+
+(defun my/dashboard-insert-deps-status (_list-size)
+  "Widget de estado de dependencias: faltantes vs. completas."
+  (let* ((missing (bound-and-true-p my/forja-missing-deps))
+         (required (when missing
+                     (cl-remove-if-not
+                      (lambda (d) (eq (plist-get d :type) :required))
+                      missing)))
+         (optional (when missing
+                     (cl-remove-if-not
+                      (lambda (d) (eq (plist-get d :type) :optional))
+                      missing))))
+    (insert (propertize "  DEPS  " 'face 'font-lock-comment-face))
+    (cond
+     (required
+      (insert (propertize (format "⚠ %d requerida(s) faltante(s)  "
+                                  (length required))
+                          'face '(:foreground "#ef4444" :weight bold)))
+      (widget-create 'push-button
+                     :action (lambda (&rest _) (my/forja-report-missing))
+                     :mouse-face 'highlight
+                     "[ Ver ]"))
+     (optional
+      (insert (propertize (format "✓ OK  (%d opcional%s ausente%s)  "
+                                  (length optional)
+                                  (if (= (length optional) 1) "" "es")
+                                  (if (= (length optional) 1) "" "s"))
+                          'face '(:foreground "#f59e0b")))
+      (widget-create 'push-button
+                     :action (lambda (&rest _) (my/forja-report-missing))
+                     :mouse-face 'highlight
+                     "[ Ver ]"))
+     (t
+      (insert (propertize "✓ Todas las dependencias presentes"
+                          'face '(:foreground "#10b981")))))
+    (insert "\n")))
 
 (defun my/dashboard-insert-user-projects (list-size)
   "Proyectos del usuario activo ordenados por fecha de modificación."
@@ -250,11 +294,14 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
                '(user-projects   . my/dashboard-insert-user-projects))
   (add-to-list 'dashboard-item-generators
                '(forja-updates   . my/dashboard-insert-updates))
+  (add-to-list 'dashboard-item-generators
+               '(deps-status     . my/dashboard-insert-deps-status))
 
   (setq dashboard-items '((forja-header    . 1)
                           (new-project-btn . 1)
                           (separator       . 1)
                           (system-status   . 1)
+                          (deps-status     . 1)
                           (forja-updates   . 1)
                           (user-projects   . 5)
                           (agenda          . 5)))

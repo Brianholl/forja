@@ -227,7 +227,7 @@ Cuando recibas un ticket de soporte:
 
 #+begin_src emacs-lisp
 ;; Hydra principal de agentes: punto de entrada desde C-c U O
-(defhydra hydra-agentes (:color blue :hint nil)
+(defhydra my/hydra-agentes (:color blue :hint nil)
   "
    AGENTES IA — Perfil Casa
   ─────────────────────────────────────
@@ -235,13 +235,13 @@ Cuando recibas un ticket de soporte:
    _o_ OpenClaw (completo, ~1.5GB RAM)
   ─────────────────────────────────────
    _q_ Volver"
-  ("p" hydra-picoclaw/body)
-  ("o" (if (fboundp 'hydra-openclaw/body)
-           (hydra-openclaw/body)
+  ("p" my/hydra-picoclaw/body)
+  ("o" (if (fboundp 'my/hydra-openclaw/body)
+           (my/hydra-openclaw/body)
          (message "⚠️ OpenClaw no disponible (módulo 56 no cargado)")))
   ("q" nil))
 
-(defhydra hydra-picoclaw (:color blue :hint nil)
+(defhydra my/hydra-picoclaw (:color blue :hint nil)
   "
    PICOCLAW — Agente Ligero
    Estado: %-20s(if (my/picoclaw-running-p) \"corriendo\" \"detenido\")

@@ -366,7 +366,7 @@ a todo lo que necesitás para asistencia operativa.
 
     ;; --- HYDRA PRINCIPAL: Centro de Mando Termux ---
     ;; Reemplaza al 01-dashboard.org y añade comodines de edición táctil
-    (defhydra hydra-termux (:color blue :hint nil)
+    (defhydra my/hydra-termux (:color blue :hint nil)
       "
 ╔═══════════════════════════════════════════╗
 ║         📱 CENTRO DE MANDO TERMUX         ║
@@ -418,7 +418,7 @@ a todo lo que necesitás para asistencia operativa.
       ("q" nil))
 
     ;; C-z abre el centro de mando (fácil con extra-keys)
-    (global-set-key (kbd "C-z") #'hydra-termux/body))
+    (global-set-key (kbd "C-z") #'my/hydra-termux/body))
 
   ;; --- Atajos accesibles sin hydra ---
   (global-set-key (kbd "M-o") #'other-window)

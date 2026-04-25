@@ -259,7 +259,7 @@ Respondé SOLAMENTE con la traducción, sin explicaciones ni comillas:\n\n%s"
 * 9. Hydra de modelos (C-c M)
 
 #+begin_src emacs-lisp
-(defhydra hydra-modelos (:color blue :hint nil)
+(defhydra my/hydra-modelos (:color blue :hint nil)
   "
    MODELOS IA — Configuración
   ─────────────────────────────────────
@@ -283,5 +283,5 @@ Respondé SOLAMENTE con la traducción, sin explicaciones ni comillas:\n\n%s"
   ("T" my/forja-traducir-region)
   ("q" nil))
 
-(global-set-key (kbd "C-c M") #'hydra-modelos/body)
+(global-set-key (kbd "C-c M") #'my/hydra-modelos/body)
 #+end_src

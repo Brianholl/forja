@@ -139,6 +139,43 @@ Detecta pytest, Django test o unittest."
 (add-hook 'python-mode-hook    #'my/python-keybindings)
 #+end_src
 
+* 60. Generadores de Proyecto
+
+#+begin_src emacs-lisp
+(defun my/new-python-project (name)
+  "Crea un nuevo proyecto Python con FastAPI.
+En PC crea virtualenv; en Termux usa Python del sistema."
+  (interactive "sNombre del proyecto: ")
+  (let* ((project-dir (expand-file-name name (concat (my/mu-projects-base) "python/")))
+         (envrc-mode nil)
+         (process-environment (cons "DIRENV_DIR=" process-environment)))
+    (make-directory project-dir t)
+    (with-temp-file (concat project-dir "/main.py")
+      (insert "from fastapi import FastAPI\n\n")
+      (insert "app = FastAPI()\n\n\n")
+      (insert "@app.get(\"/\")\n")
+      (insert "def root():\n")
+      (insert (format "    return {\"message\": \"Hola desde %s\"}\n\n\n" name))
+      (insert "@app.get(\"/health\")\n")
+      (insert "def health():\n")
+      (insert "    return {\"status\": \"ok\"}\n"))
+    (with-temp-file (concat project-dir "/requirements.txt")
+      (insert "fastapi\nuvicorn[standard]\npython-dotenv\n"))
+    (with-temp-file (concat project-dir "/.env")
+      (insert "DEBUG=true\nPORT=8000\n"))
+    (with-temp-file (concat project-dir "/.gitignore")
+      (insert "__pycache__/\n*.pyc\nvenv/\n.venv/\n.env\n*.egg-info/\ndist/\nbuild/\n"))
+    (let ((default-directory project-dir))
+      (if (bound-and-true-p my/is-termux)
+          (async-shell-command "pip install fastapi uvicorn python-dotenv" "*pip-install*")
+        (when (= 0 (shell-command "python -m venv venv"))
+          (async-shell-command "venv/bin/pip install -r requirements.txt" "*venv-install*"))))
+    (with-temp-file (concat project-dir "/.projectile") (insert ""))
+    (my/git-init-and-commit project-dir name)
+    (message "🐍 Proyecto Python (FastAPI) creado: %s" project-dir)
+    (find-file (concat project-dir "/main.py"))))
+#+end_src
+
 * Dependencias y registro
 
 #+begin_src emacs-lisp

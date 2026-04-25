@@ -646,7 +646,7 @@ son privadas y se respaldan junto con el resto de los datos del alumno.
            (or my/mu-ultimo-sync-drive "nunca")
            (if (my/mu-n8n-running-p) "corriendo" "detenido")))
 
-(defhydra hydra-multiusuario (:color blue :hint nil)
+(defhydra my/hydra-multiusuario (:color blue :hint nil)
   "
    SISTEMA MULTIUSUARIO
    Alumno: %-30s`my/mu-alumno-actual
@@ -675,15 +675,15 @@ son privadas y se respaldan junto con el resto de los datos del alumno.
   ("P" my/mu-ver-progreso)
   ("l" my/mu-ver-sesiones)
   ("V" my/mu-vista-docente)
-  ("N" hydra-n8n/body)
-  ("O" (if (fboundp 'hydra-agentes/body)
-           (hydra-agentes/body)
+  ("N" my/hydra-n8n/body)
+  ("O" (if (fboundp 'my/hydra-agentes/body)
+           (my/hydra-agentes/body)
          (message "⚠️ Agentes IA no disponibles en este perfil (solo Casa)")))
   ("c" my/mu-cambiar-alumno)
   ("t" my/mu-estado)
   ("q" nil))
 
-(defhydra hydra-n8n (:color blue :hint nil)
+(defhydra my/hydra-n8n (:color blue :hint nil)
   "
    n8n — AUTOMATIZACION
    Estado: %-20s(if (my/mu-n8n-running-p) \"corriendo\" \"detenido\")
@@ -698,7 +698,7 @@ son privadas y se respaldan junto con el resto de los datos del alumno.
   ("t" my/mu-n8n-status)
   ("q" nil))
 
-(global-set-key (kbd "C-c U") 'hydra-multiusuario/body)
+(global-set-key (kbd "C-c U") 'my/hydra-multiusuario/body)
 #+end_src
 
 * 12. Log de sesiones
