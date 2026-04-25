@@ -392,11 +392,12 @@ elif [ "$PLATFORM" = "wsl" ]; then
         || pip install --user python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
         || warn "No se pudieron instalar pip packages (pylsp/ruff)"
 else
-    sudo pacman -S --needed --noconfirm python python-pip python-black
-    pip install --user --break-system-packages \
-        python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
-        || pip install --user python-lsp-server pylsp-mypy python-lsp-black ruff 2>/dev/null \
-        || warn "No se pudieron instalar pip packages (pylsp/ruff)"
+    sudo pacman -S --needed --noconfirm \
+        python python-pip python-black \
+        python-lsp-server python-lsp-black ruff
+    pip install --user --break-system-packages pylsp-mypy 2>/dev/null \
+        || pip install --user pylsp-mypy 2>/dev/null \
+        || warn "No se pudo instalar pylsp-mypy"
 fi
 ok "Python instalado"
 
