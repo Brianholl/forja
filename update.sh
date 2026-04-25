@@ -120,6 +120,8 @@ fi
 if command -v npm &>/dev/null; then
     if [ "$PLATFORM" = "arch" ]; then
         sudo PUPPETEER_SKIP_DOWNLOAD=true npm update -g 2>/dev/null
+    elif [ "$PLATFORM" = "termux" ]; then
+        npm update -g 2>/dev/null
     else
         sudo npm update -g 2>/dev/null
     fi
@@ -129,9 +131,14 @@ fi
 # Python LSP
 PIP_PKGS="python-lsp-server pylsp-mypy python-lsp-black"
 [ "$PLATFORM" = "arch" ] && forja_has_feature "godot" && PIP_PKGS="$PIP_PKGS gdtoolkit"
-pip install --user --upgrade --break-system-packages $PIP_PKGS 2>/dev/null \
-    || pip install --user --upgrade $PIP_PKGS 2>/dev/null \
-    || warn "No se pudo actualizar pylsp"
+if [ "$PLATFORM" = "termux" ]; then
+    pip install --upgrade $PIP_PKGS 2>/dev/null \
+        || warn "No se pudo actualizar pylsp en Termux"
+else
+    pip install --user --upgrade --break-system-packages $PIP_PKGS 2>/dev/null \
+        || pip install --user --upgrade $PIP_PKGS 2>/dev/null \
+        || warn "No se pudo actualizar pylsp"
+fi
 ok "Python LSP actualizado"
 
 # Aider

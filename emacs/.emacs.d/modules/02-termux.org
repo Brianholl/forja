@@ -146,8 +146,9 @@ all-the-icons-ivy-rich (GUI).
   ;; --- Dashboard: ajustar para pantalla chica ---
   ;; El paquete dashboard funciona en terminal, pero reducimos items
   (with-eval-after-load 'dashboard
-    (setq dashboard-items '((recents  . 3)
-                            (agenda   . 5)))  ;; Sin projects ni scratch-button
+    (setq dashboard-items '((recents    . 3)
+                            (agenda     . 5)
+                            (gtd-status . 3)))  ;; Widget GTD compacto (tickets/inbox)
     (setq dashboard-center-content nil)       ;; Más espacio
     (setq dashboard-startup-banner 'logo))
 
