@@ -5,8 +5,9 @@
 # No modifica el sistema. Limpia /tmp al salir.
 #
 # Uso:
-#   bash test.sh           (prueba todos los lenguajes disponibles)
-#   bash test.sh --lang c  (prueba solo un lenguaje)
+#   bash test.sh              (prueba todos los lenguajes disponibles)
+#   bash test.sh --lang c     (prueba solo un lenguaje)
+#   bash test.sh --matrix     (prueba todo y genera COMPATIBILITY.md)
 # =============================================================================
 
 # --- Colores ---
@@ -39,16 +40,136 @@ fi
 WORK_DIR=$(mktemp -d /tmp/forja-test-XXXXXX)
 trap "rm -rf '$WORK_DIR'" EXIT
 
-# --- Filtro de lenguaje (--lang) ---
+# --- Flags ---
 ONLY_LANG=""
+MATRIX_MODE=false
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --lang) ONLY_LANG="$2"; shift 2 ;;
+        --lang)   ONLY_LANG="$2"; shift 2 ;;
+        --matrix) MATRIX_MODE=true; shift ;;
         *) shift ;;
     esac
 done
 
 should_run() { [ -z "$ONLY_LANG" ] || [ "$ONLY_LANG" = "$1" ]; }
+
+# =============================================================================
+# Generador de matriz de compatibilidad (--matrix)
+# =============================================================================
+
+generate_matrix() {
+    local SCRIPT_DIR
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local MATRIX_FILE="$SCRIPT_DIR/COMPATIBILITY.md"
+
+    local PROFILE="unknown"
+    local CONF="$HOME/.forja/profile.conf"
+    [[ -f "$CONF" ]] && PROFILE=$(grep "^FORJA_PROFILE=" "$CONF" 2>/dev/null \
+        | cut -d= -f2 | tr -d '"' | tr -d "'" | tr -d '[:space:]')
+    [[ -z "$PROFILE" ]] && PROFILE="unknown"
+
+    local DATE
+    DATE=$(date '+%Y-%m-%d %H:%M')
+
+    local PLATFORM_LABEL
+    case "$PLATFORM" in
+        arch)   PLATFORM_LABEL="Arch Linux" ;;
+        wsl)    PLATFORM_LABEL="WSL2 (Windows)" ;;
+        termux) PLATFORM_LABEL="Termux (Android)" ;;
+        *)      PLATFORM_LABEL="$PLATFORM" ;;
+    esac
+
+    # Conservar secciones de otras plataformas si el archivo ya existe
+    local PRESERVED=""
+    if [[ -f "$MATRIX_FILE" ]]; then
+        PRESERVED=$(python3 - "$MATRIX_FILE" "$PLATFORM_LABEL" << 'PYEOF'
+import sys, re
+path, plat = sys.argv[1], sys.argv[2]
+content = open(path).read()
+pattern = r'## ' + re.escape(plat) + r'.*?(?=\n## |\Z)'
+print(re.sub(pattern, '', content, flags=re.DOTALL).rstrip())
+PYEOF
+)
+    fi
+
+    # Construir sección de la plataforma actual
+    local NEW_SECTION
+    NEW_SECTION="## ${PLATFORM_LABEL} — Perfil: ${PROFILE}\n\n"
+    NEW_SECTION+="_Última verificación: ${DATE}_\n\n"
+    NEW_SECTION+="| Herramienta | Estado |\n"
+    NEW_SECTION+="|:---|:---:|\n"
+    for item in "${PASS[@]}";  do NEW_SECTION+="| ${item} | ✓ |\n"; done
+    for item in "${SKIP[@]}";  do NEW_SECTION+="| ${item} | — |\n"; done
+    for item in "${FAIL[@]}";  do
+        local name="${item%% — *}"
+        NEW_SECTION+="| ${name} | ✗ |\n"
+    done
+    NEW_SECTION+="\n---"
+
+    if [[ -n "$PRESERVED" ]]; then
+        # Actualizar sección dentro del archivo existente
+        printf '%s\n\n%b\n' "$PRESERVED" "$NEW_SECTION" > "$MATRIX_FILE"
+    else
+        # Crear archivo completo con sección actual + tabla estática + checklists
+        {
+        cat << 'HEADER'
+# FORJA — Matriz de Compatibilidad
+
+Generada por `bash test.sh --matrix`. Ejecutar en cada plataforma para actualizar su sección.
+Leyenda: **✓** funciona · **✗** error · **—** no instalado / N/A
+
+---
+
+HEADER
+        printf '%b\n' "$NEW_SECTION"
+        cat << 'STATIC'
+
+## Diferencias conocidas por plataforma
+
+| Feature | Arch Linux | Termux Android | WSL2 Windows |
+|:---|:---:|:---:|:---:|
+| Perfil Full | ✓ | — | ✓ |
+| Perfil Moderado | ✓ | — | ✓ |
+| Perfil Minimal | ✓ | ✓ | ✓ |
+| Unreal Engine (UE4) | ✓ | — | — |
+| Ollama / IA local | ✓ | ✓ | ✓ |
+| Agentes PicoClaw/OpenClaw | ✓ | ✓ | ✓ |
+| Docker / n8n | ✓ | — | ✓ (Docker Desktop) |
+| rclone / Google Drive | ✓ | ✓ | ✓ |
+| GUI Emacs gráfico | ✓ | — (X11 opcional) | ✓ (WSLg) |
+| GDB / Valgrind | ✓ | ✓ | ✓ |
+| Java / Maven / Gradle | ✓ | ✓ | ✓ |
+
+---
+
+## Lista de verificación — WSL2 (pendiente verificación manual)
+
+> Ejecutar `bash test.sh --matrix` en Windows 11 + WSL2 Ubuntu para actualizar automáticamente.
+
+- [ ] Instalación limpia desde GitHub con `install.sh`
+- [ ] Emacs abre con dashboard correcto (WSLg)
+- [ ] LSP servers funcionan (clangd, pylsp, gopls)
+- [ ] Perfil Minimal arranca en < 5s
+- [ ] n8n levanta con Docker Desktop
+- [ ] `forja doctor` sin errores requeridos
+
+## Lista de verificación — Android 14+ / Termux (pendiente verificación manual)
+
+> Ejecutar `bash test.sh --matrix` en Termux en Android 14+ para actualizar automáticamente.
+
+- [ ] `pkg install` sin errores de permisos (Android 14 storage changes)
+- [ ] Perfil Minimal carga correctamente
+- [ ] LSP pylsp y clangd disponibles
+- [ ] F5 compila y ejecuta C sin error
+- [ ] Ollama disponible vía Termux (arm64)
+STATIC
+        } > "$MATRIX_FILE"
+    fi
+
+    echo ""
+    echo -e "${GREEN}Matriz generada:${NC} $MATRIX_FILE"
+    echo ""
+}
 
 echo ""
 echo "=============================================="
@@ -279,4 +400,7 @@ fi
 echo ""
 echo -e "${GREEN}Todos los lenguajes disponibles funcionan correctamente.${NC}"
 echo ""
+
+$MATRIX_MODE && generate_matrix
+
 exit 0

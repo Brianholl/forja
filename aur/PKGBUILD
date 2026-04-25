@@ -15,21 +15,32 @@ depends=(
     'rust'
     'go'
     'python'
+    'python-lsp-server'
     'nodejs'
     'npm'
     'lua'
     'lua-language-server'
     'zig'
     'zls'
+    'rclone'
 )
 optdepends=(
+    'jdk17-openjdk: desarrollo Java (Maven/Kotlin)'
+    'maven: proyectos Java con Maven'
+    'gradle: proyectos Kotlin con Gradle'
+    'kotlin-language-server: LSP para Kotlin'
     'docker: soporte multiusuario y n8n'
     'godot: desarrollo con Godot 4'
     'love: proyectos Löve2D'
     'valgrind: análisis de memoria C/C++'
     'lcov: cobertura de código C'
-    'ollama: modelos de IA local'
+    'fasm: ensamblador x86 (módulo ASM básico)'
+    'nasm: ensamblador x86 alternativo'
+    'ollama: modelos de IA local (PicoClaw/OpenClaw)'
     'aider: asistente IA en terminal'
+    'php: desarrollo web PHP'
+    'typescript: soporte TypeScript standalone'
+    'unzip: necesario para Eclipse JDT (lsp-java)'
 )
 makedepends=('git')
 provides=('forja')
@@ -58,6 +69,8 @@ exec bash /opt/forja/forja-menu.sh "$@"
 EOF
     chmod 755 "${pkgdir}/usr/bin/forja-install"
 
-    # Licencia
-    install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+    # Documentación
+    install -Dm644 README.md         "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+    install -Dm644 COMPATIBILITY.md  "${pkgdir}/usr/share/doc/${pkgname}/COMPATIBILITY.md"
+    install -Dm644 ROADMAP.md        "${pkgdir}/usr/share/doc/${pkgname}/ROADMAP.md"
 }

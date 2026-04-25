@@ -39,13 +39,14 @@ Los ítems con `[ ]` son los que quedan antes de llamar a FORJA un producto **pu
 - [x] **Widget GTD en dashboard:** tickets, alumnos activos e inbox al arrancar
 - [x] **How-to 13 — Flujo TAO:** guía docente completa
 
-### Bloque B — Compatibilidad y Distribución
+### Bloque B — Compatibilidad y Distribución (parcial v2.2)
 
-- [ ] **Matriz de compatibilidad:** tabla plataforma × perfil × lenguaje generada desde `test.sh` → `COMPATIBILITY.md`
-- [ ] **WSL2 real:** instalar y verificar en Windows 11 + WSL2 Ubuntu (sin test real hasta ahora)
-- [ ] **Android 14+:** verificar Termux con permisos nuevos; actualizar docs
-- [ ] **AUR publicación:** probar `forja-git` desde AUR en instalación limpia (`makepkg -si`)
-- [ ] **FASM:** decisión final — snippets básicos incluidos o descartado formalmente del backlog
+- [x] **Matriz de compatibilidad:** `test.sh --matrix` + `COMPATIBILITY.md` con checklist WSL2/Android
+- [x] **PKGBUILD completo:** deps actualizados en `aur/PKGBUILD`
+- [x] **FASM:** soporte básico en `30-cpp.org`; snippets NASM completos → backlog v3.0
+- [ ] **WSL2 real:** verificación manual pendiente (checklist en `COMPATIBILITY.md`)
+- [ ] **Android 14+ real:** verificación manual pendiente (checklist en `COMPATIBILITY.md`)
+- [ ] **AUR publicación:** `makepkg -si` en instalación limpia — pendiente
 
 ---
 
@@ -114,12 +115,12 @@ Los ítems con `[ ]` son los que quedan antes de llamar a FORJA un producto **pu
 
 > Objetivo: verificar todas las plataformas y dejar FORJA publicable.
 
-- [ ] **Matriz de compatibilidad:** `COMPATIBILITY.md` generado automáticamente desde `test.sh`
-- [ ] **WSL2 real:** instalar en Windows 11 + WSL2 Ubuntu, documentar diferencias
-- [ ] **Android 14+:** Termux con nuevos permisos; actualizar how-to si hay cambios
-- [ ] **AUR publish:** probar `forja-git` desde AUR en instalación limpia
-- [ ] **FASM:** snippets ASM básicos en `30-cpp.el` o ítem descartado con nota en backlog
-- [ ] **Release notes v2.2:** changelog completo y anuncio en README
+- [x] **Matriz de compatibilidad:** `COMPATIBILITY.md` + `test.sh --matrix` — genera automáticamente la sección de la plataforma actual y preserva las demás
+- [x] **PKGBUILD actualizado:** `aur/PKGBUILD` con deps completos (pylsp, rclone, jdk17, maven, gradle, kotlin-language-server, fasm, nasm, php, typescript, unzip)
+- [x] **FASM resuelto:** soporte básico existe en `30-cpp.org` (nasm-mode, `my/fasm-compile-and-run`, `my/fasm-debug`, F5 y C-c d); `fasm` y `nasm` en PKGBUILD optdepends; snippets NASM completos pasan a backlog v3.0
+- [ ] **WSL2 real:** instalar en Windows 11 + WSL2 — checklist en `COMPATIBILITY.md`; pendiente verificación manual
+- [ ] **Android 14+:** Termux con permisos nuevos — checklist en `COMPATIBILITY.md`; pendiente verificación manual
+- [ ] **AUR publish:** publicar `forja-git` en AUR y verificar con `makepkg -si` en instalación limpia
 
 ---
 
@@ -151,3 +152,4 @@ Ideas post-release sin compromiso de fecha:
 | v1.9 | Abr 2026 | Multiusuario: sesiones y progreso; advertencias deps; `--verify`; test suite integración |
 | v2.0 | Abr 2026 | Encapsulamiento: generadores a módulos, hydras `my/hydra-*`, dispatch table |
 | v2.1 | Abr 2026 | TAO completo: org-caldav, modo examen, seguimiento.org, widget GTD, how-to 13 |
+| v2.2 | Abr 2026 | Compatibilidad: `test.sh --matrix`, COMPATIBILITY.md, PKGBUILD completo, FASM resuelto |
