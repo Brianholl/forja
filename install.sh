@@ -43,6 +43,8 @@ npm_install_if_missing() {
 # VERIFICACION DE HERRAMIENTAS (llamada al final o con --verify)
 # =============================================================================
 run_verification() {
+    # mode: "post-install" (llamado al final de install.sh) o "standalone" (--verify)
+    local mode="${1:-standalone}"
     local pass=() fail=()
 
     check_tool() {
@@ -85,8 +87,9 @@ run_verification() {
     check_tool "TypeScript LSP" typescript-language-server
     check_tool "Prettier"     prettier
     # Java / Kotlin
+    # Maven no existe en pkg de Termux — solo se verifica en otras plataformas
     check_tool "Java"         java
-    check_tool "Maven"        mvn
+    [ "$PLATFORM" != "termux" ] && check_tool "Maven"  mvn
     check_tool "Gradle"       gradle
     # Zig / Lua
     check_tool "Zig"          zig
@@ -111,7 +114,12 @@ run_verification() {
         echo -e "${RED}Faltantes (${#fail[@]}):${NC}"
         for t in "${fail[@]}"; do printf "  ${RED}✗${NC} %s\n" "$t"; done
         echo ""
-        warn "Ejecuta ./install.sh para instalar las dependencias faltantes"
+        if [ "$mode" = "post-install" ]; then
+            warn "Algunas herramientas no se instalaron. Revisa las advertencias arriba."
+            warn "Tip: corre 'forja doctor' para un diagnóstico detallado."
+        else
+            warn "Ejecuta ./install.sh para instalar las dependencias faltantes"
+        fi
         echo ""
         return 1
     else
@@ -456,13 +464,11 @@ ok "Zig instalado"
 # Java (JDK + Maven) y Kotlin
 info "Instalando Java (JDK 17), Maven y Kotlin..."
 if [ "$PLATFORM" = "termux" ]; then
-    if forja_has_feature "java"; then
-        pkg install -y openjdk-17
-        pkg install -y gradle 2>/dev/null || warn "gradle no disponible en pkg"
-        ok "Java (OpenJDK 17 + Gradle) instalado en Termux"
-    else
-        info "Saltando Java (no habilitado en features)"
-    fi
+    # Java siempre se instala en Termux — 44-java.org carga en todos los perfiles
+    # Maven no existe en pkg de Termux; gradle sí
+    pkg install -y openjdk-17
+    pkg install -y gradle 2>/dev/null || warn "gradle no disponible en pkg de Termux"
+    ok "Java (OpenJDK 17 + Gradle) instalado en Termux"
 elif [ "$PLATFORM" = "wsl" ]; then
     sudo apt-get install -y openjdk-17-jdk maven gradle
     warn "Kotlin/WSL: instalar desde https://kotlinlang.org/docs/command-line.html"
@@ -934,4 +940,4 @@ fi
 # =============================================================================
 # VERIFICACION FINAL
 # =============================================================================
-run_verification
+run_verification "post-install"
