@@ -162,6 +162,51 @@ El paquete `yasnippet-snippets` ya cubre sintaxis básica — FORJA agrega patro
 
 ---
 
+## v2.4 — Transparencia: FORJA sin caja negra
+
+> Filosofía Tsoding aplicada a FORJA: no magic, entender cada capa,
+> exponer los internos en lugar de esconderlos. El alumno debe saber
+> qué hace F5, qué es tsx, por qué existe package.json, cómo está
+> hecho FORJA con Lisp — antes de que algo falle, no después.
+
+### Bloque A — FORJA.md por proyecto
+
+Cada generador (`my/new-ts-project`, `my/new-rust-project`, etc.)
+crea un `FORJA.md` en la raíz del proyecto que explica:
+
+- [ ] **Stack del lenguaje:** qué herramientas usa y por qué existen
+- [ ] **Mapa de atajos → comandos reales:** `F5 = npm run dev = tsx watch src/index.ts`
+- [ ] **Ciclo completo explicado:** escribir → compilar → ejecutar → depurar → testear
+- [ ] **Cómo extender:** dónde agregar configuración propia sin tocar el repo
+- [ ] **Qué hacer si falla:** checklist de diagnóstico por lenguaje
+
+Lenguajes con generador a cubrir: TypeScript, Rust, Go, Python, C/C++,
+Java, Kotlin, Lua, Zig, PHP, GDScript
+
+### Bloque B — Errores que enseñan
+
+Hook en `compilation-filter-hook` que detecta patrones de error comunes
+y los transforma en mensajes pedagógicos en el buffer de compilación:
+
+- [ ] `command not found` → qué instalar, cómo, por qué falta
+- [ ] `cannot find module` / `no such file` → acción concreta
+- [ ] Errores de tipo (TS/Rust/Go) → referencia al concepto
+- [ ] `permission denied` → qué significa en este contexto
+- [ ] Exit code patterns → traducción a causa raíz
+
+### Bloque C — Arquitectura FORJA expuesta
+
+- [ ] **How-to 14: Cómo está hecho FORJA** — Org-mode + `#+begin_src emacs-lisp` → `.el`,
+  estructura de módulos, `use-package`, hooks, hydras. Cómo leer un módulo.
+- [ ] **How-to 15: Tu propia configuración** — `local.el`, agregar atajos,
+  sobreescribir comportamiento sin tocar el repo base
+- [ ] **Clase 17 — El Taller del Herrero:** clase de escuela dedicada a leer
+  y modificar la configuración de FORJA en Lisp. El IDE como proyecto vivo.
+- [ ] **Comentarios pedagógicos en módulos clave** — `00-core.org`, `20-web.org`,
+  `30-cpp.org`: secciones "¿Por qué?" que explican cada decisión de diseño
+
+---
+
 ## v3.0 — Arquitectura Extensible (largo plazo)
 
 Ideas post-release sin compromiso de fecha:
