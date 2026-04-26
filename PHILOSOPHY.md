@@ -70,6 +70,68 @@ no ignorándolas.
 
 ---
 
+## La Permanencia
+
+Las herramientas de moda cambian cada década.
+Eclipse dominó los 2000. Sublime fue el estándar en los 2010.
+VSCode reina hoy. El próximo ya está en camino.
+
+Emacs tiene 40 años. Va a tener 40 más.
+
+No porque sea perfecto — sino porque está construido sobre una idea
+que no envejece: el editor como entorno programable por el usuario.
+Esa idea no puede quedar obsoleta porque no depende de ninguna empresa,
+ningún modelo de negocio, ninguna decisión de producto.
+
+FORJA apuesta deliberadamente a lo que dura.
+Un alumno que aprende a entender y modificar su entorno
+aprende algo que no va a quedar obsoleto cuando cambie la herramienta de moda.
+La habilidad es atemporal. El entorno, reproducible para siempre.
+
+---
+
+## El Software Libre como Fundamento
+
+La soberanía personal que plantea FORJA solo es posible
+sobre software libre.
+
+No podés ser dueño de una herramienta propietaria.
+Podés usarla mientras la empresa quiera, mientras el precio no cambie,
+mientras el servidor siga activo. Copilot, JetBrains, VS Code —
+todos tienen un dueño que no sos vos.
+
+GCC, GDB, Bash, Emacs: toda la base de FORJA es GNU.
+El alumno puede leer el código fuente de cada herramienta que usa.
+Puede compilarla, modificarla, redistribuirla.
+
+Eso no es ideología — es la condición técnica para que los otros pilares
+sean reales. Sin software libre, la soberanía personal es una ilusión.
+
+---
+
+## Lisp como Metalenguaje
+
+Lisp no es solo el lenguaje de la configuración de Emacs —
+es el lenguaje en que Emacs *está escrito*.
+
+Cuando el alumno escribe `(setq treesit-font-lock-level 4)` en `local.el`,
+no está tocando un archivo de configuración. Está programando
+en el mismo lenguaje que construyó el editor que está usando.
+
+Eso tiene un nombre: homoiconicidad. El código es datos. Los datos son código.
+Las macros no son syntax sugar — son el lenguaje extendiéndose a sí mismo.
+`use-package` no es una keyword de Emacs: es una macro escrita en Lisp
+que cualquiera puede leer, modificar, o reemplazar.
+
+FORJA expone al alumno al metalenguaje desde el primer día.
+Antes de que sepan que eso se llama metaprogramación,
+ya lo están practicando.
+
+El Lisp de Emacs es el único entorno donde la barrera entre
+"usar la herramienta" y "construir la herramienta" es una sola línea.
+
+---
+
 ## El Emacs Way
 
 FORJA está construido sobre Emacs. Eso no es una decisión técnica —
