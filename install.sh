@@ -734,18 +734,14 @@ fi
 if [ "$PLATFORM" = "arch" ]; then
     # --- PicoClaw ---
     if forja_has_feature "picoclaw"; then
-        info "Instalando PicoClaw (agente IA ligero)..."
-        PICOCLAW_URL="https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-amd64"
-        if ! command -v picoclaw &>/dev/null; then
-            curl -fsSL "$PICOCLAW_URL" -o /tmp/picoclaw \
-                && chmod +x /tmp/picoclaw \
-                && sudo mv /tmp/picoclaw /usr/local/bin/picoclaw \
-                && ok "PicoClaw instalado" \
-                || warn "No se pudo instalar PicoClaw"
+        if command -v picoclaw &>/dev/null; then
+            ok "PicoClaw ya instalado ($(picoclaw --version 2>/dev/null || echo 'versión desconocida'))"
         else
-            ok "PicoClaw ya instalado"
+            warn "PicoClaw: binario no encontrado. Instalá manualmente en /usr/local/bin/picoclaw"
+            info "  Emacs cargará el módulo igual; el agente queda inactivo hasta que el binario exista."
         fi
         mkdir -p ~/.picoclaw/{workspace,memory,skills,cron}
+        ok "Directorios PicoClaw creados"
     fi
 
     # --- OpenClaw ---
@@ -837,6 +833,14 @@ if [ -d "$DOTFILES_DIR/emacs" ] || [ -d "$DOTFILES_DIR/shell" ]; then
     fi
 
     if [ -d shell ]; then
+        # Detectar y respaldar archivos regulares que conflictúan con stow
+        while IFS= read -r rel; do
+            target="$HOME/$rel"
+            if [ -f "$target" ] && [ ! -L "$target" ]; then
+                warn "$rel existe como archivo regular. Renombrando a ${rel}.bak..."
+                mv "$target" "${target}.bak"
+            fi
+        done < <(cd shell && find . -type f | sed 's|^\./||')
         stow -v -t ~ shell
         ok "shell stowed"
     fi
