@@ -31,6 +31,9 @@ Stack completo para desarrollo Full Stack.
           (treesit-install-language-grammar lang)
         (error (message "⚠️ No se pudo instalar gramática %s: %s" lang err)))))
 
+  ;; Nivel máximo de coloreo tree-sitter (keywords, tipos, operadores, etc.)
+  (setq treesit-font-lock-level 4)
+
   ;; Remapear modos antiguos a Tree-sitter
   (add-to-list 'major-mode-remap-alist '(js-mode . js-ts-mode))
   (add-to-list 'major-mode-remap-alist '(javascript-mode . js-ts-mode))
