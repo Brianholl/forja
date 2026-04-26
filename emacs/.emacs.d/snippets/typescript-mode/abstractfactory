@@ -1,0 +1,35 @@
+# -*- mode: snippet -*-
+# name: Abstract Factory (TypeScript)
+# key: abstractfactory
+# --
+// Abstract Factory — interfaces + familias de productos
+interface ${1:Boton}    { render(): void }
+interface ${2:Checkbox} { toggle(): void }
+
+interface GUIFactory {
+  crear$1():   $1;
+  crear$2(): $2;
+}
+
+class ${3:Windows}$1    implements $1    { render() { console.log("[$3 $1]"); } }
+class ${3:Windows}$2  implements $2  { toggle() { console.log("[$3 $2]"); } }
+class ${4:Mac}$1        implements $1    { render() { console.log("[$4 $1]"); } }
+class ${4:Mac}$2      implements $2  { toggle() { console.log("[$4 $2]"); } }
+
+class ${3:Windows}Factory implements GUIFactory {
+  crear$1():   $1  { return new $3$1();   }
+  crear$2(): $2 { return new $3$2(); }
+}
+class ${4:Mac}Factory implements GUIFactory {
+  crear$1():   $1  { return new $4$1();   }
+  crear$2(): $2 { return new $4$2(); }
+}
+
+function aplicacion(f: GUIFactory) {
+  f.crear$1().render();
+  f.crear$2().toggle();
+}
+
+console.log("=== $3 ==="); aplicacion(new ${3:Windows}Factory());
+console.log("=== $4 ==="); aplicacion(new ${4:Mac}Factory());
+$0

@@ -1,0 +1,34 @@
+# -*- mode: snippet -*-
+# name: State (TypeScript)
+# key: state
+# --
+// State — union type + switch exhaustivo
+type ${1:Estado} = "${2:Bloqueado}" | "${3:Desbloqueado}";
+
+class ${4:Torniquete} {
+  estado: $1 = "$2";
+
+  moneda() {
+    if (this.estado === "$2") this.estado = "$3";
+    console.log(`[Moneda] → ${this.estado}`);
+  }
+
+  pasar() {
+    switch (this.estado) {
+      case "$2":
+        console.log("[Pasar] ¡Bloqueado!");
+        break;
+      case "$3":
+        console.log("[Pasar] Adelante");
+        this.estado = "$2";
+        break;
+    }
+  }
+}
+
+const t = new $4();
+t.pasar();    // bloqueado
+t.moneda();   // desbloquea
+t.pasar();    // pasa → bloquea
+t.pasar();    // bloqueado de nuevo
+$0

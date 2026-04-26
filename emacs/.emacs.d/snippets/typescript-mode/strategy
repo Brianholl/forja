@@ -1,0 +1,28 @@
+# -*- mode: snippet -*-
+# name: Strategy (TypeScript)
+# key: strategy
+# --
+// Strategy — función como estrategia (type alias)
+type ${1:Estrategia} = (datos: number[]) => number[];
+
+const burbuja: $1 = (d) => {
+  const a = [...d];
+  for (let i = 0; i < a.length - 1; i++)
+    for (let j = 0; j < a.length - 1 - i; j++)
+      if (a[j] > a[j + 1]) [a[j], a[j + 1]] = [a[j + 1], a[j]];
+  return a;
+};
+
+const stlSort: $1 = (d) => [...d].sort((a, b) => a - b);
+
+class ${2:Ordenador} {
+  constructor(private estrategia: $1) {}
+  set(e: $1)              { this.estrategia = e; }
+  ejecutar(d: number[])   { return this.estrategia(d); }
+}
+
+const ctx = new $2(burbuja);
+console.log(ctx.ejecutar([5, 3, 8, 1, 9]));
+ctx.set(stlSort);
+console.log(ctx.ejecutar([5, 3, 8, 1, 9]));
+$0

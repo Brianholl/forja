@@ -1,0 +1,31 @@
+# -*- mode: snippet -*-
+# name: Decorator (TypeScript)
+# key: decorator
+# --
+// Decorator — wrapping con interface común
+interface ${1:Componente} { operacion(): string }
+
+class ${2:Concreto} implements $1 {
+  operacion() { return "$2"; }
+}
+
+class ${3:Decorador} implements $1 {
+  constructor(protected envuelto: $1) {}
+  operacion() { return this.envuelto.operacion(); }
+}
+
+class ${4:DecoradorA} extends $3 {
+  operacion() { return `$4(${super.operacion()})`; }
+}
+class ${5:DecoradorB} extends $3 {
+  operacion() { return `$5(${super.operacion()})`; }
+}
+
+const simple = new $2();
+const con_a  = new $4(new $2());
+const con_ab = new $5(new $4(new $2()));
+
+console.log(simple.operacion());   // $2
+console.log(con_a.operacion());    // $4($2)
+console.log(con_ab.operacion());   // $5($4($2))
+$0

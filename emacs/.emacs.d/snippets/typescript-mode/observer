@@ -1,0 +1,33 @@
+# -*- mode: snippet -*-
+# name: Observer (TypeScript)
+# key: observer
+# --
+// Observer — genérico y type-safe con interface
+interface ${1:Observador}<T> {
+  actualizar(dato: T): void;
+}
+
+class ${2:Sujeto}<T> {
+  private obs: $1<T>[] = [];
+  private estado!: T;
+
+  suscribir  (o: $1<T>) { this.obs.push(o); }
+  desuscribir(o: $1<T>) { this.obs = this.obs.filter(x => x !== o); }
+
+  set${3:Estado}(v: T) {
+    console.log(`[Sujeto] Estado → ${String(v)}`);
+    this.estado = v;
+    this.obs.forEach(o => o.actualizar(v));
+  }
+}
+
+const sujeto = new $2<number>();
+const logger: $1<number> = { actualizar: v => console.log(`[Logger] ${v}`) };
+const email:  $1<number> = { actualizar: v => console.log(`[Email]  ${v}`) };
+
+sujeto.suscribir(logger);
+sujeto.suscribir(email);
+sujeto.set$3(1);
+sujeto.desuscribir(email);
+sujeto.set$3(2);
+$0

@@ -1,0 +1,22 @@
+# -*- mode: snippet -*-
+# name: Adapter (TypeScript)
+# key: adapter
+# --
+// Adapter — wrapper que convierte una interfaz en otra
+interface ${1:Target} { ${2:solicitud}(): string }
+
+class ${3:Adaptee} {
+  ${4:solicitudEspecifica}(): string { return "atpada elbatapmocni"; }
+}
+
+class ${5:Adapter} implements $1 {
+  constructor(private adaptee: $3) {}
+  $2(): string {
+    return `[$5] ${this.adaptee.$4().split("").reverse().join("")}`;
+  }
+}
+
+function cliente(t: $1) { console.log(t.$2()); }
+
+cliente(new $5(new $3()));
+$0

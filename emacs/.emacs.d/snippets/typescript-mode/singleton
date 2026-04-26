@@ -1,0 +1,21 @@
+# -*- mode: snippet -*-
+# name: Singleton (TypeScript)
+# key: singleton
+# --
+// Singleton — private constructor + instancia estática
+class ${1:Database} {
+  private static _instancia: $1;
+  private constructor(readonly ${2:url}: string) {}
+
+  static obtener(): $1 {
+    if (!$1._instancia)
+      $1._instancia = new $1("${3:db://localhost:5432}");
+    return $1._instancia;
+  }
+}
+
+const a = $1.obtener();
+const b = $1.obtener();
+a.${2:url} // acceso de prueba
+console.log("¿Misma instancia?", a === b);   // true
+$0

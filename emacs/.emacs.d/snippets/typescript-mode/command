@@ -1,0 +1,36 @@
+# -*- mode: snippet -*-
+# name: Command (TypeScript)
+# key: command
+# --
+// Command — interface + stack de historial para undo
+interface ${1:Comando} {
+  execute(): void;
+  undo():    void;
+}
+
+class ${2:Editor} {
+  texto = "";
+  escribir(s: string) { this.texto += s;                    console.log(`[Editor] "${this.texto}"`); }
+  borrar  (n: number) { this.texto = this.texto.slice(0, -n); console.log(`[Editor] "${this.texto}"`); }
+}
+
+class ${3:ComandoEscribir} implements $1 {
+  constructor(private ed: $2, private txt: string) {}
+  execute() { this.ed.escribir(this.txt); }
+  undo()    { this.ed.borrar(this.txt.length); }
+}
+
+class ${4:Invocador} {
+  private historial: $1[] = [];
+  ejecutar(c: $1) { c.execute(); this.historial.push(c); }
+  deshacer()      { this.historial.pop()?.undo(); }
+}
+
+const ed  = new $2();
+const inv = new $4();
+inv.ejecutar(new $3(ed, "Hola "));
+inv.ejecutar(new $3(ed, "Mundo"));
+console.log("-- Deshacer --");
+inv.deshacer();
+inv.deshacer();
+$0

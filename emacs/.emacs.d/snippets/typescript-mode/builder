@@ -1,0 +1,28 @@
+# -*- mode: snippet -*-
+# name: Builder (TypeScript)
+# key: builder
+# --
+// Builder — fluent interface con `this` como tipo de retorno
+interface ${1:Pizza} {
+  masa: string;
+  salsa: string;
+  topping: string;
+}
+
+class ${2:PizzaBuilder} {
+  private pizza: $1 = { masa: "", salsa: "", topping: "" };
+
+  setMasa   (v: string): this { this.pizza.masa    = v; return this; }
+  setSalsa  (v: string): this { this.pizza.salsa   = v; return this; }
+  setTopping(v: string): this { this.pizza.topping = v; return this; }
+  build(): Readonly<$1>       { return { ...this.pizza }; }
+}
+
+const p = new $2()
+  .setMasa("fina")
+  .setSalsa("tomate")
+  .setTopping("mozzarella")
+  .build();
+
+console.log(p);
+$0

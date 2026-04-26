@@ -1,0 +1,29 @@
+# -*- mode: snippet -*-
+# name: Factory Method (TypeScript)
+# key: factorymethod
+# --
+// Factory Method — abstract class + método de fábrica sobreescribible
+interface ${1:Transporte} { entregar(): void }
+
+class ${2:Camion} implements $1 {
+  entregar() { console.log("[$2] Entrega por tierra"); }
+}
+class ${3:Barco} implements $1 {
+  entregar() { console.log("[$3] Entrega por mar"); }
+}
+
+abstract class ${4:Logistica} {
+  abstract crear$1(): $1;
+  planificar() { this.crear$1().entregar(); }
+}
+
+class ${5:LogisticaTierra} extends $4 {
+  crear$1(): $1 { return new $2(); }
+}
+class ${6:LogisticaMar} extends $4 {
+  crear$1(): $1 { return new $3(); }
+}
+
+new $5().planificar();
+new $6().planificar();
+$0

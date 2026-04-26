@@ -1,0 +1,25 @@
+# -*- mode: snippet -*-
+# name: Facade (TypeScript)
+# key: facade
+# --
+// Facade — interfaz simple sobre subsistemas complejos
+class ${1:CPU}     { ejecutar() { console.log("[CPU] Ejecutando");  } }
+class ${2:Memoria} { cargar()   { console.log("[RAM] Cargando");    } }
+class ${3:Disco}   { leer()     { console.log("[Disco] Leyendo");   } }
+
+class ${4:Computadora} {
+  private cpu     = new $1();
+  private memoria = new $2();
+  private disco   = new $3();
+
+  encender() {
+    console.log("=== Encendiendo $4 ===");
+    this.cpu.ejecutar();
+    this.memoria.cargar();
+    this.disco.leer();
+    console.log("Sistema listo.");
+  }
+}
+
+new $4().encender();
+$0

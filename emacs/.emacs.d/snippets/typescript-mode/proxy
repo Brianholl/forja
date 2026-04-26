@@ -1,0 +1,32 @@
+# -*- mode: snippet -*-
+# name: Proxy (TypeScript)
+# key: proxy
+# --
+// Proxy — control de acceso + lazy init con ??=
+interface ${1:Sujeto} { solicitud(): void }
+
+class ${2:SujetoReal} implements $1 {
+  solicitud() { console.log("[$2] Procesando..."); }
+}
+
+class ${3:Proxy} implements $1 {
+  private real?: $2;
+
+  constructor(private acceso: string) {}
+
+  private verificar(): boolean {
+    const ok = this.acceso === "admin";
+    console.log(`[$3] Acceso '${this.acceso}': ${ok ? "OK" : "denegado"}`);
+    return ok;
+  }
+
+  solicitud() {
+    if (!this.verificar()) return;
+    this.real ??= new $2();   // lazy init
+    this.real.solicitud();
+  }
+}
+
+new $3("admin").solicitud();
+new $3("anonimo").solicitud();
+$0
