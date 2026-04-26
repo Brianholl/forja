@@ -84,7 +84,7 @@ echo ""
 # =============================================================================
 # 1. STOW: deshacer symlinks
 # =============================================================================
-info "[1/5] Deshaciendo symlinks (stow)..."
+info "[1/6] Deshaciendo symlinks (stow)..."
 cd "$SCRIPT_DIR" || { warn "No se pudo acceder a $SCRIPT_DIR"; }
 
 if command -v stow &>/dev/null; then
@@ -98,10 +98,18 @@ else
     warn "stow no instalado — saltando (los symlinks pueden quedar huerfanos)"
 fi
 
+# Limpiar symlinks de shell que apunten fuera del stow dir actual (rutas viejas)
+for dotfile in "$HOME/.bashrc_custom" "$HOME/.bashrc_unreal"; do
+    if [ -L "$dotfile" ]; then
+        target=$(readlink "$dotfile")
+        [[ "$target" == *"$SCRIPT_DIR/shell/"* ]] || rm -f "$dotfile" && true
+    fi
+done
+
 # =============================================================================
 # 2. EMACS: borrar config y paquetes MELPA
 # =============================================================================
-info "[2/5] Borrando ~/.emacs.d/ ..."
+info "[2/6] Borrando ~/.emacs.d/ ..."
 if [ -d "$HOME/.emacs.d" ]; then
     rm -rf "$HOME/.emacs.d"
     ok "~/.emacs.d/ eliminado"
@@ -117,10 +125,18 @@ for f in "$HOME/.emacs" "$HOME/.emacs.el"; do
     fi
 done
 
+# Backups viejos generados por installs anteriores
+for f in "$HOME"/.*.bak "$HOME"/.emacs.d.bak; do
+    if [ -e "$f" ]; then
+        rm -rf "$f"
+        ok "$f eliminado"
+    fi
+done
+
 # =============================================================================
 # 3. FORJA: borrar perfil y configuracion
 # =============================================================================
-info "[3/5] Borrando ~/.forja/ ..."
+info "[3/6] Borrando ~/.forja/ ..."
 if [ -d "$HOME/.forja" ]; then
     rm -rf "$HOME/.forja"
     ok "~/.forja/ eliminado"
@@ -131,7 +147,7 @@ fi
 # =============================================================================
 # 4. PIP: desinstalar LSPs de Python
 # =============================================================================
-info "[4/5] Desinstalando LSPs de Python (pip)..."
+info "[4/6] Desinstalando LSPs de Python (pip)..."
 PIP_PKGS="python-lsp-server pylsp-mypy python-lsp-black ruff gdtoolkit"
 
 if command -v pip &>/dev/null || command -v pip3 &>/dev/null; then
@@ -155,7 +171,7 @@ fi
 # =============================================================================
 # 5. NPM: desinstalar globals de FORJA
 # =============================================================================
-info "[5/5] Desinstalando globals de npm..."
+info "[5/6] Desinstalando globals de npm..."
 NPM_PKGS="typescript typescript-language-server vscode-langservers-extracted live-server prettier intelephense @prettier/plugin-php @mermaid-js/mermaid-cli n8n openclaw"
 
 if command -v npm &>/dev/null; then

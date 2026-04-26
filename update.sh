@@ -97,6 +97,13 @@ if [ -d emacs ]; then
     stow -v -R -t ~ emacs 2>/dev/null && ok "emacs re-stowed" || warn "stow emacs falló"
 fi
 if [ -d shell ]; then
+    # Eliminar symlinks obsoletos que apunten fuera del stow dir actual
+    for dotfile in ~/.bashrc_custom ~/.bashrc_unreal; do
+        if [ -L "$dotfile" ]; then
+            target=$(readlink "$dotfile")
+            [[ "$target" == *"$SCRIPT_DIR/shell/"* ]] || rm -f "$dotfile"
+        fi
+    done
     stow -v -R -t ~ shell 2>/dev/null && ok "shell re-stowed" || warn "stow shell falló"
 fi
 if [ "$PLATFORM" = "termux" ] && [ -f termux/.termux/termux.properties ]; then
@@ -189,6 +196,8 @@ cat > "$EMACS_UPDATE_EL" << 'ELISP'
         ("melpa"  . "https://melpa.org/packages/")))
 (package-initialize)
 (package-refresh-contents)
+(unless (package-installed-p 'deferred)
+  (package-install 'deferred))
 (when (fboundp 'package-upgrade-all)
   (package-upgrade-all))
 (message "Paquetes MELPA actualizados.")
@@ -201,29 +210,33 @@ ok "Paquetes MELPA actualizados"
 # 6. SANIDAD — verificar que Emacs carga sin errores
 # =============================================================================
 info "[6/7] Verificando que Emacs carga sin errores..."
-SANITY_LOG="$TMPDIR/forja-sanity.log"
-emacs --batch \
-    --load "$HOME/.emacs.d/init.el" \
-    --eval "(kill-emacs 0)" \
-    2>"$SANITY_LOG" || true
-
-if grep -qiE "Key sequence.*starts with non-prefix|Symbol's function definition is void|Error.*loading.*init" "$SANITY_LOG" 2>/dev/null; then
-    warn "⚠  Emacs reportó errores al cargar. Revisa:"
-    grep -iE "Key sequence.*non-prefix|void|Error" "$SANITY_LOG" | head -5
-    warn "Tip: emacs --debug-init para ver el stack completo"
+if [ ! -f "$HOME/.emacs.d/init.el" ]; then
+    warn "init.el no encontrado — stow emacs puede haber fallado"
 else
-    ok "Emacs carga sin errores de init"
+    SANITY_LOG="$TMPDIR/forja-sanity.log"
+    emacs --batch \
+        --load "$HOME/.emacs.d/init.el" \
+        --eval "(kill-emacs 0)" \
+        2>"$SANITY_LOG" || true
+
+    if grep -qiE "file-missing|Cannot open load file|Key sequence.*starts with non-prefix|Symbol's function definition is void|Error.*loading.*init" "$SANITY_LOG" 2>/dev/null; then
+        warn "⚠  Emacs reportó errores al cargar. Revisa:"
+        grep -iE "file-missing|Cannot open load|Key sequence.*non-prefix|void|Error" "$SANITY_LOG" | head -5
+        warn "Tip: emacs --debug-init para ver el stack completo"
+    else
+        ok "Emacs carga sin errores de init"
+    fi
+    rm -f "$SANITY_LOG"
 fi
-rm -f "$SANITY_LOG"
 
 # =============================================================================
 # 7. CPPMAN — cachear páginas de cppreference (paso lento, al final)
 # =============================================================================
 info "[7/7] Configurando cppman con cppreference..."
 if [ "$PLATFORM" = "arch" ] && command -v cppman &>/dev/null; then
-    cppman -s cppreference && cppman -c \
+    cppman -s cppreference.com && echo y | cppman -c \
         && ok "cppman configurado" \
-        || warn "cppman: error al cachear — ejecuta manualmente: cppman -s cppreference && cppman -c"
+        || warn "cppman: error al cachear — ejecuta manualmente: cppman -s cppreference.com && cppman -c"
 else
     [ "$PLATFORM" != "arch" ] || warn "cppman no instalado, saltando"
 fi
