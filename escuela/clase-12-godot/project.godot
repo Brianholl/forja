@@ -1,0 +1,13 @@
+; Engine configuration file — Godot 4.x
+; Editá desde el editor o directamente aquí.
+
+config_version=5
+
+[application]
+config/name="El Dragon de Pixeles"
+config/features=PackedStringArray("4.2", "GL Compatibility")
+run/main_scene="res://main.tscn"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

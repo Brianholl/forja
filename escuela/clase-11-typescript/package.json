@@ -1,0 +1,12 @@
+{
+    "name": "tienda-magica",
+    "version": "1.0.0",
+    "scripts": {
+        "build": "tsc",
+        "start": "node dist/tienda.js",
+        "dev": "tsx tienda.ts"
+    },
+    "devDependencies": {
+        "typescript": "^5.4.0"
+    }
+}

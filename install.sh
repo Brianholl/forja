@@ -442,7 +442,7 @@ if [ "$PLATFORM" = "termux" ]; then
         || warn "zls no disponible en pkg, LSP Zig desactivado"
 elif [ "$PLATFORM" = "wsl" ]; then
     # Zig no está en apt, descargar binario
-    ZIG_VER="0.14.0"
+    ZIG_VER="0.15.0"
     ZIG_TAR="zig-linux-x86_64-${ZIG_VER}.tar.xz"
     ZIG_URL="https://ziglang.org/download/${ZIG_VER}/${ZIG_TAR}"
     if ! command -v zig &>/dev/null; then
@@ -652,6 +652,7 @@ npm_install_if_missing live-server                   live-server
 npm_install_if_missing prettier                      prettier
 npm_install_if_missing intelephense                  intelephense
 npm_install_if_missing @prettier/plugin-php          prettier
+npm_install_if_missing tsx                           tsx
 
 if [ "$PLATFORM" = "arch" ]; then
     # mermaid-cli necesita Chromium — solo desktop

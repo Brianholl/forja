@@ -1,7 +1,37 @@
 # Binarios C/C++
 clase-01-c/oraculo
 clase-02-cpp/forja
+clase-13-raylib/dungeon
 
-# Rust build artifacts
+# Rust
 clase-03-rust/target/
 clase-03-rust/Cargo.lock
+
+# Go
+clase-04-go/mensajero-veloz
+
+# Python
+clase-05-python/__pycache__/
+clase-05-python/*.pyc
+
+# Zig
+clase-07-zig/zig-out/
+clase-07-zig/.zig-cache/
+
+# Java / Maven
+clase-08-java/target/
+
+# Kotlin / Gradle
+clase-09-kotlin/build/
+clase-09-kotlin/.gradle/
+clase-09-kotlin/gradlew
+clase-09-kotlin/gradlew.bat
+clase-09-kotlin/gradle/
+
+# TypeScript
+clase-11-typescript/node_modules/
+clase-11-typescript/dist/
+
+# Godot
+clase-12-godot/.godot/
+clase-12-godot/*.import

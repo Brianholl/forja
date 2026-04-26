@@ -15,48 +15,48 @@ Criterios de cada clase:
 
 | # | Nombre | Módulo | Ejemplo | Estado |
 |---|--------|--------|---------|--------|
-| 00 | El Primer Hechizo | core / dashboard | Navegar FORJA, abrir archivos, vterm | `[ ]` |
+| 00 | El Primer Hechizo | core / dashboard | Navegar FORJA, abrir archivos, vterm | `[x]` |
 
 ## Nivel 1 — Lenguajes de Sistema
 
 | # | Nombre | Módulo | Ejemplo | Estado |
 |---|--------|--------|---------|--------|
-| 01 | El Oráculo de Números | C (30-cpp) | Adivina el número — `gcc`, LSP, GDB | `[ ]` |
-| 02 | La Forja de la Espada | C++ (30-cpp) | RPG con structs y clases, Makefile | `[ ]` |
-| 03 | Ferris el Explorador | Rust (31-rust) | Laberinto en terminal, `cargo run` | `[ ]` |
-| 04 | El Mensajero Veloz | Go (32-go) | Servidor HTTP de cotizaciones, `go run` | `[ ]` |
-| 07 | La Llave de Memoria | Zig (43-zig) | Asignador de arena, `zig build` | `[ ]` |
+| 01 | El Oráculo de Números | C (30-cpp) | Adivina el número — `gcc`, LSP, GDB | `[x]` |
+| 02 | La Forja de la Espada | C++ (30-cpp) | RPG con structs y clases, Makefile | `[x]` |
+| 03 | Ferris el Explorador | Rust (31-rust) | Laberinto en terminal, `cargo run` | `[x]` |
+| 04 | El Mensajero Veloz | Go (32-go) | Servidor HTTP de cotizaciones, `go run` | `[x]` |
+| 07 | La Llave de Memoria | Zig (43-zig) | Asignador de arena, `zig build` | `[x]` |
 
 ## Nivel 2 — Lenguajes de Alto Nivel
 
 | # | Nombre | Módulo | Ejemplo | Estado |
 |---|--------|--------|---------|--------|
-| 05 | El Alquimista | Python (34-python) | Generador de pociones (CLI), pylsp, ruff | `[ ]` |
-| 08 | El Bestiario | Java (44-java) | Bestiary con OOP, Maven | `[ ]` |
-| 09 | El Inventario Mágico | Kotlin (44-java) | Inventario con data classes, Gradle | `[ ]` |
+| 05 | El Alquimista | Python (34-python) | Generador de pociones (CLI), pylsp, ruff | `[x]` |
+| 08 | El Bestiario | Java (44-java) | Bestiary con OOP, Maven | `[x]` |
+| 09 | El Inventario Mágico | Kotlin (44-java) | Inventario con data classes, Gradle | `[x]` |
 
 ## Nivel 3 — Web y Frontend
 
 | # | Nombre | Módulo | Ejemplo | Estado |
 |---|--------|--------|---------|--------|
-| 10 | El Grimorio Digital | Web (20-web) | Landing page HTML/CSS/JS, live-server | `[ ]` |
-| 11 | La Tienda Mágica | TypeScript (20-web) | API de tienda con tipos, tsc | `[ ]` |
+| 10 | El Grimorio Digital | Web (20-web) | Landing page HTML/CSS/JS, live-server | `[x]` |
+| 11 | La Tienda Mágica | TypeScript (20-web) | API de tienda con tipos, tsc | `[x]` |
 
 ## Nivel 4 — Game Dev
 
 | # | Nombre | Módulo | Ejemplo | Estado |
 |---|--------|--------|---------|--------|
-| 06 | Asteroides de la Mazmorra | Lua + Löve2D (42-lua) | Mini juego 2D, `love .` | `[ ]` |
-| 12 | El Dragón de Píxeles | Godot 4 (41-godot) | Escena con personaje y colisiones | `[ ]` |
-| 13 | Rogue de la Forja | Raylib + C (30-cpp) | Dungeon crawler 2D, compilación con flags | `[ ]` |
+| 06 | Asteroides de la Mazmorra | Lua + Löve2D (42-lua) | Mini juego 2D, `love .` | `[x]` |
+| 12 | El Dragón de Píxeles | Godot 4 (41-godot) | Escena con personaje y colisiones | `[x]` |
+| 13 | Rogue de la Forja | Raylib + C (30-cpp) | Dungeon crawler 2D, compilación con flags | `[x]` |
 
 ## Nivel 5 — Herramientas Pro
 
 | # | Nombre | Módulo | Ejemplo | Estado |
 |---|--------|--------|---------|--------|
-| 14 | El Grimorio de Cambios | Git (10-git) | Workflow con Magit, ramas, merge | `[ ]` |
-| 15 | El Oráculo de Código | Aider + Ollama (33-aider) | Refactorizar código con IA local | `[ ]` |
-| 16 | El Cuartel General | GTD (50-gtd) | Captura, procesa y revisa con org-mode | `[ ]` |
+| 14 | El Grimorio de Cambios | Git (10-git) | Workflow con Magit, ramas, merge | `[x]` |
+| 15 | El Oráculo de Código | Aider + Ollama (33-aider) | Refactorizar código con IA local | `[x]` |
+| 16 | El Cuartel General | GTD (50-gtd) | Captura, procesa y revisa con org-mode | `[x]` |
 
 ---
 

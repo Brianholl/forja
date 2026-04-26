@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academia de los Elementos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <span class="logo">⚗ Grimorio</span>
+            <ul>
+                <li><a href="#cursos">Cursos</a></li>
+                <li><a href="#inscripcion">Inscribite</a></li>
+            </ul>
+        </nav>
+        <div class="hero">
+            <h1>Academia de los Elementos</h1>
+            <p>Aprendé magia real. Forjá tu destino.</p>
+            <button onclick="mostrarFormulario()">Comenzar el viaje</button>
+        </div>
+    </header>
+
+    <section id="cursos">
+        <h2>Cursos disponibles</h2>
+        <div class="grid" id="grid-cursos"></div>
+    </section>
+
+    <section id="inscripcion" class="oculto">
+        <h2>Inscripción</h2>
+        <form id="form-inscripcion" onsubmit="inscribir(event)">
+            <input type="text" id="nombre" placeholder="Tu nombre de aprendiz" required>
+            <select id="curso">
+                <option value="">Elegí un curso...</option>
+            </select>
+            <button type="submit">Forjar mi camino</button>
+        </form>
+        <p id="mensaje-confirmacion" class="oculto"></p>
+    </section>
+
+    <footer>
+        <p>© 2026 Academia de los Elementos · Hecho con FORJA</p>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>
