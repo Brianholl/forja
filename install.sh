@@ -378,10 +378,10 @@ ok "Node.js instalado"
 info "Instalando Python y herramientas..."
 if [ "$PLATFORM" = "termux" ]; then
     pkg install -y python python-pip
-    # pylsp: --break-system-packages requerido en Termux moderno (PEP 668)
-    pip install --break-system-packages python-lsp-server pylsp-mypy 2>/dev/null \
-        || pip install python-lsp-server pylsp-mypy 2>/dev/null \
-        || warn "No se pudo instalar pylsp en Termux"
+    # PEP 668: en Termux moderno pip requiere --break-system-packages para instalar globalmente
+    info "Instalando python-lsp-server (pylsp)..."
+    pip install --break-system-packages python-lsp-server pylsp-mypy \
+        || warn "No se pudo instalar pylsp. Ejecuta manualmente: pip install --break-system-packages python-lsp-server"
     pkg install -y ruff 2>/dev/null \
         || pip install --only-binary :all: ruff 2>/dev/null \
         || info "ruff no disponible en Termux — se omite (es opcional)"

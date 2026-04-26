@@ -1,0 +1,101 @@
+# -*- mode: snippet -*-
+# name: Command (C)
+# key: command
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Command en C
+ * Intención: encapsular una solicitud como objeto,
+ * permitiendo deshacer, rehacer y colas de comandos.
+ * En C: struct con execute() y undo() + pila de historial.
+ * ------------------------------------------------------- */
+
+/* --- Comando (interfaz) --- */
+
+typedef struct ${1:Comando} $1;
+struct $1 {
+    void (*execute)($1 *self);
+    void (*undo)   ($1 *self);
+};
+
+/* --- Receptor --- */
+
+typedef struct {
+    char texto[256];
+} ${2:Editor};
+
+void editor_escribir(${2:Editor} *e, const char *s) {
+    strncat(e->texto, s, sizeof e->texto - strlen(e->texto) - 1);
+    printf("[Editor] \"%s\"\n", e->texto);
+}
+
+void editor_borrar(${2:Editor} *e, int n) {
+    int len = (int)strlen(e->texto);
+    if (n > len) n = len;
+    e->texto[len - n] = '\0';
+    printf("[Editor] \"%s\"\n", e->texto);
+}
+
+/* --- Comando concreto: Escribir --- */
+
+typedef struct {
+    $1        base;
+    ${2:Editor} *editor;
+    char      texto[64];
+} ${3:ComandoEscribir};
+
+static void cmd_escribir_exec($1 *self) {
+    ${3:ComandoEscribir} *c = (${3:ComandoEscribir} *)self;
+    editor_escribir(c->editor, c->texto);
+}
+static void cmd_escribir_undo($1 *self) {
+    ${3:ComandoEscribir} *c = (${3:ComandoEscribir} *)self;
+    editor_borrar(c->editor, (int)strlen(c->texto));
+}
+
+$1 *nuevo_cmd_escribir(${2:Editor} *ed, const char *txt) {
+    ${3:ComandoEscribir} *c = malloc(sizeof *c);
+    c->base.execute = cmd_escribir_exec;
+    c->base.undo    = cmd_escribir_undo;
+    c->editor = ed;
+    strncpy(c->texto, txt, sizeof c->texto - 1);
+    return ($1 *)c;
+}
+
+/* --- Invocador con historial --- */
+
+#define MAX_HISTORIAL 16
+typedef struct {
+    $1 *historial[MAX_HISTORIAL];
+    int  cima;
+} ${4:Invocador};
+
+void invocar(${4:Invocador} *inv, $1 *cmd) {
+    cmd->execute(cmd);
+    if (inv->cima < MAX_HISTORIAL) inv->historial[inv->cima++] = cmd;
+}
+
+void deshacer(${4:Invocador} *inv) {
+    if (inv->cima > 0) inv->historial[--inv->cima]->undo(inv->historial[inv->cima]);
+}
+
+int main(void) {
+    ${2:Editor}    editor  = {0};
+    ${4:Invocador} inv     = {0};
+
+    $1 *c1 = nuevo_cmd_escribir(&editor, "Hola ");
+    $1 *c2 = nuevo_cmd_escribir(&editor, "Mundo");
+
+    invocar(&inv, c1);
+    invocar(&inv, c2);
+    printf("-- Deshacer --\n");
+    deshacer(&inv);
+    deshacer(&inv);
+
+    free(c1); free(c2);
+    return 0;
+}
+$0

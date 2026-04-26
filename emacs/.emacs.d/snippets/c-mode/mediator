@@ -1,0 +1,83 @@
+# -*- mode: snippet -*-
+# name: Mediator (C)
+# key: mediator
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Mediator en C
+ * Intención: reducir dependencias caóticas entre objetos,
+ * centralizando la comunicación en un mediador.
+ * En C: función-puntero notificar() con puntero al mediador.
+ * ------------------------------------------------------- */
+
+typedef struct ${1:Mediador}   $1;
+typedef struct ${2:Componente} $2;
+
+struct $2 {
+    $1        *mediador;
+    char       nombre[32];
+    void (*notificar)($2 *self, const char *evento);
+};
+
+struct $1 {
+    void (*reaccionar)($1 *self, $2 *emisor, const char *evento);
+};
+
+static void notificar_impl($2 *self, const char *evento) {
+    if (self->mediador)
+        self->mediador->reaccionar(self->mediador, self, evento);
+}
+
+$2 nuevo_componente($1 *med, const char *nombre) {
+    $2 c;
+    c.mediador  = med;
+    c.notificar = notificar_impl;
+    strncpy(c.nombre, nombre, sizeof c.nombre - 1);
+    return c;
+}
+
+/* --- Mediador concreto: ${3:DialogoLogin} --- */
+
+typedef struct {
+    $1  base;
+    $2 *titulo;
+    $2 *usuario;
+    $2 *contrasena;
+    $2 *ok;
+} ${3:DialogoLogin};
+
+static void dialogo_reaccionar($1 *self, $2 *emisor, const char *evento) {
+    ${3:DialogoLogin} *d = (${3:DialogoLogin} *)self;
+    printf("[Mediador] %s → '%s'\n", emisor->nombre, evento);
+
+    if (emisor == d->usuario && strcmp(evento, "texto_cambiado") == 0) {
+        printf("  → Habilitando campo contraseña\n");
+    }
+    if (emisor == d->ok && strcmp(evento, "click") == 0) {
+        printf("  → Validando credenciales y cerrando diálogo\n");
+    }
+}
+
+int main(void) {
+    ${3:DialogoLogin} dialogo;
+    dialogo.base.reaccionar = dialogo_reaccionar;
+
+    $2 titulo    = nuevo_componente(&dialogo.base, "Titulo");
+    $2 usuario   = nuevo_componente(&dialogo.base, "Campo Usuario");
+    $2 contrasena= nuevo_componente(&dialogo.base, "Campo Contraseña");
+    $2 ok        = nuevo_componente(&dialogo.base, "Botón OK");
+
+    dialogo.titulo     = &titulo;
+    dialogo.usuario    = &usuario;
+    dialogo.contrasena = &contrasena;
+    dialogo.ok         = &ok;
+
+    usuario.notificar(&usuario, "texto_cambiado");
+    ok.notificar(&ok, "click");
+
+    return 0;
+}
+$0

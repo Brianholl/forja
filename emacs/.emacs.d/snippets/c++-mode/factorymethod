@@ -1,0 +1,76 @@
+# -*- mode: snippet -*-
+# name: Factory Method (C++)
+# key: factorymethod
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Factory Method en C++
+// Intención: definir una interfaz para crear objetos, pero
+// dejar que las subclases decidan qué clase instanciar.
+// -----------------------------------------------------------
+
+// --- Producto abstracto ---
+
+class ${1:Transporte} {
+ public:
+  virtual ~$1() = default;
+  virtual void entregar() const = 0;
+};
+
+// --- Productos concretos ---
+
+class ${2:Camion} : public $1 {
+ public:
+  void entregar() const override {
+    std::cout << "[$2] Entrega por tierra\n";
+  }
+};
+
+class ${3:Barco} : public $1 {
+ public:
+  void entregar() const override {
+    std::cout << "[$3] Entrega por mar\n";
+  }
+};
+
+// --- Creador abstracto ---
+
+class ${4:Logistica} {
+ public:
+  virtual ~$4() = default;
+  virtual std::unique_ptr<$1> crear_$1() const = 0;
+
+  void planificar_entrega() const {
+    auto t = crear_$1();
+    std::cout << "[$4] Planificando: ";
+    t->entregar();
+  }
+};
+
+// --- Creadores concretos ---
+
+class ${5:LogisticaTierra} : public $4 {
+ public:
+  std::unique_ptr<$1> crear_$1() const override {
+    return std::make_unique<$2>();
+  }
+};
+
+class ${6:LogisticaMar} : public $4 {
+ public:
+  std::unique_ptr<$1> crear_$1() const override {
+    return std::make_unique<$3>();
+  }
+};
+
+int main() {
+  $5 tierra;
+  $6 mar;
+  tierra.planificar_entrega();
+  mar.planificar_entrega();
+  return 0;
+}
+$0

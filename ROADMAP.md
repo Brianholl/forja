@@ -124,6 +124,44 @@ Los ítems con `[ ]` son los que quedan antes de llamar a FORJA un producto **pu
 
 ---
 
+## v2.3 — Snippets Multilenguaje
+
+> Objetivo: completar la biblioteca de YASnippets con patrones de diseño adaptados
+> a los idiomas de cada lenguaje del curriculum. C y C++ completados en v2.2.
+
+Los snippets van en `emacs/.emacs.d/snippets/<modo>/`.
+El paquete `yasnippet-snippets` ya cubre sintaxis básica — FORJA agrega patrones idiomáticos.
+
+| Lenguaje | Modo | Base (pkg) | FORJA | Estado |
+|----------|------|:---:|:---:|:---:|
+| TypeScript | `typescript-mode` | 0 | ~12 | `[ ]` |
+| Python | `python-mode` | 187 (sintaxis) | ~12 | `[ ]` |
+| Java | `java-mode` | 33 | ~18 | `[ ]` |
+| Kotlin | `kotlin-mode` | 17 | ~10 | `[ ]` |
+| Go | `go-mode` | 29 | ~10 | `[ ]` |
+| Rust | `rust-mode` | 65 | ~10 | `[ ]` |
+| GDScript | `gdscript-mode` | 16 | ~8 | `[ ]` |
+| Lua | `lua-mode` | 11 | ~8 | `[ ]` |
+| PHP | `php-mode` | 42 | ~10 | `[ ]` |
+| Zig | `zig-mode` | 12 | ~8 | `[ ]` |
+
+**Total estimado: ~106 snippets**
+
+### Detalle por lenguaje
+
+- **TypeScript** (prioridad 1 — sin cobertura base): `singleton` `factory` `abstractfactory` `builder` `decorator` `adapter` `proxy` `facade` `observer` `strategy` `command` `state`
+- **Python** (GoF Pythónico — ABC, `@dataclass`, context managers): `singleton` `factory` `abstractfactory` `builder` `prototype` `decorator` `adapter` `proxy` `observer` `strategy` `command` `state`
+- **Java** (lenguaje canónico para GoF — interfaces y abstract classes): 18 patrones
+- **Kotlin** (idioms modernos): `singleton` (object), `builder` (apply/data class), `state` (sealed class), `strategy` (lambda), `decorator` (delegation by), `factory` (companion object), `observer` (callback/Flow), `command` (function type), `adapter`, `visitor` (when exhaustivo)
+- **Go** (idioms propios, no GoF clásico): `functopts` `singleton` `pipeline` `workerpool` `fanout` `errwrap` `strategy` `decorator` `observer` `adapter`
+- **Rust** (trait-based): `builder` `newtype` `state` `strategy` `iterator` `singleton` `observer` `command` `decorator` `factory`
+- **GDScript** (gamedev Godot): `state_machine` `singleton` `observer` `factory` `command` `component` `pool` `event_bus`
+- **Lua** (metatables + Löve2D): `class` `singleton` `state` `observer` `factory` `decorator` `module` `mixin`
+- **PHP** (web patterns): `singleton` `factory` `abstractfactory` `builder` `observer` `strategy` `command` `decorator` `adapter` `repository`
+- **Zig** (comptime patterns): `tagged_union` `comptime_generic` `interface` `errdefer` `arena` `builder` `strategy` `iterator`
+
+---
+
 ## v3.0 — Arquitectura Extensible (largo plazo)
 
 Ideas post-release sin compromiso de fecha:

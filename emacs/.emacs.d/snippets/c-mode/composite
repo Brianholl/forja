@@ -1,0 +1,81 @@
+# -*- mode: snippet -*-
+# name: Composite (C)
+# key: composite
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Composite en C
+ * Intención: componer objetos en estructuras de árbol y
+ * tratar a hoja y compuesto de forma uniforme.
+ * En C: struct con función-punteros + lista de hijos.
+ * ------------------------------------------------------- */
+
+#define MAX_HIJOS 16
+
+typedef struct ${1:Componente} $1;
+struct $1 {
+    char  nombre[32];
+    void (*operacion)(const $1 *self, int profundidad);
+    void (*agregar)  ($1 *self, $1 *hijo);   /* NULL en hojas */
+    $1   *hijos[MAX_HIJOS];
+    int   n_hijos;
+};
+
+/* --- Hoja --- */
+
+static void hoja_operacion(const $1 *self, int prof) {
+    for (int i = 0; i < prof; i++) printf("  ");
+    printf("- %s\n", self->nombre);
+}
+
+$1 *nueva_hoja(const char *nombre) {
+    $1 *h = calloc(1, sizeof *h);
+    strncpy(h->nombre, nombre, sizeof h->nombre - 1);
+    h->operacion = hoja_operacion;
+    h->agregar   = NULL;
+    return h;
+}
+
+/* --- Compuesto --- */
+
+static void compuesto_operacion(const $1 *self, int prof) {
+    for (int i = 0; i < prof; i++) printf("  ");
+    printf("+ %s\n", self->nombre);
+    for (int i = 0; i < self->n_hijos; i++)
+        self->hijos[i]->operacion(self->hijos[i], prof + 1);
+}
+
+static void compuesto_agregar($1 *self, $1 *hijo) {
+    if (self->n_hijos < MAX_HIJOS)
+        self->hijos[self->n_hijos++] = hijo;
+}
+
+$1 *nuevo_compuesto(const char *nombre) {
+    $1 *c = calloc(1, sizeof *c);
+    strncpy(c->nombre, nombre, sizeof c->nombre - 1);
+    c->operacion = compuesto_operacion;
+    c->agregar   = compuesto_agregar;
+    return c;
+}
+
+int main(void) {
+    $1 *raiz  = nuevo_compuesto("raiz");
+    $1 *rama1 = nuevo_compuesto("rama1");
+    $1 *rama2 = nuevo_compuesto("rama2");
+
+    raiz->agregar(raiz, rama1);
+    raiz->agregar(raiz, rama2);
+    rama1->agregar(rama1, nueva_hoja("hoja-A"));
+    rama1->agregar(rama1, nueva_hoja("hoja-B"));
+    rama2->agregar(rama2, nueva_hoja("hoja-C"));
+
+    raiz->operacion(raiz, 0);
+
+    /* Liberar (simplificado para claridad) */
+    free(raiz); free(rama1); free(rama2);
+    return 0;
+}
+$0

@@ -1,0 +1,44 @@
+# -*- mode: snippet -*-
+# name: Singleton (C)
+# key: singleton
+# --
+#include <stdio.h>
+#include <stdlib.h>
+
+/* -------------------------------------------------------
+ * Patrón Singleton en C
+ * Intención: garantizar una única instancia y acceso global.
+ * En C: función estática + puntero estático local.
+ * ------------------------------------------------------- */
+
+typedef struct {
+    char url[100];
+    int  conexiones;
+} ${1:Database};
+
+static $1 *_instancia = NULL;
+
+$1 *obtener_$1(void) {
+    if (!_instancia) {
+        _instancia = malloc(sizeof *_instancia);
+        _instancia->conexiones = 0;
+        printf("[Singleton] Instancia de $1 creada.\n");
+    }
+    return _instancia;
+}
+
+void liberar_$1(void) {
+    free(_instancia);
+    _instancia = NULL;
+}
+
+int main(void) {
+    $1 *a = obtener_$1();
+    $1 *b = obtener_$1();
+    a->conexiones = 5;
+    printf("¿Misma instancia? %s\n", a == b ? "sí" : "no");
+    printf("Conexiones desde b: %d\n", b->conexiones);
+    liberar_$1();
+    return 0;
+}
+$0

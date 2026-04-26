@@ -1,0 +1,76 @@
+# -*- mode: snippet -*-
+# name: Strategy (C)
+# key: strategy
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Strategy en C
+ * Intención: definir una familia de algoritmos,
+ * encapsularlos e intercambiarlos en tiempo de ejecución.
+ * En C: función-puntero en el contexto.
+ * ------------------------------------------------------- */
+
+/* --- Estrategia: firma común --- */
+
+typedef void (*${1:Estrategia})(int *datos, int n);
+
+/* --- Algoritmos concretos --- */
+
+void ordenar_burbuja(int *d, int n) {
+    for (int i = 0; i < n - 1; i++)
+        for (int j = 0; j < n - 1 - i; j++)
+            if (d[j] > d[j+1]) { int t = d[j]; d[j] = d[j+1]; d[j+1] = t; }
+    printf("[Burbuja] Ordenado\n");
+}
+
+void ordenar_insercion(int *d, int n) {
+    for (int i = 1; i < n; i++) {
+        int clave = d[i], j = i - 1;
+        while (j >= 0 && d[j] > clave) { d[j+1] = d[j]; j--; }
+        d[j+1] = clave;
+    }
+    printf("[Inserción] Ordenado\n");
+}
+
+/* --- Contexto --- */
+
+typedef struct {
+    ${1:Estrategia} estrategia;
+} ${2:Ordenador};
+
+void ordenador_set_estrategia(${2:Ordenador} *ctx, $1 est) {
+    ctx->estrategia = est;
+}
+
+void ordenador_ejecutar(${2:Ordenador} *ctx, int *datos, int n) {
+    if (ctx->estrategia) ctx->estrategia(datos, n);
+}
+
+static void imprimir(const int *d, int n) {
+    for (int i = 0; i < n; i++) printf("%d ", d[i]);
+    putchar('\n');
+}
+
+int main(void) {
+    int datos[] = { 5, 3, 8, 1, 9, 2 };
+    int n = (int)(sizeof datos / sizeof datos[0]);
+
+    ${2:Ordenador} ctx = { ordenar_burbuja };
+
+    printf("Antes: "); imprimir(datos, n);
+    ordenador_ejecutar(&ctx, datos, n);
+    printf("Después: "); imprimir(datos, n);
+
+    /* Cambiar estrategia en runtime */
+    int datos2[] = { 7, 4, 6, 2, 5 };
+    int n2 = (int)(sizeof datos2 / sizeof datos2[0]);
+    ordenador_set_estrategia(&ctx, ordenar_insercion);
+    ordenador_ejecutar(&ctx, datos2, n2);
+    printf("Con inserción: "); imprimir(datos2, n2);
+
+    return 0;
+}
+$0

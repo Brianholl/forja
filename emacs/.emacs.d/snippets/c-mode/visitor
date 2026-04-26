@@ -1,0 +1,87 @@
+# -*- mode: snippet -*-
+# name: Visitor (C)
+# key: visitor
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Visitor en C
+ * Intención: separar algoritmos de los objetos sobre los
+ * que operan, sin modificar sus clases.
+ * En C: double-dispatch con accept() + función-punteros.
+ * ------------------------------------------------------- */
+
+typedef struct ${1:Visitante} $1;
+typedef struct ${2:Elemento}  $2;
+
+/* --- Elemento (interfaz) --- */
+
+struct $2 {
+    void (*accept)($2 *self, $1 *v);
+    char  nombre[32];
+};
+
+/* --- Visitante (interfaz) --- */
+
+struct $1 {
+    void (*visitar_${3:ConcreteA})($1 *self, $2 *e);
+    void (*visitar_${4:ConcreteB})($1 *self, $2 *e);
+};
+
+/* --- Elementos concretos --- */
+
+static void concrete_a_accept($2 *self, $1 *v) {
+    v->visitar_$3(v, self);
+}
+$2 nuevo_$3(const char *nombre) {
+    $2 e; e.accept = concrete_a_accept;
+    strncpy(e.nombre, nombre, sizeof e.nombre - 1);
+    return e;
+}
+
+static void concrete_b_accept($2 *self, $1 *v) {
+    v->visitar_$4(v, self);
+}
+$2 nuevo_$4(const char *nombre) {
+    $2 e; e.accept = concrete_b_accept;
+    strncpy(e.nombre, nombre, sizeof e.nombre - 1);
+    return e;
+}
+
+/* --- Visitante concreto 1: ${5:ExportadorXML} --- */
+
+static void xml_visita_a($1 *self, $2 *e) {
+    (void)self; printf("[XML] Exportando $3 '%s'\n", e->nombre);
+}
+static void xml_visita_b($1 *self, $2 *e) {
+    (void)self; printf("[XML] Exportando $4 '%s'\n", e->nombre);
+}
+$1 nuevo_$5(void) { return ($1){ xml_visita_a, xml_visita_b }; }
+
+/* --- Visitante concreto 2: ${6:GeneradorJSON} --- */
+
+static void json_visita_a($1 *self, $2 *e) {
+    (void)self; printf("[JSON] Serializando $3 '%s'\n", e->nombre);
+}
+static void json_visita_b($1 *self, $2 *e) {
+    (void)self; printf("[JSON] Serializando $4 '%s'\n", e->nombre);
+}
+$1 nuevo_$6(void) { return ($1){ json_visita_a, json_visita_b }; }
+
+int main(void) {
+    $2 elementos[] = { nuevo_$3("ElemA1"), nuevo_$4("ElemB1"), nuevo_$3("ElemA2") };
+    int n = (int)(sizeof elementos / sizeof elementos[0]);
+
+    $1 xml  = nuevo_$5();
+    $1 json = nuevo_$6();
+
+    printf("=== $5 ===\n");
+    for (int i = 0; i < n; i++) elementos[i].accept(&elementos[i], &xml);
+    printf("=== $6 ===\n");
+    for (int i = 0; i < n; i++) elementos[i].accept(&elementos[i], &json);
+
+    return 0;
+}
+$0

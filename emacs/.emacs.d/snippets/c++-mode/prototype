@@ -1,0 +1,58 @@
+# -*- mode: snippet -*-
+# name: Prototype (C++)
+# key: prototype
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Prototype en C++
+// Intención: clonar objetos sin depender de su clase concreta.
+// -----------------------------------------------------------
+
+class ${1:Forma} {
+ public:
+  virtual ~$1() = default;
+  virtual std::unique_ptr<$1> clone() const = 0;
+  virtual void imprimir() const = 0;
+  int x{0}, y{0};
+};
+
+class ${2:Circulo} : public $1 {
+ public:
+  int radio;
+  ${2:Circulo}(int x, int y, int r) : radio(r) { this->x = x; this->y = y; }
+
+  std::unique_ptr<$1> clone() const override {
+    return std::make_unique<$2>(*this);
+  }
+  void imprimir() const override {
+    std::cout << "$2 en (" << x << "," << y << ") r=" << radio << "\n";
+  }
+};
+
+class ${3:Rectangulo} : public $1 {
+ public:
+  int ancho, alto;
+  ${3:Rectangulo}(int x, int y, int w, int h) : ancho(w), alto(h) { this->x = x; this->y = y; }
+
+  std::unique_ptr<$1> clone() const override {
+    return std::make_unique<$3>(*this);
+  }
+  void imprimir() const override {
+    std::cout << "$3 en (" << x << "," << y << ") " << ancho << "x" << alto << "\n";
+  }
+};
+
+int main() {
+  std::unique_ptr<$1> original = std::make_unique<$2>(10, 20, 5);
+  std::unique_ptr<$1> copia    = original->clone();
+
+  original->imprimir();
+  copia->x = 99;
+  copia->imprimir();
+  std::cout << "Original x=" << original->x << "  Copia x=" << copia->x << "\n";
+  return 0;
+}
+$0

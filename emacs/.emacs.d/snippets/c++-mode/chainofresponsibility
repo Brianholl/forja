@@ -1,0 +1,75 @@
+# -*- mode: snippet -*-
+# name: Chain of Responsibility (C++)
+# key: chainofresponsibility
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Chain of Responsibility en C++
+// Intención: pasar solicitudes por una cadena de manejadores;
+// cada uno decide procesarla o pasarla al siguiente.
+// -----------------------------------------------------------
+
+// --- Manejador abstracto ---
+
+class ${1:Manejador} {
+  std::unique_ptr<$1> siguiente_;
+ public:
+  virtual ~$1() = default;
+
+  $1 *set_siguiente(std::unique_ptr<$1> sig) {
+    siguiente_ = std::move(sig);
+    return siguiente_.get();
+  }
+
+  virtual bool manejar(int nivel) {
+    if (siguiente_) return siguiente_->manejar(nivel);
+    std::cout << "[Cadena] Sin manejador para nivel " << nivel << "\n";
+    return false;
+  }
+};
+
+// --- Manejadores concretos ---
+
+class ${2:SoporteBajo} : public $1 {
+ public:
+  bool manejar(int nivel) override {
+    if (nivel <= 1) { std::cout << "[SoporteBajo] Resuelve nivel " << nivel << "\n"; return true; }
+    return $1::manejar(nivel);
+  }
+};
+
+class ${3:SoporteMedio} : public $1 {
+ public:
+  bool manejar(int nivel) override {
+    if (nivel <= 3) { std::cout << "[SoporteMedio] Resuelve nivel " << nivel << "\n"; return true; }
+    return $1::manejar(nivel);
+  }
+};
+
+class ${4:SoporteAlto} : public $1 {
+ public:
+  bool manejar(int nivel) override {
+    if (nivel <= 5) { std::cout << "[SoporteAlto] Resuelve nivel " << nivel << "\n"; return true; }
+    return $1::manejar(nivel);
+  }
+};
+
+int main() {
+  auto bajo  = std::make_unique<$2>();
+  auto medio = std::make_unique<$3>();
+  auto alto  = std::make_unique<$4>();
+
+  // Construir cadena: bajo → medio → alto
+  medio->set_siguiente(std::move(alto));
+  bajo->set_siguiente(std::move(medio));
+
+  for (int n : {1, 2, 4, 7}) {
+    std::cout << "--- Nivel " << n << " ---\n";
+    bajo->manejar(n);
+  }
+  return 0;
+}
+$0

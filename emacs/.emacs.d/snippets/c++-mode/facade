@@ -1,0 +1,56 @@
+# -*- mode: snippet -*-
+# name: Facade (C++)
+# key: facade
+# --
+#include <iostream>
+#include <memory>
+
+// -----------------------------------------------------------
+// Patrón Facade en C++
+// Intención: proporcionar una interfaz simplificada a un
+// subsistema complejo.
+// -----------------------------------------------------------
+
+// --- Subsistemas ---
+
+class ${1:CPU} {
+ public:
+  void ejecutar() { std::cout << "[CPU] Ejecutando\n"; }
+};
+
+class ${2:Memoria} {
+ public:
+  void cargar() { std::cout << "[Memoria] Cargando kernel\n"; }
+};
+
+class ${3:DiscoDuro} {
+ public:
+  void leer() { std::cout << "[Disco] Leyendo sector 0\n"; }
+};
+
+// --- Facade ---
+
+class ${4:Computadora} {
+  std::unique_ptr<$1> cpu_;
+  std::unique_ptr<$2> memoria_;
+  std::unique_ptr<$3> disco_;
+ public:
+  $4() : cpu_(std::make_unique<$1>()),
+         memoria_(std::make_unique<$2>()),
+         disco_(std::make_unique<$3>()) {}
+
+  void encender() {
+    std::cout << "=== Encendiendo $4 ===\n";
+    cpu_->ejecutar();
+    memoria_->cargar();
+    disco_->leer();
+    std::cout << "Sistema listo.\n";
+  }
+};
+
+int main() {
+  $4 pc;
+  pc.encender();
+  return 0;
+}
+$0

@@ -1,0 +1,85 @@
+# -*- mode: snippet -*-
+# name: Builder (C)
+# key: builder
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Builder en C
+ * Intención: construir objetos complejos paso a paso.
+ * En C: función-punteros fluentes que retornan el builder.
+ * ------------------------------------------------------- */
+
+/* --- Producto --- */
+
+typedef struct {
+    char ${1:masa}[32];
+    char ${2:salsa}[32];
+    char ${3:topping}[32];
+} ${4:Pizza};
+
+void imprimir_$4(const $4 *p) {
+    printf("Pizza: masa=%s, salsa=%s, topping=%s\n",
+           p->$1, p->$2, p->$3);
+}
+
+/* --- Builder --- */
+
+typedef struct ${5:PizzaBuilder} $5;
+struct $5 {
+    $4 pizza;
+    $5 *(*set_$1)($5 *self, const char *v);
+    $5 *(*set_$2)($5 *self, const char *v);
+    $5 *(*set_$3)($5 *self, const char *v);
+    $4  (*build) ($5 *self);
+};
+
+static $5 *_set_$1($5 *self, const char *v) {
+    strncpy(self->pizza.$1, v, sizeof self->pizza.$1 - 1);
+    return self;
+}
+static $5 *_set_$2($5 *self, const char *v) {
+    strncpy(self->pizza.$2, v, sizeof self->pizza.$2 - 1);
+    return self;
+}
+static $5 *_set_$3($5 *self, const char *v) {
+    strncpy(self->pizza.$3, v, sizeof self->pizza.$3 - 1);
+    return self;
+}
+static $4 _build($5 *self) { return self->pizza; }
+
+$5 nuevo_$5(void) {
+    $5 b = {
+        .set_$1 = _set_$1,
+        .set_$2 = _set_$2,
+        .set_$3 = _set_$3,
+        .build  = _build,
+    };
+    return b;
+}
+
+/* --- Director (opcional) --- */
+
+$4 pizza_margarita($5 *b) {
+    b->set_$1(b, "fina")->set_$2(b, "tomate")->set_$3(b, "mozzarella");
+    return b->build(b);
+}
+
+int main(void) {
+    $5 builder = nuevo_$5();
+
+    $4 p1 = pizza_margarita(&builder);
+    imprimir_$4(&p1);
+
+    /* Construcción manual */
+    builder.set_$1(&builder, "gruesa");
+    builder.set_$2(&builder, "barbacoa");
+    builder.set_$3(&builder, "pollo");
+    $4 p2 = builder.build(&builder);
+    imprimir_$4(&p2);
+
+    return 0;
+}
+$0

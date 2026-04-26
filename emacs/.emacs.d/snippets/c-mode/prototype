@@ -1,0 +1,79 @@
+# -*- mode: snippet -*-
+# name: Prototype (C)
+# key: prototype
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Prototype en C
+ * Intención: clonar objetos sin depender de su tipo concreto.
+ * En C: función clone() en la propia struct (función-puntero).
+ * ------------------------------------------------------- */
+
+typedef struct ${1:Forma} $1;
+
+struct $1 {
+    int   x, y;
+    char  tipo[32];
+    $1  *(*clone)(const $1 *self);
+    void (*imprimir)(const $1 *self);
+};
+
+/* --- Círculo --- */
+
+static $1 *circulo_clone(const $1 *self) {
+    $1 *copia = malloc(sizeof *copia);
+    *copia = *self;
+    return copia;
+}
+
+static void circulo_imprimir(const $1 *self) {
+    printf("Círculo en (%d, %d)\n", self->x, self->y);
+}
+
+$1 *crear_circulo(int x, int y) {
+    $1 *c = malloc(sizeof *c);
+    c->x = x; c->y = y;
+    strcpy(c->tipo, "Circulo");
+    c->clone    = circulo_clone;
+    c->imprimir = circulo_imprimir;
+    return c;
+}
+
+/* --- Rectángulo --- */
+
+static $1 *rectangulo_clone(const $1 *self) {
+    $1 *copia = malloc(sizeof *copia);
+    *copia = *self;
+    return copia;
+}
+
+static void rectangulo_imprimir(const $1 *self) {
+    printf("Rectángulo en (%d, %d)\n", self->x, self->y);
+}
+
+$1 *crear_rectangulo(int x, int y) {
+    $1 *r = malloc(sizeof *r);
+    r->x = x; r->y = y;
+    strcpy(r->tipo, "Rectangulo");
+    r->clone    = rectangulo_clone;
+    r->imprimir = rectangulo_imprimir;
+    return r;
+}
+
+int main(void) {
+    $1 *original = crear_circulo(10, 20);
+    $1 *copia    = original->clone(original);
+
+    original->imprimir(original);
+    copia->imprimir(copia);
+    copia->x = 99;
+    printf("Original x=%d, Copia x=%d\n", original->x, copia->x);
+
+    free(original);
+    free(copia);
+    return 0;
+}
+$0

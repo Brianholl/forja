@@ -1,0 +1,75 @@
+# -*- mode: snippet -*-
+# name: Memento (C++)
+# key: memento
+# --
+#include <iostream>
+#include <memory>
+#include <stack>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Memento en C++
+// Intención: capturar y restaurar el estado interno de un
+// objeto sin violar su encapsulamiento.
+// -----------------------------------------------------------
+
+// --- Memento (snapshot inmutable) ---
+
+class ${1:Memento} {
+  std::string estado_;
+ public:
+  explicit $1(std::string e) : estado_(std::move(e)) {}
+  const std::string &estado() const { return estado_; }
+};
+
+// --- Originador ---
+
+class ${2:Originador} {
+  std::string estado_;
+ public:
+  explicit $2(std::string e) : estado_(std::move(e)) {}
+
+  std::unique_ptr<$1> guardar() const {
+    std::cout << "[Originador] Guardando: \"" << estado_ << "\"\n";
+    return std::make_unique<$1>(estado_);
+  }
+
+  void restaurar(const $1 &m) {
+    estado_ = m.estado();
+    std::cout << "[Originador] Restaurado a: \"" << estado_ << "\"\n";
+  }
+
+  void hacer_algo(const std::string &accion) {
+    estado_ += accion;
+    std::cout << "[Originador] Estado: \"" << estado_ << "\"\n";
+  }
+};
+
+// --- Caretaker ---
+
+class ${3:Historial} {
+  std::stack<std::unique_ptr<$1>> pila_;
+ public:
+  void push(std::unique_ptr<$1> m) { pila_.push(std::move(m)); }
+
+  void deshacer($2 &orig) {
+    if (pila_.empty()) { std::cout << "[Historial] Vacío\n"; return; }
+    orig.restaurar(*pila_.top());
+    pila_.pop();
+  }
+};
+
+int main() {
+  $2 orig("v1");
+  $3 hist;
+
+  hist.push(orig.guardar());
+  orig.hacer_algo("+cambio_A");
+  hist.push(orig.guardar());
+  orig.hacer_algo("+cambio_B");
+
+  std::cout << "-- Deshacer --\n"; hist.deshacer(orig);
+  std::cout << "-- Deshacer --\n"; hist.deshacer(orig);
+  return 0;
+}
+$0

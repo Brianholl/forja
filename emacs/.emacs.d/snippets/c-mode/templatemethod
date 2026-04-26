@@ -1,0 +1,95 @@
+# -*- mode: snippet -*-
+# name: Template Method (C)
+# key: templatemethod
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Template Method en C
+ * Intención: definir el esqueleto de un algoritmo en la
+ * clase base, difiriendo algunos pasos a las subclases.
+ * En C: función-punteros para los pasos sobreescribibles.
+ * ------------------------------------------------------- */
+
+/* --- Clase base: ${1:AnalizadorDatos} --- */
+
+typedef struct $1 $1;
+struct $1 {
+    /* Pasos del algoritmo (algunos sobreescribibles) */
+    void *(*extraer_datos) ($1 *self, const char *ruta);
+    void *(*parsear_datos) ($1 *self, void *raw);
+    void  (*analizar_datos)($1 *self, void *datos);
+    void  (*enviar_reporte)($1 *self, void *datos);
+    /* Gancho opcional */
+    int   (*quiere_reporte)($1 *self);
+};
+
+/* --- Template Method (algoritmo fijo, no sobreescribir) --- */
+
+void $1_minar($1 *self, const char *ruta) {
+    printf("[Template] Extrayendo de '%s'\n", ruta);
+    void *raw   = self->extraer_datos(self, ruta);
+    void *datos = self->parsear_datos(self, raw);
+    self->analizar_datos(self, datos);
+    if (self->quiere_reporte(self))
+        self->enviar_reporte(self, datos);
+}
+
+/* --- Pasos por defecto --- */
+
+static int default_quiere_reporte($1 *s) { (void)s; return 1; }
+
+static void default_analizar($1 *s, void *d) {
+    (void)s; (void)d;
+    printf("[Base] Analizando datos\n");
+}
+static void default_reporte($1 *s, void *d) {
+    (void)s; (void)d;
+    printf("[Base] Enviando reporte\n");
+}
+
+/* --- Subclase: ${2:AnalizadorCSV} --- */
+
+static void *csv_extraer($1 *s, const char *r) {
+    (void)s; printf("[CSV] Extrayendo de %s\n", r); return (void*)"raw_csv";
+}
+static void *csv_parsear($1 *s, void *raw) {
+    (void)s; printf("[CSV] Parseando %s\n", (char*)raw); return (void*)"datos_csv";
+}
+
+$1 nuevo_$2(void) {
+    return ($1){
+        csv_extraer, csv_parsear,
+        default_analizar, default_reporte, default_quiere_reporte
+    };
+}
+
+/* --- Subclase: ${3:AnalizadorPDF} --- */
+
+static void *pdf_extraer($1 *s, const char *r) {
+    (void)s; printf("[PDF] Extrayendo de %s\n", r); return (void*)"raw_pdf";
+}
+static void *pdf_parsear($1 *s, void *raw) {
+    (void)s; printf("[PDF] Parseando %s\n", (char*)raw); return (void*)"datos_pdf";
+}
+static int pdf_quiere_reporte($1 *s) {
+    (void)s; printf("[PDF] Sin reporte\n"); return 0;
+}
+
+$1 nuevo_$3(void) {
+    return ($1){
+        pdf_extraer, pdf_parsear,
+        default_analizar, default_reporte, pdf_quiere_reporte
+    };
+}
+
+int main(void) {
+    $1 csv = nuevo_$2();
+    $1 pdf = nuevo_$3();
+    printf("=== $2 ===\n"); $1_minar(&csv, "datos.csv");
+    printf("=== $3 ===\n"); $1_minar(&pdf, "informe.pdf");
+    return 0;
+}
+$0

@@ -1,0 +1,74 @@
+# -*- mode: snippet -*-
+# name: Strategy (C++)
+# key: strategy
+# --
+#include <algorithm>
+#include <iostream>
+#include <memory>
+#include <vector>
+
+// -----------------------------------------------------------
+// Patrón Strategy en C++
+// Intención: definir una familia de algoritmos,
+// encapsularlos e intercambiarlos en tiempo de ejecución.
+// -----------------------------------------------------------
+
+// --- Estrategia abstracta ---
+
+class ${1:Estrategia} {
+ public:
+  virtual ~$1() = default;
+  virtual std::vector<int> ordenar(std::vector<int> datos) const = 0;
+};
+
+// --- Estrategias concretas ---
+
+class ${2:Burbuja} : public $1 {
+ public:
+  std::vector<int> ordenar(std::vector<int> d) const override {
+    int n = (int)d.size();
+    for (int i = 0; i < n - 1; i++)
+      for (int j = 0; j < n - 1 - i; j++)
+        if (d[j] > d[j+1]) std::swap(d[j], d[j+1]);
+    std::cout << "[$2] Ordenado\n";
+    return d;
+  }
+};
+
+class ${3:STLSort} : public $1 {
+ public:
+  std::vector<int> ordenar(std::vector<int> d) const override {
+    std::sort(d.begin(), d.end());
+    std::cout << "[$3] Ordenado\n";
+    return d;
+  }
+};
+
+// --- Contexto ---
+
+class ${4:Ordenador} {
+  std::unique_ptr<$1> estrategia_;
+ public:
+  void set_estrategia(std::unique_ptr<$1> e) { estrategia_ = std::move(e); }
+
+  std::vector<int> ejecutar(const std::vector<int> &datos) const {
+    return estrategia_ ? estrategia_->ordenar(datos) : datos;
+  }
+};
+
+static void imprimir(const std::vector<int> &v) {
+  for (int x : v) std::cout << x << " "; std::cout << "\n";
+}
+
+int main() {
+  std::vector<int> datos = {5, 3, 8, 1, 9, 2};
+  $4 ctx;
+
+  ctx.set_estrategia(std::make_unique<$2>());
+  imprimir(ctx.ejecutar(datos));
+
+  ctx.set_estrategia(std::make_unique<$3>());
+  imprimir(ctx.ejecutar(datos));
+  return 0;
+}
+$0

@@ -1,0 +1,91 @@
+# -*- mode: snippet -*-
+# name: Proxy (C)
+# key: proxy
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Proxy en C
+ * Intención: proporcionar un sustituto que controla el
+ * acceso al objeto real (lazy init, caché, logging, etc.)
+ * En C: primer campo de la struct proxy = misma interfaz.
+ * ------------------------------------------------------- */
+
+/* --- Interfaz común (Sujeto) --- */
+
+typedef struct ${1:Sujeto} $1;
+struct $1 {
+    void (*solicitud)($1 *self);
+};
+
+/* --- Sujeto Real --- */
+
+typedef struct {
+    $1  base;
+    char datos[64];
+} ${2:SujetoReal};
+
+static void sujeto_real_solicitud($1 *self) {
+    ${2:SujetoReal} *sr = (${2:SujetoReal} *)self;
+    printf("[SujetoReal] Procesando: %s\n", sr->datos);
+}
+
+${2:SujetoReal} *nuevo_$2(const char *datos) {
+    ${2:SujetoReal} *sr = malloc(sizeof *sr);
+    sr->base.solicitud = sujeto_real_solicitud;
+    strncpy(sr->datos, datos, sizeof sr->datos - 1);
+    return sr;
+}
+
+/* --- Proxy --- */
+
+typedef struct {
+    $1           base;
+    ${2:SujetoReal} *real;   /* lazy: NULL hasta primer acceso */
+    char          acceso[32];
+} ${3:Proxy};
+
+static int proxy_verificar_acceso(${3:Proxy} *p) {
+    printf("[Proxy] Verificando acceso '%s'... ", p->acceso);
+    int ok = strcmp(p->acceso, "admin") == 0;
+    printf("%s\n", ok ? "permitido" : "denegado");
+    return ok;
+}
+
+static void proxy_solicitud($1 *self) {
+    ${3:Proxy} *p = (${3:Proxy} *)self;
+    if (!proxy_verificar_acceso(p)) return;
+    if (!p->real) {
+        printf("[Proxy] Creando SujetoReal (lazy init)\n");
+        p->real = nuevo_$2("datos sensibles");
+    }
+    p->real->base.solicitud(($1 *)p->real);
+}
+
+${3:Proxy} *nuevo_$3(const char *acceso) {
+    ${3:Proxy} *p = malloc(sizeof *p);
+    p->base.solicitud = proxy_solicitud;
+    p->real = NULL;
+    strncpy(p->acceso, acceso, sizeof p->acceso - 1);
+    return p;
+}
+
+void cliente($1 *sujeto) { sujeto->solicitud(sujeto); }
+
+int main(void) {
+    ${3:Proxy} *proxy_admin = nuevo_$3("admin");
+    ${3:Proxy} *proxy_anon  = nuevo_$3("anonimo");
+
+    printf("-- Admin --\n");
+    cliente(($1 *)proxy_admin);
+    printf("-- Anónimo --\n");
+    cliente(($1 *)proxy_anon);
+
+    free(proxy_admin->real);
+    free(proxy_admin);
+    free(proxy_anon);
+    return 0;
+}
+$0

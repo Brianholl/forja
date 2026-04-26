@@ -1,0 +1,72 @@
+# -*- mode: snippet -*-
+# name: Composite (C++)
+# key: composite
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+
+// -----------------------------------------------------------
+// Patrón Composite en C++
+// Intención: componer objetos en estructuras de árbol y
+// tratar a hoja y compuesto de forma uniforme.
+// -----------------------------------------------------------
+
+class ${1:Componente} {
+ public:
+  virtual ~$1() = default;
+  virtual void operacion(int prof = 0) const = 0;
+  virtual void agregar(std::unique_ptr<$1>) {}
+  virtual bool es_compuesto() const { return false; }
+
+ protected:
+  std::string sangria(int n) const { return std::string(n * 2, ' '); }
+};
+
+// --- Hoja ---
+
+class ${2:Hoja} : public $1 {
+  std::string nombre_;
+ public:
+  explicit $2(std::string n) : nombre_(std::move(n)) {}
+  void operacion(int prof = 0) const override {
+    std::cout << sangria(prof) << "- " << nombre_ << "\n";
+  }
+};
+
+// --- Compuesto ---
+
+class ${3:Compuesto} : public $1 {
+  std::string nombre_;
+  std::vector<std::unique_ptr<$1>> hijos_;
+ public:
+  explicit $3(std::string n) : nombre_(std::move(n)) {}
+
+  bool es_compuesto() const override { return true; }
+
+  void agregar(std::unique_ptr<$1> hijo) override {
+    hijos_.push_back(std::move(hijo));
+  }
+
+  void operacion(int prof = 0) const override {
+    std::cout << sangria(prof) << "+ " << nombre_ << "\n";
+    for (const auto &h : hijos_) h->operacion(prof + 1);
+  }
+};
+
+int main() {
+  auto raiz  = std::make_unique<$3>("raiz");
+  auto rama1 = std::make_unique<$3>("rama1");
+  auto rama2 = std::make_unique<$3>("rama2");
+
+  rama1->agregar(std::make_unique<$2>("hoja-A"));
+  rama1->agregar(std::make_unique<$2>("hoja-B"));
+  rama2->agregar(std::make_unique<$2>("hoja-C"));
+
+  raiz->agregar(std::move(rama1));
+  raiz->agregar(std::move(rama2));
+  raiz->operacion();
+  return 0;
+}
+$0

@@ -1,0 +1,67 @@
+# -*- mode: snippet -*-
+# name: Adapter (C)
+# key: adapter
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Adapter en C (Object Adapter)
+ * Intención: convertir la interfaz de una clase en otra
+ * que el cliente espera. En C: wrapper struct.
+ * ------------------------------------------------------- */
+
+/* --- Target: interfaz que el cliente conoce --- */
+
+typedef struct { void (*solicitud)(void *self); } ${1:Target};
+
+void cliente(${1:Target} *t) {
+    t->solicitud(t);
+}
+
+/* --- Adaptee: clase útil pero incompatible --- */
+
+typedef struct {
+    char datos[64];
+} ${2:Adaptee};
+
+void solicitud_especifica(${2:Adaptee} *self) {
+    /* Simulamos datos al revés */
+    int n = (int)strlen(self->datos);
+    printf("Adaptee: ");
+    for (int i = n - 1; i >= 0; i--) putchar(self->datos[i]);
+    putchar('\n');
+}
+
+/* --- Adapter: envuelve Adaptee y expone Target --- */
+
+typedef struct {
+    ${1:Target}  base;      /* debe ser primer campo para casteo */
+    ${2:Adaptee} *adaptee;
+} ${3:Adapter};
+
+static void adapter_solicitud(void *self) {
+    ${3:Adapter} *a = (${3:Adapter} *)self;
+    printf("$3: adaptando... ");
+    solicitud_especifica(a->adaptee);
+}
+
+${3:Adapter} *crear_$3(${2:Adaptee} *adaptee) {
+    ${3:Adapter} *a = malloc(sizeof *a);
+    a->base.solicitud = adapter_solicitud;
+    a->adaptee = adaptee;
+    return a;
+}
+
+int main(void) {
+    ${2:Adaptee} adaptee;
+    strcpy(adaptee.datos, "elbatpacamocni azeireffA");
+
+    ${3:Adapter} *adapter = crear_$3(&adaptee);
+    cliente((${1:Target} *)adapter);
+
+    free(adapter);
+    return 0;
+}
+$0

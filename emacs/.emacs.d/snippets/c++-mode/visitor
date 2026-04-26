@@ -1,0 +1,87 @@
+# -*- mode: snippet -*-
+# name: Visitor (C++)
+# key: visitor
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+
+// -----------------------------------------------------------
+// Patrón Visitor en C++
+// Intención: separar algoritmos de los objetos sobre los
+// que operan, sin modificar sus clases.
+// -----------------------------------------------------------
+
+class ${2:ConcreteA};
+class ${3:ConcreteB};
+
+// --- Visitante abstracto ---
+
+class ${1:Visitante} {
+ public:
+  virtual ~$1() = default;
+  virtual void visitar(const $2 &e) = 0;
+  virtual void visitar(const $3 &e) = 0;
+};
+
+// --- Elemento abstracto ---
+
+class ${4:Elemento} {
+ public:
+  virtual ~$4() = default;
+  virtual void accept($1 &v) const = 0;
+};
+
+// --- Elementos concretos ---
+
+class ${2:ConcreteA} : public $4 {
+ public:
+  void accept($1 &v) const override { v.visitar(*this); }
+  std::string operacion_a() const { return "resultado_A"; }
+};
+
+class ${3:ConcreteB} : public $4 {
+ public:
+  void accept($1 &v) const override { v.visitar(*this); }
+  std::string operacion_b() const { return "resultado_B"; }
+};
+
+// --- Visitantes concretos ---
+
+class ${5:ExportadorXML} : public $1 {
+ public:
+  void visitar(const $2 &e) override {
+    std::cout << "[XML] Exportando $2: " << e.operacion_a() << "\n";
+  }
+  void visitar(const $3 &e) override {
+    std::cout << "[XML] Exportando $3: " << e.operacion_b() << "\n";
+  }
+};
+
+class ${6:GeneradorJSON} : public $1 {
+ public:
+  void visitar(const $2 &e) override {
+    std::cout << "[JSON] Serializando $2: " << e.operacion_a() << "\n";
+  }
+  void visitar(const $3 &e) override {
+    std::cout << "[JSON] Serializando $3: " << e.operacion_b() << "\n";
+  }
+};
+
+int main() {
+  std::vector<std::unique_ptr<$4>> elementos;
+  elementos.push_back(std::make_unique<$2>());
+  elementos.push_back(std::make_unique<$3>());
+  elementos.push_back(std::make_unique<$2>());
+
+  $5 xml;
+  $6 json;
+
+  std::cout << "=== $5 ===\n";
+  for (const auto &e : elementos) e->accept(xml);
+  std::cout << "=== $6 ===\n";
+  for (const auto &e : elementos) e->accept(json);
+  return 0;
+}
+$0

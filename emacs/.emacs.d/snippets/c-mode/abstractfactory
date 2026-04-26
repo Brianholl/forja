@@ -1,0 +1,94 @@
+# -*- mode: snippet -*-
+# name: Abstract Factory (C)
+# key: abstractfactory
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Abstract Factory en C
+ * Intención: crear familias de objetos relacionados
+ * sin especificar sus clases concretas.
+ * En C: structs de "interfaz" con función-punteros.
+ * ------------------------------------------------------- */
+
+/* --- Productos abstractos --- */
+
+typedef struct { void (*render)(void *self); char familia[16]; } ${1:Boton};
+typedef struct { void (*toggle)(void *self); char familia[16]; } ${2:Checkbox};
+
+/* --- Fábrica abstracta --- */
+
+typedef struct GUIFactory {
+    $1 *(*crear_$1)(struct GUIFactory *self);
+    $2 *(*crear_$2)(struct GUIFactory *self);
+} GUIFactory;
+
+/* --- Familia: ${3:Windows} --- */
+
+static void boton_${3:Windows}_render(void *self) {
+    printf("[%s] $1 renderizado\n", (($1 *)self)->familia);
+}
+static $1 *crear_boton_$3(GUIFactory *f) {
+    (void)f;
+    $1 *b = malloc(sizeof *b);
+    b->render = boton_${3:Windows}_render;
+    strcpy(b->familia, "$3");
+    return b;
+}
+static void checkbox_${3:Windows}_toggle(void *self) {
+    printf("[%s] $2 toggled\n", (($2 *)self)->familia);
+}
+static $2 *crear_checkbox_$3(GUIFactory *f) {
+    (void)f;
+    $2 *c = malloc(sizeof *c);
+    c->toggle = checkbox_${3:Windows}_toggle;
+    strcpy(c->familia, "$3");
+    return c;
+}
+
+/* --- Familia: ${4:Mac} --- */
+
+static void boton_${4:Mac}_render(void *self) {
+    printf("[%s] $1 renderizado\n", (($1 *)self)->familia);
+}
+static $1 *crear_boton_$4(GUIFactory *f) {
+    (void)f;
+    $1 *b = malloc(sizeof *b);
+    b->render = boton_${4:Mac}_render;
+    strcpy(b->familia, "$4");
+    return b;
+}
+static void checkbox_${4:Mac}_toggle(void *self) {
+    printf("[%s] $2 toggled\n", (($2 *)self)->familia);
+}
+static $2 *crear_checkbox_$4(GUIFactory *f) {
+    (void)f;
+    $2 *c = malloc(sizeof *c);
+    c->toggle = checkbox_${4:Mac}_toggle;
+    strcpy(c->familia, "$4");
+    return c;
+}
+
+/* --- Fábricas concretas --- */
+
+GUIFactory fabrica_$3 = { crear_boton_$3, crear_checkbox_$3 };
+GUIFactory fabrica_$4 = { crear_boton_$4, crear_checkbox_$4 };
+
+/* --- Cliente --- */
+
+void aplicacion(GUIFactory *f) {
+    $1 *btn = f->crear_$1(f);
+    $2 *chk = f->crear_$2(f);
+    btn->render(btn);
+    chk->toggle(chk);
+    free(btn); free(chk);
+}
+
+int main(void) {
+    printf("=== Familia $3 ===\n");  aplicacion(&fabrica_$3);
+    printf("=== Familia $4 ===\n");  aplicacion(&fabrica_$4);
+    return 0;
+}
+$0

@@ -1,0 +1,64 @@
+# -*- mode: snippet -*-
+# name: Builder (C++)
+# key: builder
+# --
+#include <iostream>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Builder en C++
+// Intención: construir objetos complejos paso a paso,
+// separando la construcción de su representación.
+// -----------------------------------------------------------
+
+// --- Producto ---
+
+class ${1:Pizza} {
+ public:
+  std::string masa, salsa, topping;
+
+  void imprimir() const {
+    std::cout << "$1: masa=" << masa
+              << "  salsa=" << salsa
+              << "  topping=" << topping << "\n";
+  }
+};
+
+// --- Builder abstracto ---
+
+class ${2:PizzaBuilder} {
+ public:
+  virtual ~$2() = default;
+  $2 &set_masa   (const std::string &v) { pizza_.masa    = v; return *this; }
+  $2 &set_salsa  (const std::string &v) { pizza_.salsa   = v; return *this; }
+  $2 &set_topping(const std::string &v) { pizza_.topping = v; return *this; }
+  $1 build() { return pizza_; }
+
+ protected:
+  $1 pizza_;
+};
+
+// --- Director ---
+
+class ${3:PizzaChef} {
+ public:
+  $1 margarita($2 &b) {
+    return b.set_masa("fina").set_salsa("tomate").set_topping("mozzarella").build();
+  }
+  $1 bbq($2 &b) {
+    return b.set_masa("gruesa").set_salsa("barbacoa").set_topping("pollo").build();
+  }
+};
+
+int main() {
+  $2 builder;
+  $3 chef;
+
+  chef.margarita(builder).imprimir();
+  chef.bbq(builder).imprimir();
+
+  // Construcción manual (sin director)
+  builder.set_masa("integral").set_salsa("pesto").set_topping("rúcula").build().imprimir();
+  return 0;
+}
+$0

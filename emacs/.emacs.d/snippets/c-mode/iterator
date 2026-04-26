@@ -1,0 +1,90 @@
+# -*- mode: snippet -*-
+# name: Iterator (C)
+# key: iterator
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Iterator en C
+ * Intención: acceder a los elementos de una colección
+ * secuencialmente sin exponer su representación interna.
+ * En C: struct Iterador con función-punteros.
+ * ------------------------------------------------------- */
+
+/* --- Iterador (interfaz) --- */
+
+typedef struct ${1:Iterador} $1;
+struct $1 {
+    int   (*tiene_siguiente)($1 *self);
+    void *(*siguiente)       ($1 *self);
+    void  (*reiniciar)       ($1 *self);
+};
+
+/* --- Colección concreta: ${2:Palabras} --- */
+
+typedef struct {
+    char **items;
+    int    n;
+} ${2:Palabras};
+
+${2:Palabras} *nueva_$2(void) {
+    ${2:Palabras} *c = malloc(sizeof *c);
+    c->n     = 0;
+    c->items = NULL;
+    return c;
+}
+
+void $2_agregar(${2:Palabras} *c, const char *item) {
+    c->items = realloc(c->items, (c->n + 1) * sizeof *c->items);
+    c->items[c->n++] = strdup(item);
+}
+
+/* --- Iterador concreto para Palabras --- */
+
+typedef struct {
+    $1          base;
+    ${2:Palabras} *coleccion;
+    int          pos;
+} ${3:Iter$2};
+
+static int iter_tiene_sig($1 *self) {
+    ${3:Iter$2} *it = (${3:Iter$2} *)self;
+    return it->pos < it->coleccion->n;
+}
+static void *iter_siguiente($1 *self) {
+    ${3:Iter$2} *it = (${3:Iter$2} *)self;
+    return it->coleccion->items[it->pos++];
+}
+static void iter_reiniciar($1 *self) {
+    ((${3:Iter$2} *)self)->pos = 0;
+}
+
+$1 *nuevo_iter_$2(${2:Palabras} *c) {
+    ${3:Iter$2} *it = malloc(sizeof *it);
+    it->base.tiene_siguiente = iter_tiene_sig;
+    it->base.siguiente       = iter_siguiente;
+    it->base.reiniciar       = iter_reiniciar;
+    it->coleccion = c;
+    it->pos = 0;
+    return ($1 *)it;
+}
+
+int main(void) {
+    ${2:Palabras} *lista = nueva_$2();
+    $2_agregar(lista, "Hola");
+    $2_agregar(lista, "mundo");
+    $2_agregar(lista, "desde");
+    $2_agregar(lista, "FORJA");
+
+    $1 *it = nuevo_iter_$2(lista);
+    while (it->tiene_siguiente(it))
+        printf("  %s\n", (char *)it->siguiente(it));
+
+    free(it);
+    for (int i = 0; i < lista->n; i++) free(lista->items[i]);
+    free(lista->items); free(lista);
+    return 0;
+}
+$0

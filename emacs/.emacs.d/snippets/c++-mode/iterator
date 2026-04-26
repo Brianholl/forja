@@ -1,0 +1,69 @@
+# -*- mode: snippet -*-
+# name: Iterator (C++)
+# key: iterator
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+
+// -----------------------------------------------------------
+// Patrón Iterator en C++
+// Intención: acceder a los elementos de una colección
+// secuencialmente sin exponer su representación interna.
+// -----------------------------------------------------------
+
+// --- Iterador abstracto ---
+
+template <typename T>
+class ${1:Iterador} {
+ public:
+  virtual ~$1() = default;
+  virtual bool tiene_siguiente() = 0;
+  virtual T    siguiente()       = 0;
+  virtual void reiniciar()       = 0;
+};
+
+// --- Colección abstracta ---
+
+template <typename T>
+class ${2:Coleccion} {
+ public:
+  virtual ~$2() = default;
+  virtual std::unique_ptr<$1<T>> crear_iterador() = 0;
+};
+
+// --- Colección concreta: ${3:Palabras} ---
+
+class ${3:Palabras} : public $2<std::string> {
+  std::vector<std::string> items_;
+
+  class Iter : public $1<std::string> {
+    const $3 &col_; int pos_{0};
+   public:
+    explicit Iter(const $3 &c) : col_(c) {}
+    bool tiene_siguiente() override { return pos_ < (int)col_.items_.size(); }
+    std::string siguiente() override { return col_.items_[pos_++]; }
+    void reiniciar() override { pos_ = 0; }
+  };
+
+ public:
+  void agregar(const std::string &s) { items_.push_back(s); }
+  std::unique_ptr<$1<std::string>> crear_iterador() override {
+    return std::make_unique<Iter>(*this);
+  }
+};
+
+int main() {
+  $3 lista;
+  lista.agregar("Hola");
+  lista.agregar("mundo");
+  lista.agregar("desde");
+  lista.agregar("FORJA");
+
+  auto it = lista.crear_iterador();
+  while (it->tiene_siguiente())
+    std::cout << "  " << it->siguiente() << "\n";
+  return 0;
+}
+$0

@@ -1,0 +1,101 @@
+# -*- mode: snippet -*-
+# name: Decorator (C)
+# key: decorator
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Decorator en C
+ * Intención: agregar responsabilidades a objetos dinámicamente
+ * sin modificar su clase.
+ * En C: struct con primer campo "base" (componente) + envuelto.
+ * ------------------------------------------------------- */
+
+/* --- Componente base --- */
+
+typedef struct ${1:Componente} $1;
+struct $1 {
+    char *(*operacion)(const $1 *self);
+};
+
+/* --- Componente concreto --- */
+
+static char *concreto_op(const $1 *self) {
+    (void)self;
+    return "ConcreteComponent";
+}
+
+$1 *nuevo_$1(void) {
+    $1 *c = malloc(sizeof *c);
+    c->operacion = concreto_op;
+    return c;
+}
+
+/* --- Decorador base (wrapper) --- */
+
+typedef struct {
+    $1  base;       /* primer campo = casteable a $1 */
+    $1 *envuelto;
+} ${2:Decorador};
+
+/* --- Decorador A --- */
+
+typedef struct { $1 base; $1 *envuelto; } ${3:DecoradorA};
+
+static char *decorador_a_op(const $1 *self) {
+    ${3:DecoradorA} *d = (${3:DecoradorA} *)self;
+    char *resultado = d->envuelto->operacion(d->envuelto);
+    static char buf[128];
+    snprintf(buf, sizeof buf, "$3(%s)", resultado);
+    return buf;
+}
+
+${3:DecoradorA} *nuevo_$3($1 *componente) {
+    ${3:DecoradorA} *d = malloc(sizeof *d);
+    d->base.operacion = decorador_a_op;
+    d->envuelto = componente;
+    return d;
+}
+
+/* --- Decorador B --- */
+
+typedef struct { $1 base; $1 *envuelto; } ${4:DecoradorB};
+
+static char *decorador_b_op(const $1 *self) {
+    ${4:DecoradorB} *d = (${4:DecoradorB} *)self;
+    char *resultado = d->envuelto->operacion(d->envuelto);
+    static char buf[128];
+    snprintf(buf, sizeof buf, "$4(%s)", resultado);
+    return buf;
+}
+
+${4:DecoradorB} *nuevo_$4($1 *componente) {
+    ${4:DecoradorB} *d = malloc(sizeof *d);
+    d->base.operacion = decorador_b_op;
+    d->envuelto = componente;
+    return d;
+}
+
+void cliente(const $1 *c) {
+    printf("Resultado: %s\n", c->operacion(c));
+}
+
+int main(void) {
+    $1 *simple = nuevo_$1();
+    printf("Simple: ");
+    cliente(simple);
+
+    ${3:DecoradorA} *a = nuevo_$3(simple);
+    printf("+ $3: ");
+    cliente(($1 *)a);
+
+    ${4:DecoradorB} *b = nuevo_$4(($1 *)a);
+    printf("+ $3 + $4: ");
+    cliente(($1 *)b);
+
+    free(simple); free(a); free(b);
+    return 0;
+}
+$0

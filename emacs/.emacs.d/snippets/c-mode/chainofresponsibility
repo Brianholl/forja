@@ -1,0 +1,65 @@
+# -*- mode: snippet -*-
+# name: Chain of Responsibility (C)
+# key: chainofresponsibility
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Chain of Responsibility en C
+ * Intención: pasar solicitudes por una cadena de manejadores;
+ * cada uno decide procesarla o pasarla al siguiente.
+ * En C: struct con puntero al siguiente + función handle().
+ * ------------------------------------------------------- */
+
+typedef struct ${1:Manejador} $1;
+struct $1 {
+    $1  *siguiente;
+    void (*set_siguiente)($1 *self, $1 *sig);
+    int  (*manejar)      ($1 *self, int nivel);
+};
+
+static void set_siguiente_default($1 *self, $1 *sig) {
+    self->siguiente = sig;
+}
+
+/* --- Manejadores concretos --- */
+
+typedef struct { $1 base; const char *nombre; int umbral; } ${2:Soporte};
+
+static int soporte_manejar($1 *self, int nivel) {
+    ${2:Soporte} *s = (${2:Soporte} *)self;
+    if (nivel <= s->umbral) {
+        printf("[%s] Resuelve nivel %d\n", s->nombre, nivel);
+        return 1;
+    }
+    if (s->base.siguiente) return s->base.siguiente->manejar(s->base.siguiente, nivel);
+    printf("[%s] Sin manejador para nivel %d\n", s->nombre, nivel);
+    return 0;
+}
+
+${2:Soporte} nuevo_soporte(const char *nombre, int umbral) {
+    return (${2:Soporte}){
+        .base = { NULL, set_siguiente_default, soporte_manejar },
+        .nombre = nombre, .umbral = umbral
+    };
+}
+
+int main(void) {
+    ${2:Soporte} bajo    = nuevo_soporte("Nivel Bajo",    1);
+    ${2:Soporte} medio   = nuevo_soporte("Nivel Medio",   3);
+    ${2:Soporte} alto    = nuevo_soporte("Nivel Alto",    5);
+
+    /* Construir cadena */
+    bajo.base.set_siguiente (&bajo.base,  &medio.base);
+    medio.base.set_siguiente(&medio.base, &alto.base);
+
+    int solicitudes[] = { 1, 2, 4, 7 };
+    for (int i = 0; i < 4; i++) {
+        printf("--- Solicitud nivel %d ---\n", solicitudes[i]);
+        bajo.base.manejar(&bajo.base, solicitudes[i]);
+    }
+    return 0;
+}
+$0

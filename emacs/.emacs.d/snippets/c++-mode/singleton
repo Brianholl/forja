@@ -1,0 +1,46 @@
+# -*- mode: snippet -*-
+# name: Singleton (C++)
+# key: singleton
+# --
+#include <iostream>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Singleton en C++
+// Intención: garantizar una única instancia y acceso global.
+// Implementación: función estática con instancia local static.
+// -----------------------------------------------------------
+
+class ${1:Database} {
+ public:
+  static $1 &instancia() {
+    static $1 inst;
+    return inst;
+  }
+
+  void consulta(const std::string &sql) {
+    std::cout << "[$1] Ejecutando: " << sql << "\n";
+    ++conexiones_;
+  }
+
+  int conexiones() const { return conexiones_; }
+
+  // Eliminar copia y asignación
+  $1(const $1 &)            = delete;
+  $1 &operator=(const $1 &) = delete;
+
+ private:
+  $1() { std::cout << "[$1] Instancia creada\n"; }
+  int conexiones_{0};
+};
+
+int main() {
+  $1 &a = $1::instancia();
+  $1 &b = $1::instancia();
+
+  a.consulta("SELECT * FROM usuarios");
+  std::cout << "¿Misma instancia? " << (&a == &b ? "sí" : "no") << "\n";
+  std::cout << "Conexiones desde b: " << b.conexiones() << "\n";
+  return 0;
+}
+$0

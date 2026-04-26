@@ -1,0 +1,71 @@
+# -*- mode: snippet -*-
+# name: Observer (C++)
+# key: observer
+# --
+#include <iostream>
+#include <list>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Observer en C++
+// Intención: notificar automáticamente a múltiples objetos
+// cuando el estado de otro cambia (event system).
+// -----------------------------------------------------------
+
+class ${1:Sujeto};
+
+// --- Observador abstracto ---
+
+class ${2:Observador} {
+ public:
+  virtual ~$2() = default;
+  virtual void actualizar(const $1 &sujeto) = 0;
+};
+
+// --- Sujeto (Publisher) ---
+
+class ${1:Sujeto} {
+  std::list<$2 *> observadores_;
+  int estado_{0};
+ public:
+  void suscribir   ($2 *o) { observadores_.push_back(o); }
+  void desuscribir ($2 *o) { observadores_.remove(o); }
+
+  void set_estado(int e) {
+    std::cout << "[Sujeto] Estado → " << e << "\n";
+    estado_ = e;
+    for (auto *o : observadores_) o->actualizar(*this);
+  }
+  int estado() const { return estado_; }
+};
+
+// --- Observadores concretos ---
+
+class ${3:Logger} : public $2 {
+ public:
+  void actualizar(const $1 &s) override {
+    std::cout << "[Logger] Estado=" << s.estado() << "\n";
+  }
+};
+
+class ${4:Email} : public $2 {
+ public:
+  void actualizar(const $1 &s) override {
+    std::cout << "[Email] Notificando estado=" << s.estado() << "\n";
+  }
+};
+
+int main() {
+  $1 sujeto;
+  $3 logger;
+  $4 email;
+
+  sujeto.suscribir(&logger);
+  sujeto.suscribir(&email);
+  sujeto.set_estado(1);
+
+  sujeto.desuscribir(&email);
+  sujeto.set_estado(2);
+  return 0;
+}
+$0

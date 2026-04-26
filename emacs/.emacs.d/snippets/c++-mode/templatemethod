@@ -1,0 +1,73 @@
+# -*- mode: snippet -*-
+# name: Template Method (C++)
+# key: templatemethod
+# --
+#include <iostream>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Template Method en C++
+// Intención: definir el esqueleto de un algoritmo en la
+// clase base, difiriendo pasos concretos a las subclases.
+// -----------------------------------------------------------
+
+class ${1:AnalizadorDatos} {
+ public:
+  virtual ~$1() = default;
+
+  // Template Method: algoritmo fijo
+  void minar(const std::string &ruta) {
+    auto raw   = extraer_datos(ruta);
+    auto datos = parsear_datos(raw);
+    analizar_datos(datos);
+    if (quiere_reporte()) enviar_reporte(datos);
+  }
+
+ protected:
+  // Pasos abstractos (obligatorio sobreescribir)
+  virtual std::string extraer_datos(const std::string &ruta) = 0;
+  virtual std::string parsear_datos(const std::string &raw)  = 0;
+
+  // Pasos con implementación por defecto (gancho)
+  virtual void analizar_datos(const std::string &datos) {
+    std::cout << "[Base] Analizando: " << datos << "\n";
+  }
+  virtual void enviar_reporte(const std::string &datos) {
+    std::cout << "[Base] Reporte: " << datos << "\n";
+  }
+  virtual bool quiere_reporte() const { return true; }
+};
+
+// --- Subclase CSV ---
+
+class ${2:AnalizadorCSV} : public $1 {
+ protected:
+  std::string extraer_datos(const std::string &r) override {
+    std::cout << "[CSV] Extrayendo de " << r << "\n"; return "raw_csv";
+  }
+  std::string parsear_datos(const std::string &raw) override {
+    std::cout << "[CSV] Parseando " << raw << "\n"; return "datos_csv";
+  }
+};
+
+// --- Subclase PDF ---
+
+class ${3:AnalizadorPDF} : public $1 {
+ protected:
+  std::string extraer_datos(const std::string &r) override {
+    std::cout << "[PDF] Extrayendo de " << r << "\n"; return "raw_pdf";
+  }
+  std::string parsear_datos(const std::string &raw) override {
+    std::cout << "[PDF] Parseando " << raw << "\n"; return "datos_pdf";
+  }
+  bool quiere_reporte() const override { return false; }
+};
+
+int main() {
+  $2 csv;
+  $3 pdf;
+  std::cout << "=== $2 ===\n"; csv.minar("datos.csv");
+  std::cout << "=== $3 ===\n"; pdf.minar("informe.pdf");
+  return 0;
+}
+$0

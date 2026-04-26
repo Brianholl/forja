@@ -1,0 +1,80 @@
+# -*- mode: snippet -*-
+# name: State (C++)
+# key: state
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón State en C++
+// Intención: alterar el comportamiento de un objeto
+// cuando su estado interno cambia.
+// -----------------------------------------------------------
+
+class ${1:Contexto};
+
+// --- Estado abstracto ---
+
+class ${2:Estado} {
+ public:
+  virtual ~$2() = default;
+  virtual void manejar1($1 &ctx) = 0;
+  virtual void manejar2($1 &ctx) = 0;
+  virtual std::string nombre() const = 0;
+};
+
+// --- Contexto ---
+
+class ${1:Contexto} {
+  std::unique_ptr<$2> estado_;
+ public:
+  explicit $1(std::unique_ptr<$2> estado) : estado_(std::move(estado)) {}
+
+  void set_estado(std::unique_ptr<$2> s) {
+    std::cout << "[Contexto] → " << s->nombre() << "\n";
+    estado_ = std::move(s);
+  }
+  void solicitud1() { estado_->manejar1(*this); }
+  void solicitud2() { estado_->manejar2(*this); }
+};
+
+// --- Estados concretos ---
+
+class ${4:EstadoB};
+
+class ${3:EstadoA} : public $2 {
+ public:
+  std::string nombre() const override { return "$3"; }
+  void manejar1($1 &ctx) override;
+  void manejar2($1 &ctx) override {
+    std::cout << "[$3] Manejando solicitud2\n";
+  }
+};
+
+class ${4:EstadoB} : public $2 {
+ public:
+  std::string nombre() const override { return "$4"; }
+  void manejar1($1 &ctx) override {
+    std::cout << "[$4] Manejando solicitud1\n";
+  }
+  void manejar2($1 &ctx) override {
+    std::cout << "[$4] Manejando solicitud2 → cambio a $3\n";
+    ctx.set_estado(std::make_unique<$3>());
+  }
+};
+
+void $3::manejar1($1 &ctx) {
+  std::cout << "[$3] Manejando solicitud1 → cambio a $4\n";
+  ctx.set_estado(std::make_unique<$4>());
+}
+
+int main() {
+  $1 ctx(std::make_unique<$3>());
+  ctx.solicitud1();
+  ctx.solicitud2();
+  ctx.solicitud1();
+  ctx.solicitud2();
+  return 0;
+}
+$0

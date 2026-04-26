@@ -1,0 +1,68 @@
+# -*- mode: snippet -*-
+# name: Proxy (C++)
+# key: proxy
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Proxy en C++
+// Intención: proporcionar un sustituto que controla el
+// acceso al objeto real (lazy init, caché, logging, etc.)
+// -----------------------------------------------------------
+
+// --- Interfaz común ---
+
+class ${1:Sujeto} {
+ public:
+  virtual ~$1() = default;
+  virtual void solicitud() const = 0;
+};
+
+// --- Sujeto Real ---
+
+class ${2:SujetoReal} : public $1 {
+ public:
+  void solicitud() const override {
+    std::cout << "[$2] Procesando solicitud real\n";
+  }
+};
+
+// --- Proxy ---
+
+class ${3:Proxy} : public $1 {
+  mutable std::unique_ptr<$2> real_;
+  std::string acceso_;
+
+  bool verificar_acceso() const {
+    std::cout << "[$3] Verificando acceso '" << acceso_ << "'... ";
+    bool ok = acceso_ == "admin";
+    std::cout << (ok ? "permitido" : "denegado") << "\n";
+    return ok;
+  }
+
+ public:
+  explicit $3(std::string acceso) : acceso_(std::move(acceso)) {}
+
+  void solicitud() const override {
+    if (!verificar_acceso()) return;
+    if (!real_) {
+      std::cout << "[$3] Creando $2 (lazy init)\n";
+      real_ = std::make_unique<$2>();
+    }
+    real_->solicitud();
+  }
+};
+
+void cliente(const $1 &s) { s.solicitud(); }
+
+int main() {
+  $3 proxy_admin("admin");
+  $3 proxy_anon("anonimo");
+
+  std::cout << "-- Admin --\n";   cliente(proxy_admin);
+  std::cout << "-- Anónimo --\n"; cliente(proxy_anon);
+  return 0;
+}
+$0

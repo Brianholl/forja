@@ -1,0 +1,80 @@
+# -*- mode: snippet -*-
+# name: Command (C++)
+# key: command
+# --
+#include <iostream>
+#include <memory>
+#include <stack>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Command en C++
+// Intención: encapsular solicitudes como objetos,
+// permitiendo deshacer, rehacer y colas de comandos.
+// -----------------------------------------------------------
+
+// --- Comando abstracto ---
+
+class ${1:Comando} {
+ public:
+  virtual ~$1() = default;
+  virtual void execute() = 0;
+  virtual void undo()    = 0;
+};
+
+// --- Receptor ---
+
+class ${2:Editor} {
+  std::string texto_;
+ public:
+  void escribir(const std::string &s) {
+    texto_ += s;
+    std::cout << "[Editor] \"" << texto_ << "\"\n";
+  }
+  void borrar(int n) {
+    if (n > (int)texto_.size()) n = (int)texto_.size();
+    texto_.erase(texto_.size() - n);
+    std::cout << "[Editor] \"" << texto_ << "\"\n";
+  }
+};
+
+// --- Comando concreto ---
+
+class ${3:ComandoEscribir} : public $1 {
+  $2 &editor_;
+  std::string texto_;
+ public:
+  $3($2 &ed, std::string txt) : editor_(ed), texto_(std::move(txt)) {}
+  void execute() override { editor_.escribir(texto_); }
+  void undo()    override { editor_.borrar((int)texto_.size()); }
+};
+
+// --- Invocador con historial ---
+
+class ${4:Invocador} {
+  std::stack<std::unique_ptr<$1>> historial_;
+ public:
+  void ejecutar(std::unique_ptr<$1> cmd) {
+    cmd->execute();
+    historial_.push(std::move(cmd));
+  }
+  void deshacer() {
+    if (historial_.empty()) return;
+    historial_.top()->undo();
+    historial_.pop();
+  }
+};
+
+int main() {
+  $2 editor;
+  $4 inv;
+
+  inv.ejecutar(std::make_unique<$3>(editor, "Hola "));
+  inv.ejecutar(std::make_unique<$3>(editor, "Mundo"));
+
+  std::cout << "-- Deshacer --\n";
+  inv.deshacer();
+  inv.deshacer();
+  return 0;
+}
+$0

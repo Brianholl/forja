@@ -1,0 +1,76 @@
+# -*- mode: snippet -*-
+# name: Flyweight (C++)
+# key: flyweight
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+// -----------------------------------------------------------
+// Patrón Flyweight en C++
+// Intención: usar compartición para soportar gran cantidad
+// de objetos de grano fino eficientemente.
+// -----------------------------------------------------------
+
+// --- Flyweight: estado intrínseco (compartido) ---
+
+class ${1:TipoArbol} {
+  std::string nombre_, color_, textura_;
+ public:
+  $1(std::string n, std::string c, std::string t)
+      : nombre_(std::move(n)), color_(std::move(c)), textura_(std::move(t)) {}
+
+  void dibujar(int x, int y) const {
+    std::cout << "  " << nombre_ << " en (" << x << "," << y
+              << ") color=" << color_ << "\n";
+  }
+};
+
+// --- Flyweight Factory (pool) ---
+
+class ${2:FabricaTipos} {
+  std::unordered_map<std::string, std::shared_ptr<$1>> pool_;
+ public:
+  std::shared_ptr<$1> obtener(const std::string &n, const std::string &c, const std::string &t) {
+    std::string clave = n + "_" + c + "_" + t;
+    if (!pool_.count(clave)) {
+      std::cout << "[Flyweight] Creando '" << n << "'\n";
+      pool_[clave] = std::make_shared<$1>(n, c, t);
+    } else {
+      std::cout << "[Flyweight] Reutilizando '" << n << "'\n";
+    }
+    return pool_.at(clave);
+  }
+  int total() const { return (int)pool_.size(); }
+};
+
+// --- Contexto: estado extrínseco (único) ---
+
+struct ${3:Arbol} {
+  int x, y;
+  std::shared_ptr<$1> tipo;
+  void dibujar() const { tipo->dibujar(x, y); }
+};
+
+int main() {
+  $2 fabrica;
+  std::vector<$3> bosque;
+
+  auto plantar = [&](int x, int y, const std::string &n, const std::string &c) {
+    bosque.push_back({ x, y, fabrica.obtener(n, c, "normal") });
+  };
+
+  plantar( 1,  2, "Pino",  "verde");
+  plantar( 5,  3, "Roble", "marron");
+  plantar( 8,  7, "Pino",  "verde");   // reutiliza
+  plantar(12,  1, "Pino",  "verde");   // reutiliza
+  plantar( 3,  9, "Roble", "marron");  // reutiliza
+
+  std::cout << "=== Bosque (" << bosque.size() << " árboles, "
+            << fabrica.total() << " tipos) ===\n";
+  for (const auto &a : bosque) a.dibujar();
+  return 0;
+}
+$0

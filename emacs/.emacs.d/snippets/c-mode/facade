@@ -1,0 +1,61 @@
+# -*- mode: snippet -*-
+# name: Facade (C)
+# key: facade
+# --
+#include <stdio.h>
+#include <stdlib.h>
+
+/* -------------------------------------------------------
+ * Patrón Facade en C
+ * Intención: proporcionar una interfaz simplificada a un
+ * subsistema complejo.
+ * En C: struct Facade que agrupa y delega a subsistemas.
+ * ------------------------------------------------------- */
+
+/* --- Subsistemas complejos --- */
+
+typedef struct { int frecuencia; } ${1:CPU};
+typedef struct { int mb_libres;  } ${2:Memoria};
+typedef struct { int rpm;        } ${3:DiscoDuro};
+
+void cpu_ejecutar   (${1:CPU} *c)   { printf("[CPU @%dMHz] Ejecutando\n", c->frecuencia); }
+void memoria_cargar (${2:Memoria} *m) { printf("[RAM %dMB] Cargando kernel\n", m->mb_libres); }
+void disco_leer     (${3:DiscoDuro} *d) { printf("[Disco @%drpm] Leyendo sector 0\n", d->rpm); }
+
+/* --- Facade --- */
+
+typedef struct {
+    ${1:CPU}      *cpu;
+    ${2:Memoria}  *memoria;
+    ${3:DiscoDuro} *disco;
+} ${4:Computadora};
+
+${4:Computadora} *nueva_$4(void) {
+    ${4:Computadora} *pc = malloc(sizeof *pc);
+    pc->cpu     = malloc(sizeof(${1:CPU}));    pc->cpu->frecuencia   = 3600;
+    pc->memoria = malloc(sizeof(${2:Memoria})); pc->memoria->mb_libres = 8192;
+    pc->disco   = malloc(sizeof(${3:DiscoDuro})); pc->disco->rpm        = 7200;
+    return pc;
+}
+
+void $4_encender(${4:Computadora} *pc) {
+    printf("=== Encendiendo $4 ===\n");
+    cpu_ejecutar(pc->cpu);
+    memoria_cargar(pc->memoria);
+    disco_leer(pc->disco);
+    printf("Sistema listo.\n");
+}
+
+void $4_apagar(${4:Computadora} *pc) {
+    printf("=== Apagando $4 ===\n");
+    free(pc->cpu); free(pc->memoria); free(pc->disco);
+    free(pc);
+}
+
+int main(void) {
+    ${4:Computadora} *pc = nueva_$4();
+    $4_encender(pc);
+    $4_apagar(pc);
+    return 0;
+}
+$0

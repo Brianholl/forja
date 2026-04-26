@@ -1,0 +1,77 @@
+# -*- mode: snippet -*-
+# name: Factory Method (C)
+# key: factorymethod
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Factory Method en C
+ * Intención: definir interfaz para crear objetos, pero
+ * dejar que las subclases (structs concretas) decidan qué crear.
+ * En C: función-puntero crear() en el struct Creador.
+ * ------------------------------------------------------- */
+
+/* --- Producto abstracto --- */
+
+typedef struct ${1:Transporte} $1;
+struct $1 {
+    void (*entregar)(const $1 *self);
+    char tipo[32];
+};
+
+/* --- Creador abstracto --- */
+
+typedef struct ${2:Logistica} $2;
+struct $2 {
+    $1 *(*crear_$1)($2 *self);      /* factory method */
+    void (*planificar_entrega)($2 *self);
+};
+
+static void planificar_entrega_default($2 *self) {
+    $1 *t = self->crear_$1(self);
+    printf("[Logistica] Planificando con: %s\n", t->tipo);
+    t->entregar(t);
+    free(t);
+}
+
+/* --- Producto concreto: ${3:Camion} --- */
+
+static void camion_entregar(const $1 *self) {
+    printf("[%s] Entregando por tierra.\n", self->tipo);
+}
+
+static $1 *crear_camion($2 *self) {
+    (void)self;
+    $1 *t = malloc(sizeof *t);
+    strcpy(t->tipo, "${3:Camion}");
+    t->entregar = camion_entregar;
+    return t;
+}
+
+/* --- Producto concreto: ${4:Barco} --- */
+
+static void barco_entregar(const $1 *self) {
+    printf("[%s] Entregando por mar.\n", self->tipo);
+}
+
+static $1 *crear_barco($2 *self) {
+    (void)self;
+    $1 *t = malloc(sizeof *t);
+    strcpy(t->tipo, "${4:Barco}");
+    t->entregar = barco_entregar;
+    return t;
+}
+
+int main(void) {
+    $2 logistica_tierra = { .crear_$1 = crear_camion,
+                             .planificar_entrega = planificar_entrega_default };
+    $2 logistica_mar    = { .crear_$1 = crear_barco,
+                             .planificar_entrega = planificar_entrega_default };
+
+    logistica_tierra.planificar_entrega(&logistica_tierra);
+    logistica_mar.planificar_entrega(&logistica_mar);
+    return 0;
+}
+$0

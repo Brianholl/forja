@@ -1,0 +1,78 @@
+# -*- mode: snippet -*-
+# name: Mediator (C++)
+# key: mediator
+# --
+#include <iostream>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Mediator en C++
+// Intención: reducir dependencias caóticas entre objetos,
+// centralizando la comunicación en un mediador.
+// -----------------------------------------------------------
+
+class ${1:Componente};
+
+// --- Mediador abstracto ---
+
+class ${2:Mediador} {
+ public:
+  virtual ~$2() = default;
+  virtual void reaccionar($1 *emisor, const std::string &evento) = 0;
+};
+
+// --- Componente base ---
+
+class ${1:Componente} {
+ protected:
+  $2 *mediador_;
+ public:
+  explicit $1(const std::string &nombre) : mediador_(nullptr), nombre_(nombre) {}
+  void set_mediador($2 *m) { mediador_ = m; }
+  std::string nombre_;
+
+  void notificar(const std::string &evento) {
+    if (mediador_) mediador_->reaccionar(this, evento);
+  }
+};
+
+// --- Componentes concretos ---
+
+class ${3:CampoUsuario}  : public $1 { public: using $1::$1; };
+class ${4:CampoPassword} : public $1 { public: using $1::$1; };
+class ${5:BotonOK}       : public $1 { public: using $1::$1; };
+
+// --- Mediador concreto ---
+
+class ${6:DialogoLogin} : public $2 {
+  $3 *usuario_;
+  $4 *password_;
+  $5 *ok_;
+ public:
+  $6($3 *u, $4 *p, $5 *btn)
+      : usuario_(u), password_(p), ok_(btn) {
+    u->set_mediador(this);
+    p->set_mediador(this);
+    btn->set_mediador(this);
+  }
+
+  void reaccionar($1 *emisor, const std::string &evento) override {
+    std::cout << "[Mediador] " << emisor->nombre_ << " → '" << evento << "'\n";
+    if (emisor == usuario_ && evento == "texto_cambiado")
+      std::cout << "  → Habilitando campo contraseña\n";
+    if (emisor == ok_ && evento == "click")
+      std::cout << "  → Validando y cerrando diálogo\n";
+  }
+};
+
+int main() {
+  $3 usuario("Campo Usuario");
+  $4 password("Campo Password");
+  $5 ok("Botón OK");
+  $6 dialogo(&usuario, &password, &ok);
+
+  usuario.notificar("texto_cambiado");
+  ok.notificar("click");
+  return 0;
+}
+$0

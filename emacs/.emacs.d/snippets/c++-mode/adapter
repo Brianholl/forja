@@ -1,0 +1,73 @@
+# -*- mode: snippet -*-
+# name: Adapter Pattern (Object Composition)
+# key: adapter
+# --
+#include <algorithm>
+#include <iostream>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Adapter (Composición de Objeto)
+// Intención: convertir la interfaz de una clase en otra
+// que el cliente espera. Usa composición en lugar de herencia.
+// -----------------------------------------------------------
+
+// --- Target: la interfaz que el cliente conoce ---
+
+class ${1:Target} {
+ public:
+  virtual ~$1() = default;
+  virtual std::string ${2:Request}() const {
+    return "$1: comportamiento estándar.";
+  }
+};
+
+// --- Adaptee: la clase útil pero incompatible ---
+
+class ${3:Adaptee} {
+ public:
+  std::string ${4:SpecificRequest}() const {
+    return ".elbitapmocni res nedeup secalC saL";
+  }
+};
+
+// --- Adapter: contiene un Adaptee (composición) ---
+
+class ${5:Adapter} : public $1 {
+ private:
+  $3 *adaptee_;
+
+ public:
+  explicit $5($3 *adaptee) : adaptee_(adaptee) {}
+
+  std::string $2() const override {
+    std::string to_reverse = adaptee_->$4();
+    std::reverse(to_reverse.begin(), to_reverse.end());
+    return "$5 (Composición): " + to_reverse;
+  }
+};
+
+// --- Código cliente ---
+
+void ClientCode(const $1 *target) {
+  std::cout << target->$2() << "\n";
+}
+
+int main() {
+  $1 *target = new $1();
+  std::cout << "Target original:\n";
+  ClientCode(target);
+
+  $3 *adaptee = new $3();
+  std::cout << "\nAdaptee (incompatible):\n" << adaptee->$4() << "\n";
+
+  std::cout << "\nCon $5 (composición):\n";
+  $5 *adapter = new $5(adaptee);
+  ClientCode(adapter);
+
+  delete target;
+  delete adaptee;
+  delete adapter;
+  return 0;
+}
+$0

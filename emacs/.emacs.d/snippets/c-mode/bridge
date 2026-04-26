@@ -1,0 +1,80 @@
+# -*- mode: snippet -*-
+# name: Bridge (C)
+# key: bridge
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Bridge en C
+ * Intención: separar abstracción de implementación para
+ * que ambas puedan variar independientemente.
+ * En C: dos jerarquías de structs vinculadas por puntero.
+ * ------------------------------------------------------- */
+
+/* --- Implementación (lado "plataforma") --- */
+
+typedef struct ${1:Dispositivo} $1;
+struct $1 {
+    int  (*esta_encendido)(const $1 *self);
+    void (*encender)($1 *self);
+    void (*apagar)  ($1 *self);
+    int  volumen;
+    char nombre[32];
+};
+
+/* TV */
+static int  tv_encendida(const $1 *s) { return s->volumen > 0; }
+static void tv_encender ($1 *s) { s->volumen = 30; printf("[TV] Encendida vol=%d\n", s->volumen); }
+static void tv_apagar   ($1 *s) { s->volumen = 0;  printf("[TV] Apagada\n"); }
+$1 nueva_tv(void) { return ($1){ tv_encendida, tv_encender, tv_apagar, 0, "TV" }; }
+
+/* Radio */
+static int  radio_encendida(const $1 *s) { return s->volumen > 0; }
+static void radio_encender ($1 *s) { s->volumen = 50; printf("[Radio] Encendida vol=%d\n", s->volumen); }
+static void radio_apagar   ($1 *s) { s->volumen = 0;  printf("[Radio] Apagada\n"); }
+$1 nueva_radio(void) { return ($1){ radio_encendida, radio_encender, radio_apagar, 0, "Radio" }; }
+
+/* --- Abstracción (lado "control") --- */
+
+typedef struct {
+    $1 *dispositivo;
+    void (*toggle_encendido)(void *self);
+} ${2:Control};
+
+static void control_toggle(void *self) {
+    ${2:Control} *c = (${2:Control} *)self;
+    if (c->dispositivo->esta_encendido(c->dispositivo))
+        c->dispositivo->apagar(c->dispositivo);
+    else
+        c->dispositivo->encender(c->dispositivo);
+}
+
+/* Control avanzado (extiende la abstracción) */
+typedef struct {
+    ${2:Control} base;
+    void (*silenciar)(void *self);
+} ${3:ControlAvanzado};
+
+static void control_silenciar(void *self) {
+    ${3:ControlAvanzado} *c = (${3:ControlAvanzado} *)self;
+    c->base.dispositivo->volumen = 0;
+    printf("[%s] Silenciado\n", c->base.dispositivo->nombre);
+}
+
+int main(void) {
+    $1 tv    = nueva_tv();
+    $1 radio = nueva_radio();
+
+    ${2:Control} ctrl_tv = { &tv, control_toggle };
+    ctrl_tv.toggle_encendido(&ctrl_tv);
+    ctrl_tv.toggle_encendido(&ctrl_tv);
+
+    ${3:ControlAvanzado} ctrl_adv = { { &radio, control_toggle }, control_silenciar };
+    ctrl_adv.base.toggle_encendido(&ctrl_adv);
+    ctrl_adv.silenciar(&ctrl_adv);
+
+    return 0;
+}
+$0

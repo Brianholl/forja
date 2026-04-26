@@ -1,0 +1,73 @@
+# -*- mode: snippet -*-
+# name: Decorator (C++)
+# key: decorator
+# --
+#include <iostream>
+#include <memory>
+#include <string>
+
+// -----------------------------------------------------------
+// Patrón Decorator en C++
+// Intención: agregar responsabilidades a objetos
+// dinámicamente, como alternativa a la herencia.
+// -----------------------------------------------------------
+
+// --- Componente abstracto ---
+
+class ${1:Componente} {
+ public:
+  virtual ~$1() = default;
+  virtual std::string operacion() const = 0;
+};
+
+// --- Componente concreto ---
+
+class ${2:ComponenteConcreto} : public $1 {
+ public:
+  std::string operacion() const override { return "$2"; }
+};
+
+// --- Decorador base ---
+
+class ${3:Decorador} : public $1 {
+ protected:
+  std::unique_ptr<$1> envuelto_;
+ public:
+  explicit $3(std::unique_ptr<$1> c) : envuelto_(std::move(c)) {}
+  std::string operacion() const override { return envuelto_->operacion(); }
+};
+
+// --- Decorador A ---
+
+class ${4:DecoradorA} : public $3 {
+ public:
+  using $3::$3;
+  std::string operacion() const override {
+    return "$4(" + $3::operacion() + ")";
+  }
+};
+
+// --- Decorador B ---
+
+class ${5:DecoradorB} : public $3 {
+ public:
+  using $3::$3;
+  std::string operacion() const override {
+    return "$5(" + $3::operacion() + ")";
+  }
+};
+
+void cliente(const $1 *c) { std::cout << c->operacion() << "\n"; }
+
+int main() {
+  auto simple = std::make_unique<$2>();
+  std::cout << "Simple: "; cliente(simple.get());
+
+  auto con_a = std::make_unique<$4>(std::make_unique<$2>());
+  std::cout << "+ $4: "; cliente(con_a.get());
+
+  auto con_ab = std::make_unique<$5>(std::make_unique<$4>(std::make_unique<$2>()));
+  std::cout << "+ $4 + $5: "; cliente(con_ab.get());
+  return 0;
+}
+$0

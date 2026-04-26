@@ -1,0 +1,83 @@
+# -*- mode: snippet -*-
+# name: Memento (C)
+# key: memento
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+/* -------------------------------------------------------
+ * Patrón Memento en C
+ * Intención: capturar y restaurar el estado interno de un
+ * objeto sin violar su encapsulamiento.
+ * En C: struct Memento opaco + stack de historial.
+ * ------------------------------------------------------- */
+
+/* --- Memento (estado capturado) --- */
+
+typedef struct {
+    char  estado[128];
+    time_t fecha;
+} ${1:Memento};
+
+/* --- Originador --- */
+
+typedef struct {
+    char estado[128];
+} ${2:Originador};
+
+${1:Memento} *$2_guardar(const ${2:Originador} *self) {
+    ${1:Memento} *m = malloc(sizeof *m);
+    strncpy(m->estado, self->estado, sizeof m->estado - 1);
+    m->fecha = time(NULL);
+    printf("[Originador] Guardando estado: \"%s\"\n", m->estado);
+    return m;
+}
+
+void $2_restaurar(${2:Originador} *self, const ${1:Memento} *m) {
+    strncpy(self->estado, m->estado, sizeof self->estado - 1);
+    printf("[Originador] Restaurado a: \"%s\"\n", self->estado);
+}
+
+void $2_hacer_algo(${2:Originador} *self, const char *accion) {
+    strncat(self->estado, accion, sizeof self->estado - strlen(self->estado) - 1);
+    printf("[Originador] Estado actual: \"%s\"\n", self->estado);
+}
+
+/* --- Caretaker (historial) --- */
+
+#define MAX_HIST 16
+typedef struct {
+    ${1:Memento} *historial[MAX_HIST];
+    int           n;
+} ${3:Historial};
+
+void historial_push(${3:Historial} *h, ${1:Memento} *m) {
+    if (h->n < MAX_HIST) h->historial[h->n++] = m;
+}
+
+void historial_deshacer(${3:Historial} *h, ${2:Originador} *orig) {
+    if (h->n == 0) { printf("[Historial] Vacío\n"); return; }
+    ${1:Memento} *m = h->historial[--h->n];
+    $2_restaurar(orig, m);
+    free(m);
+}
+
+int main(void) {
+    ${2:Originador} orig = { "v1" };
+    ${3:Historial}  hist = {0};
+
+    historial_push(&hist, $2_guardar(&orig));
+    $2_hacer_algo(&orig, "+cambio_A");
+    historial_push(&hist, $2_guardar(&orig));
+    $2_hacer_algo(&orig, "+cambio_B");
+
+    printf("-- Deshacer --\n");
+    historial_deshacer(&hist, &orig);
+    printf("-- Deshacer --\n");
+    historial_deshacer(&hist, &orig);
+
+    return 0;
+}
+$0

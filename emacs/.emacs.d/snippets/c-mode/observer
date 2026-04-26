@@ -1,0 +1,85 @@
+# -*- mode: snippet -*-
+# name: Observer (C)
+# key: observer
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Observer en C
+ * Intención: notificar automáticamente a múltiples objetos
+ * cuando el estado de otro cambia.
+ * En C: lista de punteros + función-puntero update().
+ * ------------------------------------------------------- */
+
+#define MAX_OBSERVADORES 8
+
+typedef struct ${1:Sujeto}   $1;
+typedef struct ${2:Observador} $2;
+
+/* --- Observador --- */
+
+struct $2 {
+    void (*actualizar)($2 *self, const $1 *sujeto);
+    char nombre[32];
+};
+
+/* --- Sujeto (Publisher) --- */
+
+struct $1 {
+    $2 *observadores[MAX_OBSERVADORES];
+    int  n_obs;
+    int  estado;
+};
+
+void $1_suscribir($1 *s, $2 *obs) {
+    if (s->n_obs < MAX_OBSERVADORES) s->observadores[s->n_obs++] = obs;
+}
+
+void $1_desuscribir($1 *s, $2 *obs) {
+    for (int i = 0; i < s->n_obs; i++) {
+        if (s->observadores[i] == obs) {
+            s->observadores[i] = s->observadores[--s->n_obs];
+            return;
+        }
+    }
+}
+
+void $1_notificar(const $1 *s) {
+    for (int i = 0; i < s->n_obs; i++)
+        s->observadores[i]->actualizar(s->observadores[i], s);
+}
+
+void $1_set_estado($1 *s, int estado) {
+    printf("[Sujeto] Estado → %d\n", estado);
+    s->estado = estado;
+    $1_notificar(s);
+}
+
+/* --- Observadores concretos --- */
+
+static void obs_log_actualizar($2 *self, const $1 *s) {
+    printf("[%s] Evento recibido: estado=%d\n", self->nombre, s->estado);
+}
+
+static void obs_email_actualizar($2 *self, const $1 *s) {
+    printf("[%s] Enviando email: estado cambió a %d\n", self->nombre, s->estado);
+}
+
+int main(void) {
+    $1 sujeto = {0};
+
+    $2 logger = { obs_log_actualizar,   "Logger" };
+    $2 email  = { obs_email_actualizar, "Email"  };
+
+    $1_suscribir(&sujeto, &logger);
+    $1_suscribir(&sujeto, &email);
+
+    $1_set_estado(&sujeto, 1);
+    $1_desuscribir(&sujeto, &email);
+    $1_set_estado(&sujeto, 2);
+
+    return 0;
+}
+$0

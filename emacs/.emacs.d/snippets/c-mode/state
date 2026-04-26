@@ -1,0 +1,75 @@
+# -*- mode: snippet -*-
+# name: State (C)
+# key: state
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón State en C
+ * Intención: alterar el comportamiento de un objeto
+ * cuando su estado interno cambia.
+ * En C: puntero a struct Estado en el Contexto.
+ * ------------------------------------------------------- */
+
+typedef struct ${1:Estado}   $1;
+typedef struct ${2:Contexto} $2;
+
+struct $1 {
+    void (*manejar1)($1 *self, $2 *ctx);
+    void (*manejar2)($1 *self, $2 *ctx);
+    char nombre[32];
+};
+
+struct $2 {
+    $1 *estado;
+    void (*set_estado)($2 *self, $1 *nuevo);
+    void (*solicitud1)($2 *self);
+    void (*solicitud2)($2 *self);
+};
+
+static void ctx_set_estado($2 *self, $1 *nuevo) {
+    printf("[Contexto] Transición → %s\n", nuevo->nombre);
+    self->estado = nuevo;
+}
+static void ctx_req1($2 *self) { self->estado->manejar1(self->estado, self); }
+static void ctx_req2($2 *self) { self->estado->manejar2(self->estado, self); }
+
+/* --- Estados concretos (declaración adelantada) --- */
+
+static $1 estado_${3:A};
+static $1 estado_${4:B};
+
+static void ${3:A}_manejar1($1 *self, $2 *ctx) {
+    (void)self;
+    printf("[Estado $3] Manejando solicitud1 → cambio a $4\n");
+    ctx->set_estado(ctx, &estado_$4);
+}
+static void ${3:A}_manejar2($1 *self, $2 *ctx) {
+    (void)self; (void)ctx;
+    printf("[Estado $3] Manejando solicitud2\n");
+}
+
+static void ${4:B}_manejar1($1 *self, $2 *ctx) {
+    (void)self; (void)ctx;
+    printf("[Estado $4] Manejando solicitud1\n");
+}
+static void ${4:B}_manejar2($1 *self, $2 *ctx) {
+    (void)self;
+    printf("[Estado $4] Manejando solicitud2 → cambio a $3\n");
+    ctx->set_estado(ctx, &estado_$3);
+}
+
+static $1 estado_$3 = { ${3:A}_manejar1, ${3:A}_manejar2, "$3" };
+static $1 estado_$4 = { ${4:B}_manejar1, ${4:B}_manejar2, "$4" };
+
+int main(void) {
+    $2 ctx = { &estado_$3, ctx_set_estado, ctx_req1, ctx_req2 };
+    ctx.solicitud1(&ctx);
+    ctx.solicitud2(&ctx);
+    ctx.solicitud1(&ctx);
+    ctx.solicitud2(&ctx);
+    return 0;
+}
+$0

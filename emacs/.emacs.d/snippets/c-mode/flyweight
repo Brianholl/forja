@@ -1,0 +1,89 @@
+# -*- mode: snippet -*-
+# name: Flyweight (C)
+# key: flyweight
+# --
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* -------------------------------------------------------
+ * Patrón Flyweight en C
+ * Intención: usar compartición para soportar gran cantidad
+ * de objetos de grano fino eficientemente.
+ * En C: estado intrínseco (compartido) vs extrínseco (único).
+ * ------------------------------------------------------- */
+
+#define MAX_TIPOS 8
+
+/* --- Flyweight: estado INTRÍNSECO (compartido) --- */
+
+typedef struct {
+    char nombre[32];
+    char color[16];
+    char textura[32];
+} ${1:TipoArbol};
+
+static ${1:TipoArbol} _pool[MAX_TIPOS];
+static int            _n_tipos = 0;
+
+${1:TipoArbol} *obtener_tipo(const char *nombre, const char *color, const char *textura) {
+    for (int i = 0; i < _n_tipos; i++) {
+        if (strcmp(_pool[i].nombre, nombre) == 0) {
+            printf("[Flyweight] Reutilizando '%s'\n", nombre);
+            return &_pool[i];
+        }
+    }
+    if (_n_tipos >= MAX_TIPOS) return NULL;
+    ${1:TipoArbol} *t = &_pool[_n_tipos++];
+    strncpy(t->nombre,   nombre,   sizeof t->nombre   - 1);
+    strncpy(t->color,    color,    sizeof t->color    - 1);
+    strncpy(t->textura,  textura,  sizeof t->textura  - 1);
+    printf("[Flyweight] Creando tipo '%s'\n", nombre);
+    return t;
+}
+
+/* --- Contexto: estado EXTRÍNSECO (único por instancia) --- */
+
+typedef struct {
+    int x, y;
+    ${1:TipoArbol} *tipo;   /* puntero al flyweight compartido */
+} ${2:Arbol};
+
+void dibujar_$2(const ${2:Arbol} *a) {
+    printf("  %s en (%d,%d) color=%s\n",
+           a->tipo->nombre, a->x, a->y, a->tipo->color);
+}
+
+/* --- Bosque (cliente) --- */
+
+#define MAX_ARBOLES 64
+
+typedef struct {
+    ${2:Arbol} arboles[MAX_ARBOLES];
+    int      n;
+} ${3:Bosque};
+
+void bosque_plantar(${3:Bosque} *b, int x, int y,
+                    const char *nombre, const char *color, const char *textura) {
+    if (b->n >= MAX_ARBOLES) return;
+    ${2:Arbol} *a = &b->arboles[b->n++];
+    a->x = x; a->y = y;
+    a->tipo = obtener_tipo(nombre, color, textura);
+}
+
+void bosque_dibujar(const ${3:Bosque} *b) {
+    printf("=== Dibujando bosque (%d árboles, %d tipos) ===\n", b->n, _n_tipos);
+    for (int i = 0; i < b->n; i++) dibujar_$2(&b->arboles[i]);
+}
+
+int main(void) {
+    ${3:Bosque} bosque = {0};
+    bosque_plantar(&bosque,  1,  2, "Pino",   "verde",  "rugosa");
+    bosque_plantar(&bosque,  5,  3, "Roble",  "marron", "gruesa");
+    bosque_plantar(&bosque,  8,  7, "Pino",   "verde",  "rugosa");  /* reutiliza */
+    bosque_plantar(&bosque, 12,  1, "Pino",   "verde",  "rugosa");  /* reutiliza */
+    bosque_plantar(&bosque,  3,  9, "Roble",  "marron", "gruesa"); /* reutiliza */
+    bosque_dibujar(&bosque);
+    return 0;
+}
+$0
