@@ -59,6 +59,16 @@ Stack completo para desarrollo Full Stack.
 (add-hook 'css-ts-mode-hook 'lsp-deferred)
 (add-hook 'html-ts-mode-hook 'lsp-deferred)
 
+;; Garantizar nivel 4 de tree-sitter por buffer (independiente del orden de carga)
+(add-hook 'typescript-ts-mode-hook
+  (lambda ()
+    (setq treesit-font-lock-level 4)
+    (treesit-font-lock-recompute-features)))
+(add-hook 'js-ts-mode-hook
+  (lambda ()
+    (setq treesit-font-lock-level 4)
+    (treesit-font-lock-recompute-features)))
+
 ;; --- 2. Prettier (Formateo Automático) ---
 (use-package prettier-js
   :hook ((js-ts-mode . prettier-js-mode)

@@ -256,7 +256,7 @@ y dame pistas para que yo mismo pueda arreglarlo."
   (setq lsp-ui-sideline-show-hover nil)
   (setq lsp-ui-sideline-show-diagnostics nil)
   (setq lsp-headerline-breadcrumb-enable t)
-  (setq lsp-semantic-tokens-enable t))
+  (setq-local lsp-semantic-tokens-enable t))
 
 (add-hook 'c-mode-hook   #'my/cpp-lsp-ui-setup)
 (add-hook 'c++-mode-hook #'my/cpp-lsp-ui-setup)
