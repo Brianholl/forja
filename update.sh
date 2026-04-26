@@ -234,9 +234,10 @@ fi
 # =============================================================================
 info "[7/7] Configurando cppman con cppreference..."
 if [ "$PLATFORM" = "arch" ] && command -v cppman &>/dev/null; then
-    cppman -s cppreference.com && echo y | cppman -c \
-        && ok "cppman configurado" \
-        || warn "cppman: error al cachear — ejecuta manualmente: cppman -s cppreference.com && cppman -c"
+    cppman -s cppreference.com \
+        && ok "cppman configurado (fuente: cppreference.com)" \
+        || warn "cppman: no se pudo configurar la fuente"
+    # Para cachear todas las páginas offline (tarda 30+ min): cppman -c
 else
     [ "$PLATFORM" != "arch" ] || warn "cppman no instalado, saltando"
 fi
