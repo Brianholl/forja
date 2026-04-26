@@ -269,7 +269,10 @@ Pregunta el tipo con completing-read."
     (with-temp-file (concat base-dir "/.projectile") (insert ""))
 
     (my/git-init-and-commit base-dir name)
-    (message "Proyecto TypeScript %s creado: %s" tipo base-dir)
+    ;; npm install en background — tsx y typescript quedan en node_modules/.bin/
+    (let ((default-directory base-dir))
+      (start-process "npm-install" "*npm-install*" "npm" "install"))
+    (message "Proyecto TypeScript '%s' (%s) creado. Instalando deps en background..." name tipo)
     (find-file (concat src-dir "/index.ts"))))
 
 (defun my/new-ts--cli (name base-dir src-dir)
