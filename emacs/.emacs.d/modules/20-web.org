@@ -59,11 +59,24 @@ Stack completo para desarrollo Full Stack.
 (add-hook 'css-ts-mode-hook 'lsp-deferred)
 (add-hook 'html-ts-mode-hook 'lsp-deferred)
 
-;; Garantizar nivel 4 de tree-sitter por buffer (independiente del orden de carga)
-(add-hook 'typescript-ts-mode-hook
-  (lambda ()
-    (setq treesit-font-lock-level 4)
-    (treesit-font-lock-recompute-features)))
+;; Fix: tree-sitter 0.26+ cambió el orden de args de #match (@capture "pattern").
+;; typescript-ts-mode built-in usa el orden viejo y su query 'constant' falla,
+;; rompiendo TODO el font-lock. Excluimos 'constant' hasta que Emacs lo corrija.
+;; Consecuencia: true/false/null y ALL_CAPS no usan constant-face (aceptable).
+(defun my/typescript-fix-font-lock ()
+  (setq treesit-font-lock-level 4)
+  ;; 'constant' y 'number' usan (#match "pattern" @capture) — orden viejo,
+  ;; inválido en tree-sitter 0.26+. Se excluyen hasta que Emacs lo parchee.
+  ;; Pérdida: true/false/null/ALL_CAPS sin constant-face; NaN/Infinity sin number-face.
+  (setq-local treesit-font-lock-feature-list
+    '((comment declaration)
+      (keyword string escape-sequence)
+      (expression identifier pattern property)
+      (operator function bracket delimiter)))
+  (treesit-font-lock-recompute-features))
+
+(add-hook 'typescript-ts-mode-hook #'my/typescript-fix-font-lock)
+(add-hook 'tsx-ts-mode-hook        #'my/typescript-fix-font-lock)
 (add-hook 'js-ts-mode-hook
   (lambda ()
     (setq treesit-font-lock-level 4)
