@@ -444,7 +444,8 @@ Pregunta el tipo con completing-read."
     (insert "}\n"))
   ;; src/index.ts — entrada CLI con process.argv
   (with-temp-file (concat src-dir "/index.ts")
-    (insert "#!/usr/bin/env node\n\n")
+    (insert "#!/usr/bin/env node\n")
+    (insert "// -*- mode: typescript-ts -*-\n\n")
     (insert (format "const nombre = \"%s\";\n" name))
     (insert "const args = process.argv.slice(2);\n\n")
     (insert "if (args.length === 0) {\n")
