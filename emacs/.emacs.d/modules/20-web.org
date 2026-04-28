@@ -239,7 +239,9 @@ Stack completo para desarrollo Full Stack.
 
 ;; --- 6. Utilidades Visuales ---
 (use-package rainbow-mode
-  :hook (prog-mode . rainbow-mode))
+  :hook ((css-mode css-ts-mode
+          scss-mode sass-mode
+          html-mode html-ts-mode web-mode) . rainbow-mode))
 
 ;; Resaltar pares de paréntesis
 (use-package rainbow-delimiters
