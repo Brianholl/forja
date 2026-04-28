@@ -35,18 +35,18 @@ Stack completo para desarrollo Full Stack.
   (setq treesit-font-lock-level 4)
 
   ;; Remapear modos antiguos a Tree-sitter
-  (add-to-list 'major-mode-remap-alist '(js-mode . js-ts-mode))
-  (add-to-list 'major-mode-remap-alist '(javascript-mode . js-ts-mode))
-  (add-to-list 'major-mode-remap-alist '(typescript-mode . typescript-ts-mode))
+  ;; js-ts-mode y typescript-ts-mode excluidos: queries incompatibles con tree-sitter 0.26.x
+  ;; El predicado #match falla en ejecución (jit-lock). Mismo bug que php-ts-mode.
+  ;; TODO: restaurar cuando Emacs actualice queries a sintaxis #match?
   (add-to-list 'major-mode-remap-alist '(json-mode . json-ts-mode))
   (add-to-list 'major-mode-remap-alist '(css-mode . css-ts-mode))
   (add-to-list 'major-mode-remap-alist '(html-mode . html-ts-mode))
   (add-to-list 'major-mode-remap-alist '(mhtml-mode . html-ts-mode))
 
-  ;; Asociar extensiones ANTES de web-mode
-  (add-to-list 'auto-mode-alist '("\\.js\\'" . js-ts-mode))
-  (add-to-list 'auto-mode-alist '("\\.mjs\\'" . js-ts-mode))
-  (add-to-list 'auto-mode-alist '("\\.ts\\'" . typescript-ts-mode))
+  ;; Asociar extensiones — js/ts usan modos clásicos por incompatibilidad con tree-sitter 0.26.x
+  (add-to-list 'auto-mode-alist '("\\.js\\'" . js-mode))
+  (add-to-list 'auto-mode-alist '("\\.mjs\\'" . js-mode))
+  (add-to-list 'auto-mode-alist '("\\.ts\\'" . typescript-mode))
   (add-to-list 'auto-mode-alist '("\\.json\\'" . json-ts-mode))
   (add-to-list 'auto-mode-alist '("\\.css\\'" . css-ts-mode))
   (add-to-list 'auto-mode-alist '("\\.html\\'" . html-ts-mode))

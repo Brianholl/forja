@@ -15,17 +15,24 @@
   (unless (treesit-language-available-p 'php)
     (condition-case err
         (treesit-install-language-grammar 'php)
-      (error (message "⚠️ No se pudo instalar gramática php: %s" err))))
-  ;; php-ts-mode viene incluido en Emacs 30+
-  (when (treesit-language-available-p 'php)
-    (add-to-list 'auto-mode-alist '("\\.php\\'" . php-ts-mode))))
+      (error (message "⚠️ No se pudo instalar gramática php: %s" err)))))
 #+end_src
 
-* 20. PHP Mode (fallback si tree-sitter no disponible)
+* 20. PHP Mode
+
+~php-ts-mode~ de Emacs 30 usa queries con ~#match~ que fallan en ejecución con
+tree-sitter 0.26.x (el error aparece en ~jit-lock~, no en compilación).
+Se usa ~php-mode~ hasta que Emacs corrija sus queries a la sintaxis ~#match?~.
 
 #+begin_src emacs-lisp
+;; php-ts-mode de Emacs 30 usa queries con #match que fallan en ejecución
+;; con tree-sitter 0.26.x (el error aparece en jit-lock, no en compilación).
+;; Se usa php-mode hasta que Emacs corrija sus queries a la sintaxis #match?.
+;; TODO: remover esta guarda cuando tree-sitter < 0.26 o Emacs actualice queries.
+(require 'php-mode nil t)
+(add-to-list 'auto-mode-alist '("\\.php\\'" . php-mode))
+
 (use-package php-mode
-  :unless (treesit-language-available-p 'php)
   :mode "\\.php\\'"
   :config
   (setq php-mode-coding-style 'psr2))
