@@ -15,8 +15,9 @@
     (condition-case err
         (treesit-install-language-grammar 'rust)
       (error (message "⚠️ No se pudo instalar gramática rust: %s" err))))
-  (add-to-list 'major-mode-remap-alist '(rust-mode . rust-ts-mode))
-  (add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-ts-mode)))
+  ;; rust-ts-mode excluido: queries incompatibles con tree-sitter 0.26.x
+  ;; TODO: restaurar cuando Emacs actualice queries a sintaxis #match?
+  )
 #+end_src
 
 * 20. Rust Mode y LSP

@@ -15,7 +15,9 @@
     (condition-case err
         (treesit-install-language-grammar 'java)
       (error (message "44-java: no se pudo instalar gramática java: %s" err))))
-  (add-to-list 'auto-mode-alist '("\\.java\\'" . java-ts-mode))
+  ;; java-ts-mode excluido: queries incompatibles con tree-sitter 0.26.x
+  ;; TODO: restaurar cuando Emacs actualice queries a sintaxis #match?
+  (add-to-list 'auto-mode-alist '("\\.java\\'" . java-mode))
   ;; kotlin-ts-mode no está incluido en Emacs 29 — usa kotlin-mode (MELPA)
   (add-to-list 'auto-mode-alist '("\\.kt\\'" . kotlin-mode)))
 #+end_src

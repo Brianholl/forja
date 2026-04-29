@@ -21,21 +21,25 @@
     (condition-case err
         (treesit-install-language-grammar 'gomod)
       (error (message "⚠️ No se pudo instalar gramática gomod: %s" err))))
-  (add-to-list 'major-mode-remap-alist '(go-mode . go-ts-mode))
-  (add-to-list 'auto-mode-alist '("\\.go\\'" . go-ts-mode))
-  (add-to-list 'auto-mode-alist '("/go\\.mod\\'" . go-mod-ts-mode)))
+  ;; go-ts-mode excluido: queries incompatibles con tree-sitter 0.26.x
+  ;; TODO: restaurar cuando Emacs actualice queries a sintaxis #match?
+  )
 #+end_src
 
-* 20. LSP para Go
+* 20. Go Mode y LSP
 
 #+begin_src emacs-lisp
-(add-hook 'go-ts-mode-hook #'lsp-deferred)
+(use-package go-mode
+  :ensure t
+  :mode ("\\.go\\'" "/go\\.mod\\'"))
+
+(add-hook 'go-mode-hook #'lsp-deferred)
 
 (defun my/go-mode-setup ()
   (add-hook 'before-save-hook #'lsp-organize-imports nil t)
   (add-hook 'before-save-hook #'lsp-format-buffer nil t))
 
-(add-hook 'go-ts-mode-hook #'my/go-mode-setup)
+(add-hook 'go-mode-hook #'my/go-mode-setup)
 #+end_src
 
 * 30. Compilar y Ejecutar
@@ -62,7 +66,7 @@
   (local-set-key (kbd "C-c C-b") #'my/go-build)
   (local-set-key (kbd "C-c C-t") #'my/go-test))
 
-(add-hook 'go-ts-mode-hook #'my/go-keybindings)
+(add-hook 'go-mode-hook #'my/go-keybindings)
 #+end_src
 
 * 40. Generadores de Proyecto

@@ -15,8 +15,9 @@
     (condition-case err
         (treesit-install-language-grammar 'python)
       (error (message "⚠️ No se pudo instalar gramática python: %s" err))))
-  (add-to-list 'major-mode-remap-alist '(python-mode . python-ts-mode))
-  (add-to-list 'auto-mode-alist '("\\.py\\'" . python-ts-mode)))
+  ;; python-ts-mode excluido: queries incompatibles con tree-sitter 0.26.x
+  ;; TODO: restaurar cuando Emacs actualice queries a sintaxis #match?
+  (add-to-list 'auto-mode-alist '("\\.py\\'" . python-mode)))
 #+end_src
 
 * 20. LSP para Python (pylsp)
