@@ -59,6 +59,14 @@ emacs/.emacs.d/site-lisp/
 # --- LSP y Tree-sitter ---
 **/.lsp-session-*
 **/tree-sitter/
+**/eclipse.jdt.ls/
+**/workspace/
+
+# Config local (específica de la máquina)
+**/local.el
+
+# Sesiones de Emacs
+**/session.*
 
 # --- Logs ---
 **/*.log
