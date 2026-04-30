@@ -81,7 +81,7 @@ fi
 # =============================================================================
 info "[2/7] Instalando/verificando dependencias..."
 if [ -f "$SCRIPT_DIR/install.sh" ]; then
-    SKIP_CPPMAN=1 bash "$SCRIPT_DIR/install.sh"
+    SKIP_CPPMAN=1 SKIP_SYSUPGRADE="${SKIP_SYSUPGRADE:-}" bash "$SCRIPT_DIR/install.sh"
     ok "Dependencias verificadas"
 else
     warn "install.sh no encontrado en $SCRIPT_DIR"

@@ -251,18 +251,31 @@ if [ "$ONLY_VERIFY" = "1" ]; then
     exit $?
 fi
 
+# Pedir sudo una vez y mantenerlo vivo durante toda la ejecucion
+# (evita que expire la sesion en instalaciones largas en escuelas)
+if [ "$PLATFORM" != "termux" ]; then
+    sudo -v || { err "Se requiere sudo para continuar."; exit 1; }
+    ( while true; do sudo -v; sleep 240; done ) &
+    _SUDO_KEEPALIVE_PID=$!
+    trap "kill $_SUDO_KEEPALIVE_PID 2>/dev/null" EXIT INT TERM
+fi
+
 # =============================================================================
 # 1. ACTUALIZAR SISTEMA
 # =============================================================================
-info "Actualizando el sistema..."
-if [ "$PLATFORM" = "termux" ]; then
-    pkg upgrade -y
-    apt --fix-broken install -y 2>/dev/null || true
-elif [ "$PLATFORM" = "wsl" ]; then
-    sudo apt-get update -y
-    sudo apt-get upgrade -y
+if [ -n "$SKIP_SYSUPGRADE" ]; then
+    info "Saltando actualización del sistema (modo reinstall)..."
 else
-    sudo pacman -Syu --noconfirm
+    info "Actualizando el sistema..."
+    if [ "$PLATFORM" = "termux" ]; then
+        pkg upgrade -y
+        apt --fix-broken install -y 2>/dev/null || true
+    elif [ "$PLATFORM" = "wsl" ]; then
+        sudo apt-get update -y
+        sudo apt-get upgrade -y
+    else
+        sudo pacman -Syu --noconfirm
+    fi
 fi
 
 # =============================================================================
@@ -824,8 +837,10 @@ if [ -d "$DOTFILES_DIR/emacs" ] || [ -d "$DOTFILES_DIR/shell" ]; then
     cd "$DOTFILES_DIR"
 
     if [ -d emacs ]; then
-        if [ -d ~/.emacs.d ] && [ ! -L ~/.emacs.d ]; then
-            warn "~/.emacs.d existe y no es un symlink. Renombrando a ~/.emacs.d.bak..."
+        # Solo renombrar si hay un init.el regular que conflictuaría con stow.
+        # Si ~/.emacs.d/ solo tiene elpa/ preservado, stow puede trabajar dentro.
+        if [ -f ~/.emacs.d/init.el ] && [ ! -L ~/.emacs.d/init.el ]; then
+            warn "~/.emacs.d/init.el existe como archivo regular. Renombrando a .bak..."
             mv ~/.emacs.d ~/.emacs.d.bak
         fi
         stow -v -t ~ emacs
@@ -865,7 +880,6 @@ cat > "$EMACS_BOOTSTRAP_EL" << 'ELISP'
         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
         ("melpa"  . "https://melpa.org/packages/")))
 (package-initialize)
-(package-refresh-contents)
 
 (unless (package-installed-p 'use-package)
   (package-install 'use-package))
@@ -910,14 +924,20 @@ cat > "$EMACS_BOOTSTRAP_EL" << 'ELISP'
         (append my/bootstrap-packages
                 '(nasm-mode disaster pdf-tools))))
 
-(dolist (pkg my/bootstrap-packages)
-  (unless (package-installed-p pkg)
-    (condition-case err
-        (package-install pkg)
-      (error (message "WARNING: no se pudo instalar %s: %s" pkg err)))))
+;; Solo contactar MELPA si hay paquetes faltantes (evita descarga en reinstall con caché)
+(let ((missing (seq-remove #'package-installed-p my/bootstrap-packages)))
+  (if (null missing)
+      (message "Todos los paquetes ya instalados — omitiendo descarga de índice MELPA")
+    (message "Paquetes faltantes: %d — descargando índice MELPA..." (length missing))
+    (package-refresh-contents)
+    (dolist (pkg missing)
+      (condition-case err
+          (package-install pkg)
+        (error (message "WARNING: no se pudo instalar %s: %s" pkg err))))))
 
-(message "Bootstrap completo. Paquetes instalados: %d"
-         (length (seq-filter #'package-installed-p my/bootstrap-packages)))
+(message "Bootstrap completo. Paquetes presentes: %d/%d"
+         (length (seq-filter #'package-installed-p my/bootstrap-packages))
+         (length my/bootstrap-packages))
 ELISP
 
 emacs --batch --load "$EMACS_BOOTSTRAP_EL" 2>&1 | tail -5

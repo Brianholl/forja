@@ -88,7 +88,7 @@ La configuracion se guarda en `~/.forja/profile.conf`.
 bash install.sh
 ```
 
-El instalador lee `~/.forja/profile.conf` y solo instala los componentes que elegiste. Si no existe `profile.conf`, lanza el menu automaticamente.
+El instalador lee `~/.forja/profile.conf` y solo instala los componentes que elegiste. Si no existe `profile.conf`, lanza el menu automaticamente. Pide la contrasena sudo una sola vez al inicio y la mantiene activa hasta terminar.
 
 > **Modo legacy:** `bash install.sh --perfil casa` sigue funcionando para quienes prefieran CLI puro.
 
@@ -102,20 +102,63 @@ El instalador lee `~/.forja/profile.conf` y solo instala los componentes que ele
 
 Cada componente es opcional y se puede activar/desactivar individualmente en el menu.
 
-### Actualizar
+---
+
+## Uso de los Scripts
+
+### Instalacion nueva (primera vez en la maquina)
 
 ```bash
 cd ~/forja
-bash update.sh
+bash forja-menu.sh   # elegir perfil y componentes
+./install.sh         # instala todo — tarda ~30-60 min la primera vez
 ```
 
-Lee `~/.forja/profile.conf` y solo actualiza los componentes instalados: sistema, Rust, npm globals, Python LSP, Aider, agentes IA, modelos Ollama, dotfiles, re-tangle de modulos y paquetes MELPA.
-
-### Reconfigurar
+### Reinstalar FORJA (config rota, modulos actualizados, etc.)
 
 ```bash
-bash forja-menu.sh    # Volver a elegir perfil, features y modelos
-bash install.sh       # Aplicar cambios
+cd ~/forja
+./reinstall.sh
+```
+
+1. Pide confirmacion (`si`)
+2. Pide contrasena sudo **una sola vez** y la mantiene activa hasta terminar
+3. Limpia la config de Emacs preservando el cache de paquetes (`~/.emacs.d/elpa/`)
+4. Reinstala sin actualizar el sistema ni redescargar paquetes ya cacheados
+
+**Tiempo estimado:** 5-10 minutos (vs. 3 horas sin cache).
+
+### Limpiar todo incluyendo cache de paquetes Emacs
+
+Usar cuando hay paquetes corruptos o queres empezar absolutamente desde cero:
+
+```bash
+cd ~/forja
+./clear.sh --purge
+./update.sh
+```
+
+### Actualizar FORJA (pull + deps + MELPA)
+
+```bash
+cd ~/forja
+./update.sh
+```
+
+Hace `git pull`, verifica dependencias, actualiza Rust/npm/pylsp/Aider/Ollama, re-tangle de modulos y actualiza paquetes MELPA.
+
+### Reconfigurar perfil o features
+
+```bash
+cd ~/forja
+bash forja-menu.sh   # elegir nuevos features o modelos
+./install.sh         # aplicar cambios
+```
+
+### Verificar dependencias sin instalar nada
+
+```bash
+./install.sh --verify
 ```
 
 ---

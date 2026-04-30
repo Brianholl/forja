@@ -41,6 +41,12 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# --- Flags ---
+PURGE=0
+for _arg in "$@"; do
+    [ "$_arg" = "--purge" ] && PURGE=1
+done
+
 # =============================================================================
 # ADVERTENCIA Y CONFIRMACION
 # =============================================================================
@@ -49,12 +55,17 @@ echo ""
 echo "=============================================="
 echo -e "  ${WHITE}FORJA — Limpieza para reinstalacion${NC}"
 echo "  Plataforma: $PLATFORM"
+[ "$PURGE" = "1" ] && echo -e "  ${RED}Modo: --purge (elimina caché de paquetes)${NC}"
 echo "=============================================="
 echo ""
 echo -e "  ${YELLOW}Se va a eliminar:${NC}"
 echo ""
 echo -e "    ${RED}x${NC} Symlinks de stow  (emacs, shell)"
-echo -e "    ${RED}x${NC} ~/.emacs.d/        (config + paquetes MELPA)"
+if [ "$PURGE" = "1" ]; then
+    echo -e "    ${RED}x${NC} ~/.emacs.d/        (config + paquetes MELPA — completo)"
+else
+    echo -e "    ${RED}x${NC} ~/.emacs.d/        (solo config — elpa/, eln-cache/ y tree-sitter/ se preservan)"
+fi
 echo -e "    ${RED}x${NC} ~/.forja/          (perfil de configuracion)"
 echo -e "    ${RED}x${NC} LSPs pip           (pylsp, ruff, black)"
 echo -e "    ${RED}x${NC} LSPs npm           (typescript-ls, prettier, n8n, etc.)"
@@ -66,6 +77,7 @@ if [ "$PLATFORM" = "termux" ]; then
 fi
 echo ""
 echo -e "  ${DIM}NO se tocan: gcc, clang, rust, go, node, Ollama, modelos.${NC}"
+[ "$PURGE" = "0" ] && echo -e "  ${DIM}Tip: ./clear.sh --purge para eliminar también el caché de paquetes Emacs.${NC}"
 echo ""
 echo -e "  Despues de esto, corre:  ${WHITE}./update.sh${NC}"
 echo ""
@@ -80,6 +92,15 @@ if [[ "$respuesta" != "si" ]]; then
 fi
 
 echo ""
+
+# Pedir sudo una vez y mantenerlo vivo durante toda la ejecucion
+# (evita que expire la sesion en instalaciones largas en escuelas)
+if [ "$PLATFORM" != "termux" ]; then
+    sudo -v || { err "Se requiere sudo para continuar."; exit 1; }
+    ( while true; do sudo -v; sleep 240; done ) &
+    _SUDO_KEEPALIVE_PID=$!
+    trap "kill $_SUDO_KEEPALIVE_PID 2>/dev/null" EXIT INT TERM
+fi
 
 # =============================================================================
 # 1. STOW: deshacer symlinks
@@ -109,10 +130,25 @@ done
 # =============================================================================
 # 2. EMACS: borrar config y paquetes MELPA
 # =============================================================================
-info "[2/6] Borrando ~/.emacs.d/ ..."
+info "[2/6] Limpiando ~/.emacs.d/ ..."
 if [ -d "$HOME/.emacs.d" ]; then
-    rm -rf "$HOME/.emacs.d"
-    ok "~/.emacs.d/ eliminado"
+    if [ "$PURGE" = "1" ]; then
+        rm -rf "$HOME/.emacs.d"
+        ok "~/.emacs.d/ eliminado (--purge)"
+    else
+        # Preservar caches para no re-descargar paquetes en reinstall
+        _TMP_CACHE=$(mktemp -d)
+        for _d in elpa eln-cache tree-sitter; do
+            [ -d "$HOME/.emacs.d/$_d" ] && mv "$HOME/.emacs.d/$_d" "$_TMP_CACHE/"
+        done
+        rm -rf "$HOME/.emacs.d"
+        mkdir -p "$HOME/.emacs.d"
+        for _d in elpa eln-cache tree-sitter; do
+            [ -d "$_TMP_CACHE/$_d" ] && mv "$_TMP_CACHE/$_d" "$HOME/.emacs.d/"
+        done
+        rmdir "$_TMP_CACHE" 2>/dev/null
+        ok "~/.emacs.d/ limpiado (elpa/, eln-cache/, tree-sitter/ preservados)"
+    fi
 else
     ok "~/.emacs.d/ no existia"
 fi
