@@ -51,7 +51,7 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
                        :available
                      :up-to-date))
              (when (get-buffer "*dashboard*")
-               (with-current-buffer "*dashboard*"
+               (save-window-excursion
                  (dashboard-refresh-buffer))))))))))
 
 ;; === Estado asíncrono de Ollama ===
@@ -85,7 +85,7 @@ Este módulo gestiona la interfaz gráfica que se presenta al iniciar Emacs, ree
                    my/dashboard-ollama-loaded nil))
            (kill-buffer (process-buffer proc))
            (when (get-buffer "*dashboard*")
-             (with-current-buffer "*dashboard*"
+             (save-window-excursion
                (dashboard-refresh-buffer)))))))))
 
 ;; === Widgets personalizados ===
