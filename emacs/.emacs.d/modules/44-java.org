@@ -31,7 +31,7 @@
       :ensure t
       :after lsp-mode
       :config
-      (setq lsp-java-format-on-type-enabled t)
+      (setq lsp-java-format-on-type-enabled nil)  ; freeze al escribir — JDT.LS bloquea por tecla
       (setq lsp-java-save-actions-organize-imports t))
   (error (message "44-java: lsp-java no se pudo cargar: %s" err)))
 

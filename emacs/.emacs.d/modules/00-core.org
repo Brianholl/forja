@@ -334,7 +334,7 @@ Company + Flycheck + LSP = Experiencia de IDE moderna.
   :hook (after-init . global-company-mode)
   :config
   (setq company-minimum-prefix-length 2)
-  (setq company-idle-delay (if (bound-and-true-p my/is-termux) 0.3 0.15))
+  (setq company-idle-delay (if (bound-and-true-p my/is-termux) 0.5 0.4))
   (setq company-selection-wrap-around t)
   ;; --- NUEVO: Ignorar mayúsculas/minúsculas ---
   (setq company-dabbrev-downcase nil)       ; No convertir a minúsculas automáticamente
