@@ -16,7 +16,7 @@ Incluye **IA local** via Aider + Ollama (modelos seleccionables), **agentes auto
 ## Caracteristicas Principales
 
 - **Instalador interactivo:** Menu TUI (`forja-menu.sh`) con deteccion de hardware, perfiles y seleccion de modelos IA
-- **Arquitectura modular:** 22 modulos `.org` (literate config) con carga selectiva por maquina
+- **Arquitectura modular:** 23 modulos `.org` (literate config) con carga selectiva por maquina
 - **Multiplataforma:** Arch Linux (PC), Termux (Android) y WSL2 (Windows) con adaptacion automatica
 - **Tres perfiles de instalacion:** Minimal (celular), Moderado (PC con poca RAM), Full (desktop)
 - **Full Stack REST APIs:** Templates para Express, FastAPI, Laravel, Gin, Actix-web
@@ -80,7 +80,7 @@ bash forja-menu.sh
 El menu detecta tu hardware automaticamente y te guia para elegir:
 
 1. **Perfil de instalacion** (Minimal / Moderado / Full)
-2. **Componentes opcionales** (Godot, n8n, LaTeX, ESP32, agentes IA, etc.)
+2. **Componentes opcionales** (Godot, n8n, LaTeX, ESP32, agentes IA, OpenCode, etc.)
 3. **Modelos de IA** para codigo y para espanol (filtrados segun tu RAM)
 
 La configuracion se guarda en `~/.forja/profile.conf`.
@@ -99,9 +99,9 @@ El instalador lee `~/.forja/profile.conf` y solo instala los componentes que ele
 
 | Perfil | Plataforma | RAM | Que incluye |
 | :--- | :--- | :--- | :--- |
-| **Minimal** | Termux (Android) | < 4 GB | Editor + LSP + Git + GTD + Sync Drive |
-| **Moderado** | Arch / WSL | 4-8 GB | + IA local + Game Dev + n8n + LaTeX + ESP32 |
-| **Full** | Arch Linux | 16+ GB | + Modelos IA grandes + Agentes + Unreal + FASM |
+| **Minimal** | Termux (Android) | < 4 GB | Editor + LSP + Git + GTD + OpenCode + Sync Drive |
+| **Moderado** | Arch / WSL | 4-8 GB | + OpenCode + IA local + Game Dev + n8n + LaTeX + ESP32 |
+| **Full** | Arch Linux | 16+ GB | + OpenCode + Modelos IA grandes + Agentes + Unreal + FASM |
 
 Cada componente es opcional y se puede activar/desactivar individualmente en el menu.
 
@@ -256,13 +256,14 @@ forja/
 │           ├── 53-soporte.org   # Asistencia operativa y KB
 │           ├── 55-picoclaw.org  # PicoClaw: agente IA ligero (solo Casa)
 │           ├── 56-openclaw.org  # OpenClaw: agente IA completo (solo Casa)
+│           ├── 57-opencode.org  # OpenCode: TUI agentico en la nube (OpenRouter)
 │           └── 99-misc.org      # PDF, Org extras, docencia
 ├── shell/
 │   └── .bashrc_custom           # Aliases y config de shell
 ├── termux/
 │   └── .termux/
 │       └── termux.properties    # Extra-keys (F5, F7, F12, arrows)
-├── how_to/                      # 13 guias pedagogicas (00-12)
+├── how_to/                      # 15 guias pedagogicas (00-14)
 ├── forja-menu.sh                # Menu interactivo de instalacion (TUI)
 ├── install.sh                   # Instalador (lee ~/.forja/profile.conf)
 ├── update.sh                    # Actualizador (lee ~/.forja/profile.conf)
@@ -276,7 +277,7 @@ Generado por `forja-menu.sh`, leido por `install.sh` y `update.sh`:
 ```bash
 FORJA_PLATFORM="arch"
 FORJA_PROFILE="full"
-FORJA_FEATURES="aider,godot,raylib,n8n,picoclaw,openclaw,latex,esp32,fasm,sync-drive,multiusuario"
+FORJA_FEATURES="opencode,aider,godot,raylib,n8n,picoclaw,openclaw,latex,esp32,fasm,sync-drive,multiusuario"
 FORJA_MODEL_CODE="qwen2.5-coder:7b"
 FORJA_MODEL_CHAT="qwen2.5:7b"
 FORJA_CONFIG_DATE="2026-04-10"
@@ -314,7 +315,10 @@ Tambien leido por Emacs (`36-modelos.org`) para configurar los modelos al inicia
 | **53-soporte** | Asistencia operativa, KB, diagnosticos | ✅ | ✅ | ✅ | ✅ |
 | **55-picoclaw** | PicoClaw: agente IA ligero (Go, ~20MB) | ❌ | ❌ | ❌ | ✅ |
 | **56-openclaw** | OpenClaw: agente IA completo (Node.js) | ❌ | ❌ | ❌ | ✅ |
+| **57-opencode** | OpenCode: TUI agentico en la nube (OpenRouter) | ✅* | ✅ | ✅ | ✅ |
 | **99-misc** | PDF, Org extras, docencia | ✅ | ✅ | ✅ | ✅ |
+
+> *Termux: requiere proot-distro Ubuntu (~500MB)
 
 ### Perfiles de Entorno
 
@@ -427,6 +431,23 @@ Todos crean estructura, `.gitignore`, `.projectile`, `git init` + primer commit:
 
 > Usa Ollama local. Sin API keys, sin internet, 100% local. Los modelos se eligen en `forja-menu.sh` o se cambian en caliente con `C-c M`.
 
+### OpenCode — Asistente Agentico en la Nube (`C-c o`)
+
+Disponible en todos los modos de programacion. Requiere `opencode` feature activo en `profile.conf`.
+
+| Tecla | Accion |
+| :--- | :--- |
+| `C-c o o` | **Abrir TUI** en raiz del proyecto actual |
+| `C-c o s` | Cambiar al buffer TUI (si ya esta abierto) |
+| `C-c o p` | **Pregunta inline** sobre el archivo actual |
+| `C-c o r` | **Pregunta sobre region** seleccionada |
+| `C-c o f` | **Procesar archivo** — analisis completo + diffs |
+| `C-c o t` | Generar tests para el archivo actual |
+| `C-c o e` | Corregir errores Flycheck con IA |
+| `C-c F A` | Menu maestro → Agentes IA (PicoClaw/OpenClaw/OpenCode) |
+
+> A diferencia de Aider, OpenCode usa modelos en la nube (OpenRouter). Disponible en Termux via proot-distro Ubuntu. Ver [Guia 14](how_to/14_OpenCode.md).
+
 ### Sistema Multiusuario y Sync (`C-c U`)
 
 | Tecla | Accion |
@@ -441,9 +462,10 @@ Todos crean estructura, `.gitignore`, `.projectile`, `git init` + primer commit:
 | `C-c U N s` | **n8n** — Iniciar (datos del alumno activo) |
 | `C-c U N x` | **n8n** — Detener |
 | `C-c U N o` | **n8n** — Abrir en navegador |
-| `C-c U O` | **Agentes IA** — Submenu PicoClaw/OpenClaw |
+| `C-c U O` | **Agentes IA** — Submenu PicoClaw/OpenClaw/OpenCode |
 | `C-c U O p` | **PicoClaw** — Agente ligero (~20MB RAM) |
 | `C-c U O o` | **OpenClaw** — Agente completo (~1.5GB RAM) |
+| `C-c U O c` | **OpenCode** — Asistente TUI en la nube |
 | `C-c U c` | Cambiar alumno activo |
 | `C-c U t` | Estado actual (alumno, USB, Drive, n8n) |
 
@@ -522,6 +544,7 @@ PC Escuela (Arch) <-> Google Drive <-> Celular (Termux) / PC Casa (WSL/Arch)
 | Unreal Engine | ✅ (si seleccionado) | ❌ | ❌ |
 | PicoClaw | ✅ (si seleccionado) | ❌ | ❌ |
 | OpenClaw | ✅ (si seleccionado) | ❌ | ❌ |
+| OpenCode (TUI nube) | ✅ (si seleccionado) | ✅ (proot-distro) | ✅ (si seleccionado) |
 | LaTeX export | ✅ (si seleccionado) | ❌ | ❌ |
 | n8n (automatizacion) | ✅ (si seleccionado) | ❌ | ✅ |
 | Sync Drive (rclone) | ✅ | ✅ | ✅ |
