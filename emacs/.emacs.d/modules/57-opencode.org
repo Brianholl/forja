@@ -59,32 +59,37 @@ Activar en profile.conf: =FORJA_FEATURES="...,opencode"=
       default-directory))
 #+end_src
 
-* 2. Caso 1 — TUI completo (sesión agentica interactiva)
+* 2. Caso 1 — TUI completo (terminal externa)
 
-Abre OpenCode en la raíz del proyecto en un buffer de terminal dedicado.
-Ideal para sesiones largas de diseño, refactoring o programación de principio a fin.
+Lanza OpenCode en alacritty. El TUI de OpenCode necesita un terminal real —
+los buffers de Emacs (ansi-term/term) rompen la visualización.
 
 #+begin_src emacs-lisp
 (defun my/opencode-run ()
-  "Abre el TUI de OpenCode en la raíz del proyecto actual."
+  "Lanza OpenCode en una terminal externa (alacritty) en la raíz del proyecto."
   (interactive)
   (my/opencode--guard)
-  (if (get-buffer my/opencode-buf-tui)
-      (switch-to-buffer my/opencode-buf-tui)
-    (let* ((root (my/opencode--project-root))
-           (cmd  (my/opencode--wrap (format "opencode %s" (shell-quote-argument root))))
-           (buf  (apply #'make-term "opencode" (my/opencode--shell) nil (list "-c" cmd))))
-      (switch-to-buffer buf)
-      (term-mode)
-      (term-char-mode)
-      (message "OpenCode iniciado en: %s" root))))
-
-(defun my/opencode-switch ()
-  "Cambia al buffer TUI de OpenCode si está abierto."
-  (interactive)
-  (if (get-buffer my/opencode-buf-tui)
-      (switch-to-buffer my/opencode-buf-tui)
-    (message "OpenCode no está corriendo. Usa C-c O o para abrirlo")))
+  (let* ((root    (my/opencode--project-root))
+         (api-key (or (getenv "OPENROUTER_API_KEY") ""))
+         (cmd     (if my/is-termux
+                      (format "OPENROUTER_API_KEY='%s' proot-distro login ubuntu -- opencode"
+                              api-key)
+                    (format "OPENROUTER_API_KEY='%s' opencode %s"
+                            api-key (shell-quote-argument root)))))
+    (cond
+     (my/is-termux
+      (message "Abrí una nueva sesión Termux y corré: %s" cmd))
+     ((executable-find "alacritty")
+      (start-process "opencode" nil "alacritty"
+                     "--working-directory" root
+                     "-e" "sh" "-c"
+                     (format "%s; echo; read -p 'Enter para cerrar...'" cmd))
+      (message "OpenCode abierto en alacritty — proyecto: %s" root))
+     ((executable-find "xterm")
+      (start-process "opencode" nil "xterm" "-e"
+                     (format "sh -c '%s; read'" cmd)))
+     (t
+      (user-error "Terminal externa no encontrada. Corré manualmente: %s" cmd)))))
 #+end_src
 
 * 3. Caso 2 — Inline/Chat sobre código actual
@@ -208,11 +213,8 @@ OpenCode recibe el archivo, lo analiza en profundidad y aplica cambios si es nec
 (defhydra my/hydra-opencode (:color blue :hint nil)
   "
    OPENCODE — Asistente Agentico
-   Estado TUI: %-20s(if (get-buffer my/opencode-buf-tui) \"abierto\" \"cerrado\")
   ─────────────────────────────────────
-   TUI completo
-   _o_ Abrir sesión interactiva
-   _s_ Cambiar al buffer TUI
+   _o_ Lanzar en alacritty (terminal externa)
   ─────────────────────────────────────
    Inline / Chat
    _p_ Pregunta sobre archivo actual
@@ -232,4 +234,34 @@ OpenCode recibe el archivo, lo analiza en profundidad y aplica cambios si es nec
   ("t" my/opencode-generate-tests)
   ("e" my/opencode-fix-errors)
   ("q" nil))
+#+end_src
+
+* 7. Widget en Dashboard
+
+Se registra automáticamente si el módulo está cargado y dashboard está disponible.
+
+#+begin_src emacs-lisp
+(defun my/dashboard-insert-opencode-btn (_list-size)
+  "Botón para lanzar OpenCode desde el dashboard."
+  (when my/opencode-available
+    (insert "  ")
+    (widget-create 'push-button
+                   :action (lambda (&rest _) (my/opencode-run))
+                   :mouse-face 'highlight
+                   :button-face 'dashboard-heading
+                   "[ ▶ Run OpenCode ]")
+    (insert "   ")
+    (insert (propertize "(C-c O o  —  abre en alacritty)"
+                        'face 'font-lock-comment-face))
+    (insert "\n")))
+
+(with-eval-after-load 'dashboard
+  (add-to-list 'dashboard-item-generators
+               '(opencode-btn . my/dashboard-insert-opencode-btn))
+  ;; Insertar después de new-project-btn
+  (setq dashboard-items
+        (cl-loop for item in dashboard-items
+                 collect item
+                 when (eq (car item) 'new-project-btn)
+                 collect '(opencode-btn . 1))))
 #+end_src
