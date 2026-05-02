@@ -49,6 +49,31 @@
   (define-key minuet-active-mode-map (kbd "TAB") #'minuet-accept-suggestion))
 #+end_src
 
+* 18. Auto-revert al aplicar cambios
+
+#+begin_src emacs-lisp
+;; Cuando Aider aplica cambios a archivos, los buffers abiertos se
+;; actualizan automáticamente sin necesidad de recargarlos manualmente.
+(defun my/aider--revert-edited-buffer (output)
+  "Revierte buffers de archivos editados por Aider al detectar OUTPUT."
+  (when (string-match-p "Applied edit to\\|Wrote " output)
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (when (and buffer-file-name
+                   (not (buffer-modified-p))
+                   (file-exists-p buffer-file-name))
+          (revert-buffer t t t))))))
+
+(defun my/aider--install-revert-hook ()
+  "Instala el filtro de auto-revert en el buffer de Aider."
+  (when-let ((buf (get-buffer (aider-buffer-name))))
+    (with-current-buffer buf
+      (add-hook 'comint-output-filter-functions
+                #'my/aider--revert-edited-buffer nil t))))
+
+(advice-add 'aider-run-aider :after (lambda (&rest _) (my/aider--install-revert-hook)))
+#+end_src
+
 * 20. Funciones de Conveniencia
 
 #+begin_src emacs-lisp
