@@ -960,8 +960,8 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   _x_  Compilar / Ejecutar   _n_  Nuevo Proyecto
   _g_  GTD / Agenda          _S_  Docs / Estándares
   _M_  Modelos IA            _U_  Multiusuario
-  _d_  Dashboard             _h_  Doctor (salud)
-  _e_  Modo Examen (toggle)
+  _A_  Agentes IA            _d_  Dashboard
+  _h_  Doctor (salud)        _e_  Modo Examen (toggle)
   ──────────────────────────────────────────────────────
   _q_  cancelar
 "
@@ -971,6 +971,9 @@ Reemplaza los atajos individuales =C-c n X= por un menú visual unificado.
   ("S" (my/forja-call-if-loaded my/hydra-docs/body         "Módulo Estandarización no cargado"))
   ("M" (my/forja-call-if-loaded my/hydra-modelos/body      "Módulo Modelos IA no cargado"))
   ("U" (my/forja-call-if-loaded my/hydra-multiusuario/body "Módulo Multiusuario no cargado"))
+  ("A" (if (fboundp 'my/hydra-agentes/body)
+           (my/hydra-agentes/body)
+         (message "Agentes IA no disponibles (activar picoclaw en FORJA_FEATURES)")))
   ("d" (switch-to-buffer (get-buffer-create "*dashboard*")))
   ("h" (my/forja-call-if-loaded my/forja-doctor            "Doctor no disponible"))
   ("e" my/forja-toggle-exam-mode)

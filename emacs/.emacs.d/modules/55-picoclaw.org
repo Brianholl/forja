@@ -231,14 +231,18 @@ Cuando recibas un ticket de soporte:
   "
    AGENTES IA — Perfil Casa
   ─────────────────────────────────────
-   _p_ PicoClaw (ligero, ~20MB RAM)
-   _o_ OpenClaw (completo, ~1.5GB RAM)
+   _p_ PicoClaw  (ligero, ~20MB RAM)
+   _o_ OpenClaw  (completo, ~1.5GB RAM)
+   _c_ OpenCode  (TUI nube, OpenRouter)
   ─────────────────────────────────────
    _q_ Volver"
   ("p" my/hydra-picoclaw/body)
   ("o" (if (fboundp 'my/hydra-openclaw/body)
            (my/hydra-openclaw/body)
          (message "⚠️ OpenClaw no disponible (módulo 56 no cargado)")))
+  ("c" (if (fboundp 'my/hydra-opencode/body)
+           (my/hydra-opencode/body)
+         (message "⚠️ OpenCode no disponible (módulo 57 no cargado)")))
   ("q" nil))
 
 (defhydra my/hydra-picoclaw (:color blue :hint nil)

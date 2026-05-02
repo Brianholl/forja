@@ -1,0 +1,235 @@
+#+TITLE: Módulo OpenCode - Asistente IA de Código
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* OpenCode — Asistente Agentico TUI
+
+OpenCode integra tres flujos de trabajo:
+- *TUI completo*: sesión interactiva en proyecto (~C-c o o~)
+- *Inline/Chat*: consultas sobre código sin salir del buffer (~C-c o q~ / ~C-c o r~)
+- *Procesar archivo*: modo agentico completo sobre el archivo actual (~C-c o f~)
+
+Requiere =OPENROUTER_API_KEY= (configurado por =connect.sh=).
+- *Linux nativo / WSL2*: =opencode= en el PATH.
+- *Termux*: proot-distro Ubuntu (~500MB). =pkg install proot-distro && proot-distro install ubuntu=.
+
+Activar en profile.conf: =FORJA_FEATURES="...,opencode"=
+
+* 1. Variables y utilidades internas
+
+#+begin_src emacs-lisp
+(defvar my/opencode-buf-tui  "*opencode*"        "Buffer del TUI interactivo.")
+(defvar my/opencode-buf-out  "*opencode-output*" "Buffer de salida agentica.")
+
+(defvar my/opencode-available
+  (cond
+   (my/is-termux (executable-find "proot-distro"))
+   (t            (executable-find "opencode")))
+  "Non-nil si OpenCode está disponible en esta plataforma.")
+
+(defun my/opencode--guard ()
+  "Señal de error si OpenCode no está disponible o el modo examen está activo."
+  (unless my/opencode-available
+    (user-error "OpenCode no disponible. %s"
+                (if my/is-termux
+                    "Instalar: pkg install proot-distro && proot-distro install ubuntu"
+                  "Instalar: npm install -g opencode-ai")))
+  (when (bound-and-true-p my/forja-exam-mode-active)
+    (user-error "[MODO EXAMEN] OpenCode deshabilitado")))
+
+(defun my/opencode--shell ()
+  "Retorna el shell a usar según plataforma."
+  (if my/is-termux
+      (concat termux-prefix "/bin/bash")
+    (or (executable-find "bash") "/bin/bash")))
+
+(defun my/opencode--wrap (cmd)
+  "Envuelve CMD para proot-distro en Termux o lo retorna directo en Linux."
+  (if my/is-termux
+      (format "OPENROUTER_API_KEY='%s' proot-distro login ubuntu -- %s"
+              (or (getenv "OPENROUTER_API_KEY") "")
+              cmd)
+    cmd))
+
+(defun my/opencode--project-root ()
+  "Retorna la raíz del proyecto actual o el directorio del buffer."
+  (or (and (fboundp 'projectile-project-root)
+           (ignore-errors (projectile-project-root)))
+      default-directory))
+#+end_src
+
+* 2. Caso 1 — TUI completo (sesión agentica interactiva)
+
+Abre OpenCode en la raíz del proyecto en un buffer de terminal dedicado.
+Ideal para sesiones largas de diseño, refactoring o programación de principio a fin.
+
+#+begin_src emacs-lisp
+(defun my/opencode-run ()
+  "Abre el TUI de OpenCode en la raíz del proyecto actual."
+  (interactive)
+  (my/opencode--guard)
+  (if (get-buffer my/opencode-buf-tui)
+      (switch-to-buffer my/opencode-buf-tui)
+    (let* ((root (my/opencode--project-root))
+           (cmd  (my/opencode--wrap (format "opencode %s" (shell-quote-argument root))))
+           (buf  (apply #'make-term "opencode" (my/opencode--shell) nil (list "-c" cmd))))
+      (switch-to-buffer buf)
+      (term-mode)
+      (term-char-mode)
+      (message "OpenCode iniciado en: %s" root))))
+
+(defun my/opencode-switch ()
+  "Cambia al buffer TUI de OpenCode si está abierto."
+  (interactive)
+  (if (get-buffer my/opencode-buf-tui)
+      (switch-to-buffer my/opencode-buf-tui)
+    (message "OpenCode no está corriendo. Usa C-c o o para abrirlo")))
+#+end_src
+
+* 3. Caso 2 — Inline/Chat sobre código actual
+
+Consultas puntuales sin salir del buffer de trabajo.
+El resultado aparece en =*opencode-output*=.
+
+#+begin_src emacs-lisp
+(defun my/opencode--run-async (prompt)
+  "Ejecuta opencode run con PROMPT y muestra resultado en el buffer de salida."
+  (let* ((cmd (my/opencode--wrap
+               (format "opencode run %s" (shell-quote-argument prompt))))
+         (full-cmd (format "%s %s" (my/opencode--shell)
+                           (shell-quote-argument (format "-c %s" cmd)))))
+    (with-current-buffer (get-buffer-create my/opencode-buf-out)
+      (read-only-mode -1)
+      (erase-buffer)
+      (insert (format "=== OpenCode — %s ===\n\n"
+                      (format-time-string "%H:%M:%S"))))
+    (async-shell-command
+     (format "%s -c %s" (my/opencode--shell) (shell-quote-argument cmd))
+     my/opencode-buf-out)
+    (display-buffer my/opencode-buf-out
+                    '(display-buffer-in-side-window
+                      (side . bottom) (window-height . 0.35)))))
+
+(defun my/opencode-ask-file ()
+  "Hace una pregunta a OpenCode sobre el archivo actual."
+  (interactive)
+  (my/opencode--guard)
+  (let* ((file (or (buffer-file-name)
+                   (user-error "Este buffer no tiene archivo asociado")))
+         (question (read-string "Pregunta sobre el archivo: "))
+         (prompt (format "Archivo a analizar: %s\n\nPregunta: %s" file question)))
+    (my/opencode--run-async prompt)))
+
+(defun my/opencode-ask-region ()
+  "Hace una pregunta a OpenCode sobre la región seleccionada."
+  (interactive)
+  (my/opencode--guard)
+  (unless (use-region-p) (user-error "No hay región seleccionada"))
+  (let* ((code (buffer-substring-no-properties (region-beginning) (region-end)))
+         (lang (replace-regexp-in-string "-mode\\|-ts-mode" ""
+                                         (symbol-name major-mode)))
+         (question (read-string "Pregunta sobre la selección: "))
+         (prompt (format "```%s\n%s\n```\n\nPregunta: %s" lang code question)))
+    (deactivate-mark)
+    (my/opencode--run-async prompt)))
+#+end_src
+
+* 4. Caso 3 — Procesar archivo (modo agentico completo)
+
+OpenCode recibe el archivo, lo analiza en profundidad y aplica cambios si es necesario.
+
+#+begin_src emacs-lisp
+(defun my/opencode-process-file ()
+  "Manda el archivo actual a OpenCode para análisis agentico completo."
+  (interactive)
+  (my/opencode--guard)
+  (let* ((file (or (buffer-file-name)
+                   (user-error "Este buffer no tiene archivo asociado")))
+         (prompt (format "Analiza en profundidad el archivo %s. Buscá bugs, problemas de lógica, performance y seguridad. Mostrá los cambios propuestos como diffs concretos." file)))
+    (my/opencode--run-async prompt)
+    (message "Procesando %s con OpenCode..." (file-name-nondirectory file))))
+
+(defun my/opencode-generate-tests ()
+  "Pide a OpenCode que genere tests para el archivo actual."
+  (interactive)
+  (my/opencode--guard)
+  (let* ((file (or (buffer-file-name)
+                   (user-error "Este buffer no tiene archivo asociado")))
+         (prompt (format "Leé el archivo %s, identificá las funciones principales y generá un archivo de tests completo con casos normales y casos límite. Escribí el archivo de tests al lado del original." file)))
+    (my/opencode--run-async prompt)
+    (message "Generando tests para %s..." (file-name-nondirectory file))))
+
+(defun my/opencode-fix-errors ()
+  "Pide a OpenCode que corrija los errores de Flycheck del buffer actual."
+  (interactive)
+  (my/opencode--guard)
+  (let* ((file (or (buffer-file-name)
+                   (user-error "Este buffer no tiene archivo asociado")))
+         (errors (when (fboundp 'flycheck-error-list-mode)
+                   (mapconcat (lambda (e)
+                                (format "Línea %d: %s"
+                                        (flycheck-error-line e)
+                                        (flycheck-error-message e)))
+                              (flycheck-overlay-errors-at (point)) "\n")))
+         (prompt (if (and errors (not (string-empty-p errors)))
+                     (format "Archivo: %s\nErrores:\n%s\n\nCorregí estos errores." file errors)
+                   (format "Archivo: %s\n\nBuscá y corregí todos los errores de compilación y linting." file))))
+    (my/opencode--run-async prompt)))
+#+end_src
+
+* 5. Keybindings (prog-mode + global)
+
+#+begin_src emacs-lisp
+(defun my/opencode-keybindings ()
+  "Atajos de OpenCode para modos de programación."
+  ;; TUI
+  (local-set-key (kbd "C-c o o") #'my/opencode-run)
+  (local-set-key (kbd "C-c o s") #'my/opencode-switch)
+  ;; Inline / Chat
+  (local-set-key (kbd "C-c o p") #'my/opencode-ask-file)
+  (local-set-key (kbd "C-c o r") #'my/opencode-ask-region)
+  ;; Agentico
+  (local-set-key (kbd "C-c o f") #'my/opencode-process-file)
+  (local-set-key (kbd "C-c o t") #'my/opencode-generate-tests)
+  (local-set-key (kbd "C-c o e") #'my/opencode-fix-errors))
+
+(add-hook 'prog-mode-hook #'my/opencode-keybindings)
+(add-hook 'web-mode-hook      #'my/opencode-keybindings)
+(add-hook 'html-ts-mode-hook  #'my/opencode-keybindings)
+
+;; Acceso global rápido
+(global-set-key (kbd "C-c o o") #'my/opencode-run)
+#+end_src
+
+* 6. Hydra
+
+#+begin_src emacs-lisp
+(defhydra my/hydra-opencode (:color blue :hint nil)
+  "
+   OPENCODE — Asistente Agentico
+   Estado TUI: %-20s(if (get-buffer my/opencode-buf-tui) \"abierto\" \"cerrado\")
+  ─────────────────────────────────────
+   TUI completo
+   _o_ Abrir sesión interactiva
+   _s_ Cambiar al buffer TUI
+  ─────────────────────────────────────
+   Inline / Chat
+   _p_ Pregunta sobre archivo actual
+   _r_ Pregunta sobre región
+  ─────────────────────────────────────
+   Agentico completo
+   _f_ Procesar archivo (análisis+diff)
+   _t_ Generar tests
+   _e_ Corregir errores Flycheck
+  ─────────────────────────────────────
+   _q_ Volver"
+  ("o" my/opencode-run)
+  ("s" my/opencode-switch)
+  ("p" my/opencode-ask-file)
+  ("r" my/opencode-ask-region)
+  ("f" my/opencode-process-file)
+  ("t" my/opencode-generate-tests)
+  ("e" my/opencode-fix-errors)
+  ("q" nil))
+#+end_src

@@ -9,7 +9,7 @@
 
 Configuracion modular de Emacs para **desarrollo Full Stack** (Node.js, Python, PHP, Go, Rust), **Game Dev** (C/C++, Raylib, Godot, Unreal) y **Sistemas** (ASM, ESP32). Soporta **Arch Linux (PC)**, **Termux (Android)** y **WSL2 (Windows)** con deteccion automatica de plataforma.
 
-Incluye **IA local** via Aider + Ollama (modelos seleccionables), **agentes autonomos** (PicoClaw + OpenClaw), **sistema multiusuario** para entornos educativos, **sincronizacion Google Drive** via rclone, **automatizacion** con n8n y **GTD** con Org Mode.
+Incluye **IA local** via Aider + Ollama (modelos seleccionables), **agentes autonomos** (PicoClaw + OpenClaw), **OpenCode** (asistente agentico TUI con modelos en la nube via OpenRouter), **sistema multiusuario** para entornos educativos, **sincronizacion Google Drive** via rclone, **automatizacion** con n8n y **GTD** con Org Mode.
 
 ---
 
@@ -23,6 +23,7 @@ Incluye **IA local** via Aider + Ollama (modelos seleccionables), **agentes auto
 - **Game Dev:** Raylib (C/C++), Godot (GDScript), Unreal Engine (solo PC)
 - **IA local configurable:** Aider + Ollama con modelos seleccionables para codigo y espanol
 - **Agentes IA autonomos:** PicoClaw (ligero) + OpenClaw (completo) para resolver tickets y diagnosticar proyectos
+- **OpenCode:** asistente agentico TUI con 200+ modelos en la nube (OpenRouter) — sesiones interactivas, consultas inline, procesamiento de archivos. Disponible en Linux y Termux via proot-distro
 - **Traduccion integrada:** `C-c T` traduce texto seleccionado al espanol con IA local
 - **Sistema multiusuario:** Gestion de alumnos, backup USB, sync Google Drive
 - **Sincronizacion Drive:** rclone semi-automatico — `C-c U s` sube, `C-c U S` descarga
@@ -51,6 +52,8 @@ Para aprender a utilizar el entorno FORJA paso a paso, consulta nuestra serie de
 | 10 | [Depuracion y Diagnostico](how_to/10_Depuracion_y_Diagnostico.md) | GDB, breakpoints, diagnosticos LSP, Assembly, FASM |
 | 11 | [Soporte y Extras](how_to/11_Soporte_y_Extras.md) | Tickets de soporte, PDF, LaTeX, Kanban, Org-babel |
 | 12 | [Agentes IA Autonomos](how_to/12_Agente_Autonomo.md) | PicoClaw, OpenClaw, resolucion de tickets con IA |
+| 13 | [Flujo TAO](how_to/13_Flujo_TAO.md) | Soporte operativo, tickets, caldav, modo examen |
+| 14 | [OpenCode](how_to/14_OpenCode.md) | TUI agentico en la nube, consultas inline, procesamiento de archivos |
 
 ---
 

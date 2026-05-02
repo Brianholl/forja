@@ -76,12 +76,14 @@
           "43-zig.org"
           "44-java.org"))
   (setq my-extra-modules
-        '("99-misc.org"
-          "49-multiusuario.org"
-          "50-gtd.org"
-          "51-estandarizacion.org"
-          "52-vision-sistemica.org"
-          "53-soporte.org")))
+        (append
+         '("99-misc.org"
+           "49-multiusuario.org"
+           "50-gtd.org"
+           "51-estandarizacion.org"
+           "52-vision-sistemica.org"
+           "53-soporte.org")
+         (when (my/forja-feature-p "opencode") '("57-opencode.org")))))
 
  ;; ── WSL2 (Windows) ────────────────────────────────────────────────────────
  (my/is-wsl
@@ -101,8 +103,9 @@
            "42-lua.org"
            "43-zig.org"
            "44-java.org")
-         (when (my/forja-feature-p "aider")  '("33-aider.org"))
-         (when (my/forja-feature-p "godot")  '("41-godot.org"))))
+         (when (my/forja-feature-p "aider")     '("33-aider.org"))
+         (when (my/forja-feature-p "godot")     '("41-godot.org"))
+         (when (my/forja-feature-p "opencode")  '("57-opencode.org"))))
   (setq my-extra-modules
         '("99-misc.org"
           "49-multiusuario.org"
@@ -149,9 +152,10 @@
   ;; Módulos pesados — cargados lazy si están en features
   (setq my-lazy-modules
         (append
-         (when (my/forja-feature-p "unreal")   '("40-unreal.org"))
+         (when (my/forja-feature-p "unreal")    '("40-unreal.org"))
          (when (my/forja-feature-p "picoclaw")  '("55-picoclaw.org"))
-         (when (my/forja-feature-p "openclaw")  '("56-openclaw.org"))))))
+         (when (my/forja-feature-p "openclaw")  '("56-openclaw.org"))
+         (when (my/forja-feature-p "opencode")  '("57-opencode.org"))))))
 
 ;; === 3. Bucle de carga ===
 
