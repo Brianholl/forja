@@ -28,16 +28,18 @@
 
 #+begin_src emacs-lisp
 ;; --- Minuet AI (Autocompletado predictivo tipo fantasma) ---
-;; Usa un modelo súper ligero (0.5b) corriendo offline en Ollama
+;; Usa qwen2.5-coder:0.5b offline en Ollama vía openai-fim-compatible
 (use-package minuet
   :ensure t
   :config
-  ;; Ollama es compatible con el endpoint OpenAI FIM (Fill-In-the-Middle)
-  (setq minuet-provider 'openai-fim)
-  (setq minuet-openai-fim-url "http://localhost:11434/v1/completions")
-  (setq minuet-openai-fim-model "qwen2.5-coder:0.5b")
-  (setq minuet-openai-fim-options '(:temperature 0.1 :max_tokens 128))
-  
+  (setq minuet-provider 'openai-fim-compatible)
+  (setq minuet-openai-fim-compatible-options
+        '(:model "qwen2.5-coder:0.5b"
+          :end-point "http://localhost:11434/v1/completions"
+          :api-key "ollama"
+          :name "Ollama"
+          :optional (:max_tokens 128 :temperature 0.1)))
+
   (global-set-key (kbd "M-i") #'minuet-show-suggestion)
   (global-set-key (kbd "M-[") #'minuet-dismiss-suggestion)
   (define-key minuet-active-mode-map (kbd "TAB") #'minuet-accept-suggestion))
