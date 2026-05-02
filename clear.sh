@@ -77,8 +77,9 @@ if [ "$PLATFORM" = "termux" ]; then
 fi
 echo ""
 echo -e "  ${YELLOW}?${NC} ~/org-alumnos, ~/org y ~/projects  (estructura vieja — se preguntara)"
+echo -e "  ${YELLOW}?${NC} ~/forja-org/  (estructura nueva — se preguntara)"
 echo ""
-echo -e "  ${DIM}NO se tocan: gcc, clang, rust, go, node, Ollama, modelos, ~/forja-org/.${NC}"
+echo -e "  ${DIM}NO se tocan: gcc, clang, rust, go, node, Ollama, modelos.${NC}"
 [ "$PURGE" = "0" ] && echo -e "  ${DIM}Tip: ./clear.sh --purge para eliminar también el caché de paquetes Emacs.${NC}"
 echo ""
 echo -e "  Despues de esto, corre:  ${WHITE}./update.sh${NC}"
@@ -237,7 +238,7 @@ if [ "$PLATFORM" != "termux" ] && command -v uv &>/dev/null; then
 fi
 
 # =============================================================================
-# DIRECTORIOS VIEJOS: eliminar estructura pre-forja-org
+# DIRECTORIOS: eliminar estructura vieja y/o nueva
 # =============================================================================
 for old_dir in "$HOME/org-alumnos" "$HOME/org" "$HOME/projects"; do
     if [ -d "$old_dir" ]; then
@@ -251,6 +252,17 @@ for old_dir in "$HOME/org-alumnos" "$HOME/org" "$HOME/projects"; do
         fi
     fi
 done
+
+if [ -d "$HOME/forja-org" ]; then
+    echo -ne "  Eliminar ~/forja-org/ (estructura nueva — datos de alumnos y org)? [s/N]: "
+    read -r resp
+    if [[ "$resp" =~ ^[sS]$ ]]; then
+        rm -rf "$HOME/forja-org"
+        ok "~/forja-org/ eliminado"
+    else
+        ok "~/forja-org/ conservado"
+    fi
+fi
 
 # =============================================================================
 # TERMUX: config especifica (opcional)
