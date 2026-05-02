@@ -113,16 +113,16 @@ exit
 
 ## 4. Los Tres Flujos de Trabajo
 
-### Flujo 1 — Sesion TUI Completa (`C-c o o`)
+### Flujo 1 — Sesion TUI Completa (`C-c O o`)
 
 Para sesiones largas: diseno de arquitectura, refactoring grande, programacion de principio a fin.
 
 1. Abre un archivo de tu proyecto
-2. Presiona `C-c o o`
+2. Presiona `C-c O o`
 3. Se abre el TUI de OpenCode en la raiz del proyecto
 4. Conversa en lenguaje natural: pedi que cree funciones, refactorice, diagnostique bugs
 
-Para volver a Emacs sin cerrar OpenCode: `C-x o` (cambiar ventana) o `C-c o s` para volver al TUI.
+Para volver a Emacs sin cerrar OpenCode: `C-x o` (cambiar ventana) o `C-c O s` para volver al TUI.
 
 **Ejemplo de sesion:**
 ```
@@ -130,28 +130,28 @@ Para volver a Emacs sin cerrar OpenCode: `C-x o` (cambiar ventana) o `C-c o s` p
   validan los parametros de entrada. Corregalos con zod.
 ```
 
-### Flujo 2 — Consulta Inline (`C-c o p` y `C-c o r`)
+### Flujo 2 — Consulta Inline (`C-c O p` y `C-c O r`)
 
 Para preguntas puntuales sin salir del buffer de trabajo.
 
-**Consulta sobre el archivo actual (`C-c o p`):**
+**Consulta sobre el archivo actual (`C-c O p`):**
 1. Estar editando cualquier archivo de codigo
-2. Presionar `C-c o p`
+2. Presionar `C-c O p`
 3. Escribir la pregunta cuando lo pida: `"Como mejoro el manejo de errores de esta funcion?"`
 4. El resultado aparece en un panel inferior (`*opencode-output*`)
 
-**Consulta sobre una region seleccionada (`C-c o r`):**
+**Consulta sobre una region seleccionada (`C-c O r`):**
 1. Seleccionar un bloque de codigo con el mouse o `C-SPC`
-2. Presionar `C-c o r`
+2. Presionar `C-c O r`
 3. Escribir la pregunta: `"Que hace este algoritmo? Hay una forma mas eficiente?"`
 4. OpenCode analiza solo el fragmento seleccionado
 
-### Flujo 3 — Procesamiento Agentico (`C-c o f`)
+### Flujo 3 — Procesamiento Agentico (`C-c O f`)
 
 Para delegar el analisis completo de un archivo al agente.
 
 1. Estar en el archivo que queres procesar
-2. Presionar `C-c o f`
+2. Presionar `C-c O f`
 3. OpenCode analiza bugs, performance, seguridad y propone diffs concretos
 4. El resultado aparece en `*opencode-output*`
 
@@ -159,8 +159,8 @@ Para delegar el analisis completo de un archivo al agente.
 
 | Atajo | Funcion |
 | :--- | :--- |
-| `C-c o t` | Generar tests para el archivo actual |
-| `C-c o e` | Corregir errores Flycheck detectados |
+| `C-c O t` | Generar tests para el archivo actual |
+| `C-c O e` | Corregir errores Flycheck detectados |
 
 ---
 
@@ -224,7 +224,7 @@ Modelos gratuitos disponibles en OpenRouter: https://openrouter.ai/models?q=free
 ### Ejercicio 1 — Primera consulta inline
 
 1. Abre cualquier archivo `.js`, `.py` o `.c` de un proyecto tuyo
-2. Presiona `C-c o p`
+2. Presiona `C-c O p`
 3. Pregunta: "Explica que hace este archivo en dos oraciones"
 4. Verifica que la respuesta aparece en el panel inferior
 
@@ -241,13 +241,13 @@ def procesar_lista(lista):
         total += lista[i]
     return total
 ```
-2. Presiona `C-c o f`
+2. Presiona `C-c O f`
 3. Verifica que OpenCode identifica el division por cero y el index out of range
 
 ### Ejercicio 3 — Sesion TUI completa
 
 1. Abre un proyecto con al menos 3 archivos
-2. Presiona `C-c o o`
+2. Presiona `C-c O o`
 3. En el TUI, escribe: "Lista los archivos del proyecto y describeme la arquitectura general"
 4. Vuelve a Emacs con `C-x o` y continua editando mientras el TUI esta abierto
 

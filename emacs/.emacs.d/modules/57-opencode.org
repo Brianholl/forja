@@ -6,9 +6,9 @@
 * OpenCode — Asistente Agentico TUI
 
 OpenCode integra tres flujos de trabajo:
-- *TUI completo*: sesión interactiva en proyecto (~C-c o o~)
-- *Inline/Chat*: consultas sobre código sin salir del buffer (~C-c o q~ / ~C-c o r~)
-- *Procesar archivo*: modo agentico completo sobre el archivo actual (~C-c o f~)
+- *TUI completo*: sesión interactiva en proyecto (~C-c O o~)
+- *Inline/Chat*: consultas sobre código sin salir del buffer (~C-c O q~ / ~C-c O r~)
+- *Procesar archivo*: modo agentico completo sobre el archivo actual (~C-c O f~)
 
 Requiere =OPENROUTER_API_KEY= (configurado por =connect.sh=).
 - *Linux nativo / WSL2*: =opencode= en el PATH.
@@ -84,7 +84,7 @@ Ideal para sesiones largas de diseño, refactoring o programación de principio 
   (interactive)
   (if (get-buffer my/opencode-buf-tui)
       (switch-to-buffer my/opencode-buf-tui)
-    (message "OpenCode no está corriendo. Usa C-c o o para abrirlo")))
+    (message "OpenCode no está corriendo. Usa C-c O o para abrirlo")))
 #+end_src
 
 * 3. Caso 2 — Inline/Chat sobre código actual
@@ -184,22 +184,22 @@ OpenCode recibe el archivo, lo analiza en profundidad y aplica cambios si es nec
 (defun my/opencode-keybindings ()
   "Atajos de OpenCode para modos de programación."
   ;; TUI
-  (local-set-key (kbd "C-c o o") #'my/opencode-run)
-  (local-set-key (kbd "C-c o s") #'my/opencode-switch)
+  (local-set-key (kbd "C-c O o") #'my/opencode-run)
+  (local-set-key (kbd "C-c O s") #'my/opencode-switch)
   ;; Inline / Chat
-  (local-set-key (kbd "C-c o p") #'my/opencode-ask-file)
-  (local-set-key (kbd "C-c o r") #'my/opencode-ask-region)
+  (local-set-key (kbd "C-c O p") #'my/opencode-ask-file)
+  (local-set-key (kbd "C-c O r") #'my/opencode-ask-region)
   ;; Agentico
-  (local-set-key (kbd "C-c o f") #'my/opencode-process-file)
-  (local-set-key (kbd "C-c o t") #'my/opencode-generate-tests)
-  (local-set-key (kbd "C-c o e") #'my/opencode-fix-errors))
+  (local-set-key (kbd "C-c O f") #'my/opencode-process-file)
+  (local-set-key (kbd "C-c O t") #'my/opencode-generate-tests)
+  (local-set-key (kbd "C-c O e") #'my/opencode-fix-errors))
 
 (add-hook 'prog-mode-hook #'my/opencode-keybindings)
 (add-hook 'web-mode-hook      #'my/opencode-keybindings)
 (add-hook 'html-ts-mode-hook  #'my/opencode-keybindings)
 
 ;; Acceso global rápido
-(global-set-key (kbd "C-c o o") #'my/opencode-run)
+(global-set-key (kbd "C-c O o") #'my/opencode-run)
 #+end_src
 
 * 6. Hydra

@@ -431,19 +431,19 @@ Todos crean estructura, `.gitignore`, `.projectile`, `git init` + primer commit:
 
 > Usa Ollama local. Sin API keys, sin internet, 100% local. Los modelos se eligen en `forja-menu.sh` o se cambian en caliente con `C-c M`.
 
-### OpenCode — Asistente Agentico en la Nube (`C-c o`)
+### OpenCode — Asistente Agentico en la Nube (`C-c O`)
 
 Disponible en todos los modos de programacion. Requiere `opencode` feature activo en `profile.conf`.
 
 | Tecla | Accion |
 | :--- | :--- |
-| `C-c o o` | **Abrir TUI** en raiz del proyecto actual |
-| `C-c o s` | Cambiar al buffer TUI (si ya esta abierto) |
-| `C-c o p` | **Pregunta inline** sobre el archivo actual |
-| `C-c o r` | **Pregunta sobre region** seleccionada |
-| `C-c o f` | **Procesar archivo** — analisis completo + diffs |
-| `C-c o t` | Generar tests para el archivo actual |
-| `C-c o e` | Corregir errores Flycheck con IA |
+| `C-c O o` | **Abrir TUI** en raiz del proyecto actual |
+| `C-c O s` | Cambiar al buffer TUI (si ya esta abierto) |
+| `C-c O p` | **Pregunta inline** sobre el archivo actual |
+| `C-c O r` | **Pregunta sobre region** seleccionada |
+| `C-c O f` | **Procesar archivo** — analisis completo + diffs |
+| `C-c O t` | Generar tests para el archivo actual |
+| `C-c O e` | Corregir errores Flycheck con IA |
 | `C-c F A` | Menu maestro → Agentes IA (PicoClaw/OpenClaw/OpenCode) |
 
 > A diferencia de Aider, OpenCode usa modelos en la nube (OpenRouter). Disponible en Termux via proot-distro Ubuntu. Ver [Guia 14](how_to/14_OpenCode.md).
