@@ -33,7 +33,7 @@
         (insert-file-contents conf)
         (goto-char (point-min))
         (while (re-search-forward
-                "^\\([A-Z_]+\\)=\"?\\([^\"\\n]*\\)\"?" nil t)
+                "^\\([A-Z_]+\\)=\"?\\([^\"\n]*\\)\"?" nil t)
           (push (cons (match-string 1) (match-string 2)) result))))
     result))
 
