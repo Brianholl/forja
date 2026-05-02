@@ -94,7 +94,24 @@ info "[3/7] Aplicando dotfiles actualizados (stow)..."
 cd "$SCRIPT_DIR"
 
 if [ -d emacs ]; then
-    stow -v -R -t ~ emacs 2>/dev/null && ok "emacs re-stowed" || warn "stow emacs falló"
+    # Si local.el existe como archivo real (creado por connect.sh), guardarlo y
+    # borrarlo para que stow pueda crear el symlink sin conflicto
+    _LOCAL_EL="$HOME/.emacs.d/local.el"
+    _LOCAL_CONTENT=""
+    if [ -f "$_LOCAL_EL" ] && [ ! -L "$_LOCAL_EL" ]; then
+        _LOCAL_CONTENT=$(cat "$_LOCAL_EL")
+        rm -f "$_LOCAL_EL"
+    fi
+    stow -v -R -t ~ emacs 2>&1 | grep -v 'BUG in find_stowed_path' \
+        && ok "emacs re-stowed" || warn "stow emacs falló"
+    # Restaurar contenido (API keys, config local) al archivo linkeado
+    if [ -n "$_LOCAL_CONTENT" ]; then
+        # Evitar duplicar líneas que ya estén en el placeholder del repo
+        while IFS= read -r line; do
+            grep -qF "$line" "$_LOCAL_EL" 2>/dev/null || echo "$line" >> "$_LOCAL_EL"
+        done <<< "$_LOCAL_CONTENT"
+        ok "local.el — contenido previo restaurado"
+    fi
 fi
 if [ -d shell ]; then
     # Eliminar symlinks obsoletos que apunten fuera del stow dir actual
