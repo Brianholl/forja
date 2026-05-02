@@ -36,7 +36,7 @@
   (setq minuet-openai-fim-compatible-options
         '(:model "qwen2.5-coder:0.5b"
           :end-point "http://localhost:11434/v1/completions"
-          :api-key "ollama"
+          :api-key (lambda () "ollama")
           :name "Ollama"
           :optional (:max_tokens 128 :temperature 0.1)))
 
