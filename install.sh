@@ -839,8 +839,8 @@ info "Creando estructura de directorios..."
 mkdir -p ~/org/gtd \
          ~/org/docs/{sops,checklists,templates,kb,exports} \
          ~/org/procesos/diagramas \
-         ~/org-alumnos \
-         ~/projects
+         ~/forja-org/cloud \
+         ~/forja-org/local/projects
 
 if [ "$PLATFORM" = "termux" ]; then
     if [ ! -d ~/storage ]; then
