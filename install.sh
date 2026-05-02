@@ -772,6 +772,47 @@ if [ "$PLATFORM" = "arch" ]; then
 fi
 
 # =============================================================================
+# OPENCODE (CONDICIONAL)
+# =============================================================================
+if forja_has_feature "opencode"; then
+    info "Instalando OpenCode..."
+    if [ "$PLATFORM" = "termux" ]; then
+        if ! command -v proot-distro &>/dev/null; then
+            pkg install -y proot-distro
+        fi
+        if proot-distro list 2>/dev/null | grep -q "ubuntu"; then
+            info "Ubuntu (proot-distro) ya instalado"
+        else
+            info "Instalando Ubuntu en proot-distro (~500MB)..."
+            proot-distro install ubuntu
+        fi
+        info "Instalando Node + OpenCode dentro de Ubuntu..."
+        proot-distro login ubuntu -- bash -c "
+            apt-get update -qq &&
+            apt-get install -y nodejs npm -qq &&
+            npm install -g opencode-ai --quiet &&
+            echo OK
+        " && ok "OpenCode instalado en proot-distro Ubuntu" \
+          || warn "Error instalando OpenCode en Ubuntu — verifica con: proot-distro login ubuntu"
+    else
+        if command -v opencode &>/dev/null; then
+            ok "OpenCode ya instalado: $(opencode --version 2>/dev/null)"
+        else
+            npm install -g opencode-ai \
+                && ok "OpenCode instalado: $(opencode --version 2>/dev/null)" \
+                || warn "No se pudo instalar OpenCode (verificar npm)"
+        fi
+    fi
+    # Configurar API key via connect.sh (si existe)
+    if [ -f "$HOME/forja/connect.sh" ]; then
+        info "Configurando OpenCode via connect.sh..."
+        bash "$HOME/forja/connect.sh" 2>/dev/null || true
+    fi
+else
+    info "Saltando OpenCode (no seleccionado)"
+fi
+
+# =============================================================================
 # UNREAL ENGINE (CONDICIONAL)
 # =============================================================================
 if [ "$PLATFORM" = "arch" ] && forja_has_feature "unreal"; then

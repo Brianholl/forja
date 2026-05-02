@@ -386,18 +386,20 @@ screen_features() {
     # Definir features disponibles segun perfil y plataforma
     case "$PERFIL" in
         minimal)
-            FEATURE_NAMES=("sync-drive" "multiusuario")
+            FEATURE_NAMES=("opencode" "sync-drive" "multiusuario")
             FEATURE_DESC=(
+                "OpenCode -- Asistente IA TUI en la nube (OpenRouter)"
                 "Sincronizacion Google Drive (rclone)"
                 "Sistema multiusuario (alumnos)"
             )
-            FEATURE_RAM=(50 50)
-            FEATURE_DEFAULTS=(1 1)
+            FEATURE_RAM=(50 50 50)
+            FEATURE_DEFAULTS=(1 1 1)
             ;;
         moderado)
             # ESP32 disponible en arch y wsl, no en termux
-            FEATURE_NAMES=("aider" "godot" "raylib" "n8n" "latex" "esp32" "sync-drive" "multiusuario")
+            FEATURE_NAMES=("opencode" "aider" "godot" "raylib" "n8n" "latex" "esp32" "sync-drive" "multiusuario")
             FEATURE_DESC=(
+                "OpenCode -- Asistente IA TUI en la nube (OpenRouter)"
                 "Aider -- Asistente IA de codigo (Ollama)"
                 "Godot + GDScript (game dev 2D/3D)"
                 "Raylib (game dev C/C++)"
@@ -407,12 +409,13 @@ screen_features() {
                 "Sincronizacion Google Drive (rclone)"
                 "Sistema multiusuario (alumnos)"
             )
-            FEATURE_RAM=(800 100 50 300 100 50 50 50)
-            FEATURE_DEFAULTS=(1 1 1 1 1 0 1 1)
+            FEATURE_RAM=(50 800 100 50 300 100 50 50 50)
+            FEATURE_DEFAULTS=(1 1 1 1 1 1 0 1 1)
             ;;
         full)
-            FEATURE_NAMES=("aider" "godot" "raylib" "unreal" "n8n" "picoclaw" "openclaw" "latex" "esp32" "fasm" "sync-drive" "multiusuario")
+            FEATURE_NAMES=("opencode" "aider" "godot" "raylib" "unreal" "n8n" "picoclaw" "openclaw" "latex" "esp32" "fasm" "sync-drive" "multiusuario")
             FEATURE_DESC=(
+                "OpenCode -- Asistente IA TUI en la nube (OpenRouter)"
                 "Aider -- Asistente IA de codigo (Ollama)"
                 "Godot + GDScript (game dev 2D/3D)"
                 "Raylib (game dev C/C++)"
@@ -426,8 +429,8 @@ screen_features() {
                 "Sincronizacion Google Drive (rclone)"
                 "Sistema multiusuario (alumnos)"
             )
-            FEATURE_RAM=(800 100 50 2000 300 20 1500 100 50 10 50 50)
-            FEATURE_DEFAULTS=(1 1 1 0 1 1 1 1 1 1 1 1)
+            FEATURE_RAM=(50 800 100 50 2000 300 20 1500 100 50 10 50 50)
+            FEATURE_DEFAULTS=(1 1 1 1 0 1 1 1 1 1 1 1 1)
             ;;
     esac
 
