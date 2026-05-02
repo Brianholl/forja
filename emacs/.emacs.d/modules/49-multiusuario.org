@@ -19,7 +19,7 @@ Go, Web, Godot, etc.).
 * 1. Variables de configuración
 
 #+begin_src emacs-lisp
-(defvar my/mu-base-dir (expand-file-name "org-alumnos/" "~/")
+(defvar my/mu-base-dir (expand-file-name "forja-org/cloud/" "~/")
   "Directorio base donde se almacenan las carpetas de cada alumno.")
 
 (defvar my/mu-usb-marker ".org-alumno"
@@ -72,7 +72,7 @@ personal. Esto permite que cada alumno tenga sus propios proyectos aislados.
 
 (defun my/mu-projects-base ()
   "Retorna el directorio base de proyectos.
-Si hay un alumno activo, retorna ~/org-alumnos/ALUMNO/projects/.
+Si hay un alumno activo, retorna ~/forja-org/cloud/ALUMNO/projects/.
 Si no, retorna ~/projects/ (comportamiento original)."
   (if my/mu-alumno-actual
       (let ((dir (expand-file-name
@@ -555,7 +555,7 @@ Si rclone está instalado, ofrece abrir rclone config."
 * 10. n8n — Automatización de workflows por alumno
 
 Cada alumno tiene su propia instancia de n8n con datos aislados en
-=~/org-alumnos/NOMBRE/.n8n/=. Las credenciales (Telegram, email, etc.)
+=~/forja-org/cloud/NOMBRE/.n8n/=. Las credenciales (Telegram, email, etc.)
 son privadas y se respaldan junto con el resto de los datos del alumno.
 
 #+begin_src emacs-lisp

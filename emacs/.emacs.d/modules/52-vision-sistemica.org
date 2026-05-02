@@ -17,7 +17,7 @@
 
 * 10. Infraestructura de Métricas y Dashboards
 Crea la estructura de directorios y archivos para el análisis de procesos.
-El directorio base es =~/org/procesos/=.
+El directorio base es =~/forja-org/local/procesos/=.
 
 Filosofía (Goldratt): "Decime cómo me medís y te diré cómo me comporto."
 Sin métricas visibles, no hay mejora posible.
@@ -170,7 +170,7 @@ sudo pacman -S graphviz
 
 ;; --- Template de VSM como función ---
 (defun my/proc-nuevo-vsm ()
-  "Crea un nuevo Value Stream Map en ~/org/procesos/vsm.org."
+  "Crea un nuevo Value Stream Map en ~/forja-org/local/procesos/vsm.org."
   (interactive)
   (let* ((proceso (read-string "Nombre del proceso: "))
          (slug (replace-regexp-in-string "[^a-z0-9]" "-" (downcase proceso))))

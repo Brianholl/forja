@@ -41,9 +41,9 @@ Pensalo como un "Si pasa X, entonces hace Y" configurable por vos.
 Cada alumno tiene su **propia instancia de n8n**. Tus workflows, credenciales (tokens de Telegram, contraseñas de email) y datos se guardan en tu carpeta personal:
 
 ```
-~/org-alumnos/garcia-juan/.n8n/    ← Tus datos de n8n (privados)
-~/org-alumnos/garcia-juan/gtd/     ← Tus archivos GTD
-~/org-alumnos/garcia-juan/docs/    ← Tus documentos
+~/forja-org/cloud/garcia-juan/.n8n/    ← Tus datos de n8n (privados)
+~/forja-org/cloud/garcia-juan/gtd/     ← Tus archivos GTD
+~/forja-org/cloud/garcia-juan/docs/    ← Tus documentos
 ```
 
 Esto significa que:
@@ -103,11 +103,11 @@ Este ejemplo crea un endpoint web que recibe reportes de problemas y los agrega 
 2. Busca y selecciona **Execute Command**
 3. En el campo "Command", escribe:
    ```bash
-   echo "* INBOX [#B] {{ $json.titulo }}" >> ~/org-alumnos/TU-NOMBRE/gtd/soporte.org
-   echo ":PROPERTIES:" >> ~/org-alumnos/TU-NOMBRE/gtd/soporte.org
-   echo ":CREATED: $(date +'[%Y-%m-%d %a %H:%M]')" >> ~/org-alumnos/TU-NOMBRE/gtd/soporte.org
-   echo ":REPORTADO: {{ $json.quien }}" >> ~/org-alumnos/TU-NOMBRE/gtd/soporte.org
-   echo ":END:" >> ~/org-alumnos/TU-NOMBRE/gtd/soporte.org
+   echo "* INBOX [#B] {{ $json.titulo }}" >> ~/forja-org/cloud/TU-NOMBRE/gtd/soporte.org
+   echo ":PROPERTIES:" >> ~/forja-org/cloud/TU-NOMBRE/gtd/soporte.org
+   echo ":CREATED: $(date +'[%Y-%m-%d %a %H:%M]')" >> ~/forja-org/cloud/TU-NOMBRE/gtd/soporte.org
+   echo ":REPORTADO: {{ $json.quien }}" >> ~/forja-org/cloud/TU-NOMBRE/gtd/soporte.org
+   echo ":END:" >> ~/forja-org/cloud/TU-NOMBRE/gtd/soporte.org
    ```
    (Reemplaza `TU-NOMBRE` por tu carpeta de alumno)
 
@@ -146,7 +146,7 @@ Ahora abre tu archivo `soporte.org` en FORJA — deberas ver el nuevo ticket com
 3. Configura el token del bot
 4. Agrega un nodo **Execute Command**:
    ```bash
-   echo "* TODO {{ $json.message.text }}" >> ~/org-alumnos/TU-NOMBRE/gtd/inbox.org
+   echo "* TODO {{ $json.message.text }}" >> ~/forja-org/cloud/TU-NOMBRE/gtd/inbox.org
    ```
 5. Activa el workflow
 6. Ahora cuando le escribas al bot "Comprar materiales para el proyecto", se agrega como TODO en tu inbox
@@ -209,7 +209,7 @@ Crea un workflow que ejecute un comando todos los dias a las 8:00 AM:
 5. **Agrega un nodo Execute Command:**
    ```bash
    echo "=== Tareas pendientes para hoy ===" && \
-   grep -h "TODO" ~/org-alumnos/TU-NOMBRE/gtd/inbox.org 2>/dev/null | head -10
+   grep -h "TODO" ~/forja-org/cloud/TU-NOMBRE/gtd/inbox.org 2>/dev/null | head -10
    ```
 6. **Activa el workflow**
 7. **Prueba manualmente** haciendo clic en "Execute Workflow" para ver la salida

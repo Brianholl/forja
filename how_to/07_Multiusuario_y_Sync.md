@@ -28,7 +28,7 @@ En entornos educativos (laboratorios, colegios), varias personas usan la misma c
 Cada alumno tiene su propia carpeta con sus proyectos, configuraciones y datos:
 
 ```
-~/org-alumnos/
+~/forja-org/cloud/
 ├── garcia-juan/
 │   ├── proyectos/     ← Sus repositorios de codigo
 │   ├── gtd/           ← Sus tareas y agenda

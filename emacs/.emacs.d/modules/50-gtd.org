@@ -17,7 +17,7 @@
 
 * 10. Infraestructura GTD (Directorios y Archivos)
 Crea la estructura de directorios y archivos org que sostienen todo el sistema.
-El directorio base es =~/org/gtd/=. Si no existe, se crea automáticamente.
+El directorio base es =~/forja-org/local/gtd/=. Si no existe, se crea automáticamente.
 
 Filosofía (David Allen): "Tu mente es para tener ideas, no para retenerlas."
 Cada archivo cumple un rol específico en el flujo GTD.

@@ -17,7 +17,7 @@
 
 * 10. Infraestructura de Documentación (Directorios y Plantillas)
 Crea la estructura de directorios para documentación técnica profesional.
-El directorio base es =~/org/docs/=. Contiene subcarpetas para SOPs,
+El directorio base es =~/forja-org/local/docs/=. Contiene subcarpetas para SOPs,
 checklists, templates y la base de conocimiento.
 
 Filosofía (Gawande): "Bajo presión, la gente no se eleva a la altura
@@ -59,7 +59,7 @@ Los snippets generan la estructura completa del checklist con metadata.
 #+begin_src emacs-lisp
 ;; --- Plantilla de checklist como función interactiva ---
 (defun my/docs-nuevo-checklist ()
-  "Crea un nuevo checklist DO-CONFIRM o READ-DO en ~/org/docs/checklists/."
+  "Crea un nuevo checklist DO-CONFIRM o READ-DO en ~/forja-org/local/docs/checklists/."
   (interactive)
   (let* ((titulo (read-string "Título del checklist: "))
          (tipo (completing-read "Tipo: "
@@ -138,7 +138,7 @@ Estructura estándar de un SOP:
 
 #+begin_src emacs-lisp
 (defun my/docs-nuevo-sop ()
-  "Crea un nuevo Procedimiento Operativo Estándar en ~/org/docs/sops/."
+  "Crea un nuevo Procedimiento Operativo Estándar en ~/forja-org/local/docs/sops/."
   (interactive)
   (let* ((titulo (read-string "Título del SOP: "))
          (codigo (read-string "Código (ej: SOP-IT-001): " "SOP-"))
@@ -343,7 +343,7 @@ pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 6px;
 
 ;; --- Directorio de exportación ---
 (defun my/docs-exportar-a (formato)
-  "Exporta el buffer actual al FORMATO especificado en ~/org/docs/exports/."
+  "Exporta el buffer actual al FORMATO especificado en ~/forja-org/local/docs/exports/."
   (interactive
    (list (completing-read "Formato: " '("pdf" "html" "odt") nil t)))
   (let ((org-export-directory my/docs-exports)

@@ -102,7 +102,7 @@ Desde el menu multiusuario:
 2. Presiona `s` (Start)
 3. PicoClaw arranca con el workspace del alumno activo:
    ```
-   🐾 PicoClaw iniciado (workspace: ~/org-alumnos/garcia-juan/.picoclaw/, puerto: 18790)
+   🐾 PicoClaw iniciado (workspace: ~/forja-org/cloud/garcia-juan/.picoclaw/, puerto: 18790)
    ```
 
 ### Menu de PicoClaw
@@ -196,7 +196,7 @@ OpenClaw usa un archivo `SOUL.md` que define la personalidad del agente. FORJA l
 - Nunca borra archivos sin confirmacion
 - Prefiere soluciones simples
 
-Podes editar `SOUL.md` en `~/org-alumnos/TU-NOMBRE/.openclaw/agents/forja/SOUL.md` para personalizar el agente.
+Podes editar `SOUL.md` en `~/forja-org/cloud/TU-NOMBRE/.openclaw/agents/forja/SOUL.md` para personalizar el agente.
 
 ### Ejemplo: Generar tests automaticos
 
@@ -213,7 +213,7 @@ Podes editar `SOUL.md` en `~/org-alumnos/TU-NOMBRE/.openclaw/agents/forja/SOUL.m
 Cada alumno tiene su propio agente aislado:
 
 ```
-~/org-alumnos/garcia-juan/
+~/forja-org/cloud/garcia-juan/
 ├── .picoclaw/                 ← PicoClaw de este alumno
 │   ├── config.json            ← Configuracion (modelo, seguridad)
 │   ├── workspace/             ← Sandbox de archivos

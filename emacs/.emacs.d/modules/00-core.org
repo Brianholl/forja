@@ -100,7 +100,7 @@ sudo pacman -S traceroute bind-tools
 sudo pacman -S sqlite
 
 # --- Crear directorio base de organización ---
-mkdir -p ~/org/gtd ~/org/docs/{sops,checklists,templates,kb,exports} ~/org/procesos/diagramas
+mkdir -p ~/forja-org/local/gtd ~/forja-org/local/docs/{sops,checklists,templates,kb,exports} ~/forja-org/local/procesos/diagramas ~/forja-org/cloud
 #+end_src
 
 * 20. Motor de Paquetes y Repositorios

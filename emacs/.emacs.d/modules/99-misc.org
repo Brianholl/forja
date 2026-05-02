@@ -61,7 +61,7 @@ Potenciar Org para documentación, planificación y literate programming.
   (setq org-log-done 'time)               ; Timestamp al completar TODOs
 
   ;; --- Directorio de notas ---
-  (setq org-directory "~/org/")
+  (setq org-directory "~/forja-org/local/")
   (setq org-default-notes-file (concat org-directory "notas.org"))
 
   ;; --- Atajos ---

@@ -836,9 +836,9 @@ fi
 # =============================================================================
 info "Creando estructura de directorios..."
 
-mkdir -p ~/org/gtd \
-         ~/org/docs/{sops,checklists,templates,kb,exports} \
-         ~/org/procesos/diagramas \
+mkdir -p ~/forja-org/local/gtd \
+         ~/forja-org/local/docs/{sops,checklists,templates,kb,exports} \
+         ~/forja-org/local/procesos/diagramas \
          ~/forja-org/cloud \
          ~/forja-org/local/projects
 
