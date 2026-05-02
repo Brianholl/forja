@@ -238,9 +238,14 @@ OpenCode recibe el archivo, lo analiza en profundidad y aplica cambios si es nec
 
 * 7. Widget en Dashboard
 
-Se registra automáticamente si el módulo está cargado y dashboard está disponible.
+Se registra al cargar el módulo y refresca el dashboard automáticamente.
 
 #+begin_src emacs-lisp
+(defvar my/opencode-version
+  (when (and (not my/is-termux) (executable-find "opencode"))
+    (string-trim (shell-command-to-string "opencode --version 2>/dev/null")))
+  "Versión de OpenCode instalada (nil en Termux).")
+
 (defun my/dashboard-insert-opencode-btn (_list-size)
   "Botón para lanzar OpenCode desde el dashboard."
   (when my/opencode-available
@@ -251,17 +256,29 @@ Se registra automáticamente si el módulo está cargado y dashboard está dispo
                    :button-face 'dashboard-heading
                    "[ ▶ Run OpenCode ]")
     (insert "   ")
-    (insert (propertize "(C-c O o  —  abre en alacritty)"
-                        'face 'font-lock-comment-face))
+    (insert (propertize
+             (format "%s  (C-c O o)"
+                     (if my/opencode-version
+                         (concat "v" my/opencode-version)
+                       "OpenRouter"))
+             'face 'font-lock-comment-face))
     (insert "\n")))
 
 (with-eval-after-load 'dashboard
+  ;; Registrar el generador
   (add-to-list 'dashboard-item-generators
                '(opencode-btn . my/dashboard-insert-opencode-btn))
-  ;; Insertar después de new-project-btn
-  (setq dashboard-items
-        (cl-loop for item in dashboard-items
-                 collect item
-                 when (eq (car item) 'new-project-btn)
-                 collect '(opencode-btn . 1))))
+  ;; Agregar a dashboard-items después de new-project-btn (sin duplicar)
+  (unless (assq 'opencode-btn dashboard-items)
+    (let ((pos (cl-position-if (lambda (x) (eq (car x) 'new-project-btn))
+                               dashboard-items)))
+      (setq dashboard-items
+            (if pos
+                (append (cl-subseq dashboard-items 0 (1+ pos))
+                        '((opencode-btn . 1))
+                        (cl-subseq dashboard-items (1+ pos)))
+              (append dashboard-items '((opencode-btn . 1)))))))
+  ;; Refrescar el dashboard si está visible
+  (when (get-buffer "*dashboard*")
+    (dashboard-refresh-buffer)))
 #+end_src
