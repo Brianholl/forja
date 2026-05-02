@@ -25,20 +25,20 @@ Al completar esta guia seras capaz de:
 
 | Aspecto | Aider | PicoClaw | OpenCode |
 | :--- | :--- | :--- | :--- |
-| Donde corre | Local (Ollama) | Local (Ollama) | Nube (OpenRouter) |
-| Necesita internet | No | No | Si |
-| Necesita API key | No | No | Si (gratis con OpenRouter) |
-| Modelos disponibles | Solo Ollama local | Solo Ollama local | 200+ modelos (GPT-4, Claude, Gemini, etc.) |
+| Donde corre | Nube (OpenRouter/Nemotron) | Local (Ollama) | Nube (OpenRouter) |
+| Necesita internet | Si | No | Si |
+| Necesita API key | Si (gratis con OpenRouter) | No | Si (gratis con OpenRouter) |
+| Modelos disponibles | Nemotron-3-Super-120B | Solo Ollama local | 200+ modelos (GPT-4, Claude, Gemini, etc.) |
 | Interface | Emacs buffer | Emacs buffer | TUI independiente |
 | Modo agentico | Si | Si | Si |
 | Disponible en Termux | No | No | Si (via proot-distro) |
-| Privacidad | 100% local | 100% local | Datos van al modelo externo |
+| Privacidad | Codigo va a OpenRouter | 100% local | Datos van al modelo externo |
 
 **Cuando usar OpenCode:**
-- Cuando los modelos locales no son suficientes para la tarea
-- En Termux (tablet/celular) donde Ollama no esta disponible
-- Para sesiones largas de diseno o arquitectura
-- Cuando necesitas modelos de mayor capacidad (Claude, GPT-4o, etc.)
+- Cuando necesitas una sesion interactiva TUI larga con historial visual
+- En Termux (tablet/celular) donde Ollama y Aider no estan disponibles
+- Para sesiones largas de diseno o arquitectura con modelos distintos a Nemotron
+- Cuando necesitas consultas inline rapidas sin abrir el chat de Aider
 
 ---
 
@@ -255,5 +255,5 @@ def procesar_lista(lista):
 
 ## Siguientes Pasos
 
-- [Guia 06: Inteligencia Artificial Local (Aider)](06_Inteligencia_Artificial.md) — para trabajo offline sin API keys
+- [Guia 06: Inteligencia Artificial (Aider + Minuet)](06_Inteligencia_Artificial.md) — agente de codigo con Nemotron y autocompletado inline con Minuet
 - [Guia 12: Agentes Autonomos](12_Agente_Autonomo.md) — PicoClaw y OpenClaw con Ollama local

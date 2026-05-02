@@ -1,33 +1,35 @@
-# Guia 06: Inteligencia Artificial Local (Aider + Ollama)
+# Guia 06: Inteligencia Artificial en FORJA (Aider + Minuet)
 
-> Usa IA para escribir, refactorizar, testear y corregir codigo directamente desde el editor — 100% local, sin API keys ni internet.
+> Usa IA para escribir, refactorizar, testear y corregir codigo directamente desde el editor — con un agente de codigo en la nube y autocompletado inline local.
 
 ## Objetivos de Aprendizaje
 
 Al completar esta guia seras capaz de:
-- Iniciar una sesion de IA en tu proyecto y conversar en lenguaje natural
+- Iniciar una sesion de Aider en tu proyecto y conversar en lenguaje natural
 - Dar contexto a la IA agregando archivos relevantes
 - Refactorizar codigo, generar tests y corregir errores con comandos directos
-- Entender como funciona la IA local (Ollama + qwen2.5-coder)
+- Usar el autocompletado inline de Minuet mientras escribis codigo
+- Entender la diferencia entre Aider (agente agentico) y Minuet (sugerencias inline)
 
 ## Prerequisitos
 
 - Estar en **PC** (Arch Linux o perfil Casa/Escuela). Aider **no esta disponible** en Termux ni WSL
-- Tener Ollama instalado con el modelo `qwen2.5-coder` descargado
+- Tener `OPENROUTER_API_KEY` configurada (ejecutar `connect.sh`)
+- Tener Ollama instalado con el modelo `qwen2.5-coder:0.5b` (para Minuet inline)
 - Haber completado la [Guia 01: Core y Entorno](01_Core_y_Entorno.md)
 
-### Verificar que Ollama esta listo
+### Verificar que Ollama esta listo (para Minuet)
 
 En terminal:
 ```bash
 ollama list
 # Deberia mostrar algo como:
-# qwen2.5-coder:latest    2.3 GB
+# qwen2.5-coder:0.5b    ~400 MB
 ```
 
 Si no aparece, descarga el modelo:
 ```bash
-ollama pull qwen2.5-coder
+ollama pull qwen2.5-coder:0.5b
 ```
 
 ---
@@ -41,18 +43,20 @@ Aider no es un chatbot que copia y pega codigo. Es un **agente de codigo** que:
 - **Modifica** el codigo directamente en tus archivos
 - **Hace commits** automaticos de cada cambio que realiza
 
-Todo esto ocurre en tu maquina local. Tu codigo nunca sale de tu computadora.
+Aider usa el modelo `openrouter/nvidia/nemotron-3-super-120b-a12b:free` via **OpenRouter** — un modelo de gran capacidad disponible gratis. Requiere internet y `OPENROUTER_API_KEY` configurada por `connect.sh`.
+
+> **Auto-revert:** cuando Aider modifica un archivo, el buffer de Emacs se actualiza automaticamente. Ya no hace falta recargar el archivo manualmente.
 
 ### Diferencia con ChatGPT/Copilot
 
 | Aspecto | ChatGPT/Copilot | Aider en FORJA |
 | :--- | :--- | :--- |
-| Donde corre | En la nube (servidores de terceros) | En tu maquina (100% local) |
-| Necesita internet | Si | No |
-| Necesita API key / pago | Si | No |
+| Donde corre | En la nube (servidores de terceros) | Nube via OpenRouter (Nemotron) |
+| Necesita internet | Si | Si |
+| Necesita API key / pago | Si (pago) | Si (gratis con OpenRouter) |
 | Lee tu proyecto completo | No (copias y pegas fragmentos) | Si (accede a tus archivos directamente) |
 | Modifica archivos | No (te da texto para copiar) | Si (edita directo y hace commits) |
-| Privacidad | Tu codigo se envia a servidores externos | Tu codigo queda en tu maquina |
+| Actualiza el buffer de Emacs | N/A | Si, automaticamente (auto-revert) |
 
 ## 2. El Menu de IA (`C-c i`)
 
@@ -230,6 +234,51 @@ El linter marca "undefined name 'jsom'". Al presionar `C-c i f`, la IA:
 
 ---
 
+## 8. Autocompletado Inline con Minuet
+
+Minuet es el sistema de **sugerencias de codigo inline** de FORJA. A diferencia de Aider (que trabaja en modo chat/agente), Minuet sugiere completaciones mientras escribis, directamente en el cursor.
+
+Usa el modelo `qwen2.5-coder:0.5b` corriendo **localmente en Ollama** — es rapido, liviano (~400 MB) y funciona sin internet.
+
+### Atajos de Minuet
+
+| Tecla | Accion |
+| :---: | :--- |
+| `M-i` | Mostrar sugerencia inline en el cursor |
+| `TAB` | Aceptar la sugerencia mostrada |
+| `M-[` | Descartar la sugerencia |
+
+### Modo auto-sugerencia
+
+Para activar sugerencias automaticas mientras escribis (sin presionar `M-i` cada vez):
+
+```
+M-x minuet-auto-suggestion-mode
+```
+
+Con este modo activo, Minuet sugiere completaciones automaticamente despues de una breve pausa al escribir. Para desactivarlo, ejecuta el mismo comando.
+
+### Como funciona
+
+1. Escribis el inicio de una funcion, variable o expresion
+2. Presionas `M-i` (o esperas con auto-sugerencia activa)
+3. Aparece una sugerencia de completacion en gris sobre el cursor
+4. `TAB` para aceptar, `M-[` para descartar y continuar escribiendo
+
+### Diferencia con Aider
+
+| Aspecto | Minuet (inline) | Aider (agente) |
+| :--- | :--- | :--- |
+| Tipo de interaccion | Completacion mientras escribis | Chat / instrucciones en lenguaje natural |
+| Modelo | `qwen2.5-coder:0.5b` local | Nemotron via OpenRouter (nube) |
+| Necesita internet | No | Si |
+| Escala de tarea | Linea o bloque pequeño | Funciones, archivos, refactoring completo |
+| Hace commits | No | Si |
+
+> **Consejo:** Usa Minuet para el flujo normal de escritura (completar nombres, generar estructuras simples). Usa Aider cuando necesitas razonar sobre el proyecto o hacer cambios grandes.
+
+---
+
 ## Ejercicio Practico: Tu Primera Sesion con IA
 
 1. **Crea un proyecto Go:** `C-c n G` → nombre: `practica-ia`
@@ -268,22 +317,30 @@ El linter marca "undefined name 'jsom'". Al presionar `C-c i f`, la IA:
 
 | Problema | Causa | Solucion |
 | :--- | :--- | :--- |
-| "Ollama not running" | El servicio de Ollama no esta activo | Ejecuta `ollama serve` en otra terminal |
-| Chat muy lento | El modelo es grande para tu RAM | Usa un modelo mas pequeño o cierra otras aplicaciones |
+| "OPENROUTER_API_KEY not set" | La API key no esta configurada | Ejecuta `connect.sh` para configurarla |
+| "No endpoints available" | Privacy settings de OpenRouter muy restrictivos | Ir a openrouter.ai/settings/privacy y desactivar "Always enforce ZDR" |
+| Chat sin respuesta / timeout | Sin conexion a internet | Verificar conexion; Aider requiere internet |
 | La IA modifica archivos incorrectos | Falta contexto | Agrega los archivos correctos con `C-c i a` |
-| "No model found" | El modelo no esta descargado | Ejecuta `ollama pull qwen2.5-coder` |
 | La IA no entiende el proyecto | Solo ve el archivo actual | Agrega mas archivos con `C-c i a` |
 | Los cambios de la IA rompen algo | Ocurre a veces | Revierte el commit con Magit: `C-x g`, busca el commit, presiona `x` |
+| Minuet no sugiere nada | Ollama no esta corriendo | Ejecuta `ollama serve` en otra terminal |
+| "No model found" para Minuet | El modelo 0.5b no esta descargado | Ejecuta `ollama pull qwen2.5-coder:0.5b` |
 
 ## Resumen de Atajos de esta Guia
 
 ```
+Aider (agente via OpenRouter/Nemotron):
 C-c i        → Menu completo de IA (Aider)
 C-c i o      → Abrir chat de IA en el proyecto
 C-c i a      → Agregar archivo al contexto de la IA
 C-c i c      → Refactorizar/cambiar codigo seleccionado
 C-c i t      → Generar tests automaticos
 C-c i f      → Corregir errores del linter con IA
+
+Minuet (autocompletado inline local):
+M-i          → Mostrar sugerencia inline
+TAB          → Aceptar sugerencia
+M-[          → Descartar sugerencia
 ```
 
 ---

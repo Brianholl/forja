@@ -9,7 +9,7 @@
 
 Configuracion modular de Emacs para **desarrollo Full Stack** (Node.js, Python, PHP, Go, Rust), **Game Dev** (C/C++, Raylib, Godot, Unreal) y **Sistemas** (ASM, ESP32). Soporta **Arch Linux (PC)**, **Termux (Android)** y **WSL2 (Windows)** con deteccion automatica de plataforma.
 
-Incluye **IA local** via Aider + Ollama (modelos seleccionables), **agentes autonomos** (PicoClaw + OpenClaw), **OpenCode** (asistente agentico TUI con modelos en la nube via OpenRouter), **sistema multiusuario** para entornos educativos, **sincronizacion Google Drive** via rclone, **automatizacion** con n8n y **GTD** con Org Mode.
+Incluye **Aider** (refactoring y agentic coding via OpenRouter/Nemotron en la nube), **Minuet** (autocompletado inline local con Ollama), **agentes autonomos** (PicoClaw + OpenClaw), **OpenCode** (asistente agentico TUI con modelos en la nube via OpenRouter), **sistema multiusuario** para entornos educativos, **sincronizacion Google Drive** via rclone, **automatizacion** con n8n y **GTD** con Org Mode.
 
 ---
 
@@ -21,11 +21,12 @@ Incluye **IA local** via Aider + Ollama (modelos seleccionables), **agentes auto
 - **Tres perfiles de instalacion:** Minimal (celular), Moderado (PC con poca RAM), Full (desktop)
 - **Full Stack REST APIs:** Templates para Express, FastAPI, Laravel, Gin, Actix-web
 - **Game Dev:** Raylib (C/C++), Godot (GDScript), Unreal Engine (solo PC)
-- **IA local configurable:** Aider + Ollama con modelos seleccionables para codigo y espanol
+- **Aider (cloud):** refactoring y agentic coding via OpenRouter/Nemotron (`openrouter/nvidia/nemotron-3-super-120b-a12b:free`). Requiere `OPENROUTER_API_KEY`. Los buffers se actualizan automaticamente cuando Aider aplica cambios (auto-revert)
+- **Minuet inline autocomplete:** sugerencias de codigo con `qwen2.5-coder:0.5b` local en Ollama. `M-i` para mostrar, `TAB` para aceptar, `M-[` para descartar. Funciona en todos los lenguajes
 - **Agentes IA autonomos:** PicoClaw (ligero) + OpenClaw (completo) para resolver tickets y diagnosticar proyectos
 - **OpenCode:** asistente agentico TUI con 200+ modelos en la nube (OpenRouter) — sesiones interactivas, consultas inline, procesamiento de archivos. Disponible en Linux y Termux via proot-distro
 - **Traduccion integrada:** `C-c T` traduce texto seleccionado al espanol con IA local
-- **Sistema multiusuario:** Gestion de alumnos, backup USB, sync Google Drive
+- **Sistema multiusuario:** Gestion de alumnos, backup USB, sync Google Drive. Estructura `forja-org`: `~/forja-org/local/` (personal/GTD/docs) y `~/forja-org/cloud/` (directorios de alumnos)
 - **Sincronizacion Drive:** rclone semi-automatico — `C-c U s` sube, `C-c U S` descarga
 - **GTD y documentacion:** Org Mode, org-roam, Kanban, diagramas, LaTeX
 - **Automatizacion:** n8n por alumno para workflows (webhooks, Telegram, email, sync)
@@ -168,14 +169,19 @@ bash forja-menu.sh   # elegir nuevos features o modelos
 
 ## Modelos de IA
 
-FORJA usa **Ollama** para correr modelos de IA 100% local. Tu codigo nunca sale de tu maquina.
+FORJA utiliza dos fuentes de IA complementarias:
 
-Se configuran dos modelos independientes:
+- **Ollama (local):** autocompletado inline (Minuet), traduccion (`C-c T`), GTD y documentacion. Tu codigo no sale de tu maquina para estas funciones.
+- **OpenRouter (nube):** Aider (refactoring/agentic coding) y OpenCode (TUI agentico). Requieren `OPENROUTER_API_KEY`.
+
+Se configuran dos modelos Ollama independientes:
 
 | Proposito | Para que se usa | Recomendado |
 | :--- | :--- | :--- |
-| **Modelo de codigo** | Aider, autocompletado (Minuet), code review, agentes | `qwen2.5-coder` |
+| **Modelo de codigo** | Minuet (autocomplete inline), code review, agentes locales | `qwen2.5-coder:0.5b` (Minuet) |
 | **Modelo de espanol** | Traduccion (`C-c T`), GTD, soporte, documentacion | `qwen2.5`, `gemma3`, `llama3` |
+
+> **Aider** usa `openrouter/nvidia/nemotron-3-super-120b-a12b:free` en la nube (no Ollama). Requiere la variable de entorno `OPENROUTER_API_KEY` (la misma que OpenCode).
 
 ### Modelos para codigo disponibles
 
@@ -243,7 +249,7 @@ forja/
 │           ├── 30-cpp.org       # C, C++, FASM, GDB, ESP32, generadores C/Raylib
 │           ├── 31-rust.org      # Rust: tree-sitter, LSP, cargo, generadores
 │           ├── 32-go.org        # Go: tree-sitter, LSP, go build/test, generadores
-│           ├── 33-aider.org     # Aider: Code Agent con Ollama local
+│           ├── 33-aider.org     # Aider: Code Agent via OpenRouter/Nemotron (nube) + Minuet inline (Ollama local)
 │           ├── 34-python.org    # Python: tree-sitter, pylsp, black, FastAPI, generadores
 │           ├── 35-php.org       # PHP: tree-sitter, intelephense, Laravel, generadores
 │           ├── 36-modelos.org   # Config central modelos IA, C-c M, C-c T
@@ -302,13 +308,13 @@ Tambien leido por Emacs (`36-modelos.org`) para configurar los modelos al inicia
 | **30-cpp** | C/C++, FASM, GDB, ESP32, clang/gcc, generadores C/Raylib | ✅ | ✅ | ✅ | ✅ |
 | **31-rust** | Rust: tree-sitter, rust-analyzer, cargo, generadores | ✅ | ✅ | ✅ | ✅ |
 | **32-go** | Go: tree-sitter, gopls, go build/test, generadores | ✅ | ✅ | ✅ | ✅ |
-| **33-aider** | Aider + Ollama (IA local para codigo) | ❌ | ❌ | ✅ | ✅ |
+| **33-aider** | Aider (OpenRouter/Nemotron, nube) + Minuet inline (Ollama local, `qwen2.5-coder:0.5b`) | ❌ | ❌ | ✅ | ✅ |
 | **34-python** | Python: pylsp, black, FastAPI/Django, generadores | ✅ | ✅ | ✅ | ✅ |
 | **35-php** | PHP: intelephense, prettier, Laravel, generadores | ✅ | ✅ | ✅ | ✅ |
 | **36-modelos** | Config central modelos IA, traduccion, C-c M/T | ❌ | ✅ | ✅ | ✅ |
 | **40-unreal** | Unreal Engine 4/5 | ❌ | ❌ | ❌ | ✅ |
 | **41-godot** | Godot: GDScript, gdformat | ❌ | ❌ | ✅ | ✅ |
-| **49-multiusuario** | Gestion alumnos, USB, sync Drive, n8n | ✅ | ✅ | ✅ | ✅ |
+| **49-multiusuario** | Gestion alumnos, USB, sync Drive, n8n. Estructura `forja-org`: `~/forja-org/local/` (personal/GTD/docs/procesos) y `~/forja-org/cloud/` (alumnos, multiusuario) | ✅ | ✅ | ✅ | ✅ |
 | **50-gtd** | GTD con Org Mode, agenda, capturas, IA | ✅ | ✅ | ✅ | ✅ |
 | **51-estandarizacion** | SOPs, checklists, templates | ✅ | ✅ | ✅ | ✅ |
 | **52-vision-sistemica** | Diagramas, Mermaid, Graphviz | ✅ | ✅ | ✅ | ✅ |
@@ -412,24 +418,31 @@ Todos crean estructura, `.gitignore`, `.projectile`, `git init` + primer commit:
 
 > **Termux:** Las F-keys aparecen en la barra de extra-keys. Si no se ven, ejecutar `install.sh` o `update.sh` y reiniciar Termux.
 
-### IA Local y Traduccion
+### Aider, Minuet y Traduccion
 
 | Tecla | Accion |
 | :--- | :--- |
-| `C-c i` | Menu completo de Aider (IA para codigo) |
+| `C-c i` | Menu completo de Aider (refactoring / agentic coding) |
 | `C-c i o` | Abrir Aider en el proyecto |
 | `C-c i a` | Agregar archivo al contexto |
 | `C-c i c` | Cambiar funcion o region |
 | `C-c i t` | Generar unit tests |
 | `C-c i f` | Corregir errores de Flycheck |
+| `M-i` | **Minuet** — Mostrar sugerencia de autocompletado inline |
+| `TAB` | **Minuet** — Aceptar sugerencia |
+| `M-[` | **Minuet** — Descartar sugerencia |
 | `C-c M` | **Menu de modelos IA** (cambiar, ver, guardar) |
-| `C-c M c` | Cambiar modelo de CODIGO |
-| `C-c M e` | Cambiar modelo de ESPANOL |
+| `C-c M c` | Cambiar modelo de CODIGO (Ollama) |
+| `C-c M e` | Cambiar modelo de ESPANOL (Ollama) |
 | `C-c M s` | Guardar modelos a `profile.conf` |
 | `C-c M i` | Ver modelos instalados en Ollama |
 | `C-c T` | **Traducir** region seleccionada al espanol |
 
-> Usa Ollama local. Sin API keys, sin internet, 100% local. Los modelos se eligen en `forja-menu.sh` o se cambian en caliente con `C-c M`.
+> **Aider** usa OpenRouter/Nemotron en la nube (`openrouter/nvidia/nemotron-3-super-120b-a12b:free`). Requiere `OPENROUTER_API_KEY`. Cuando Aider aplica cambios a archivos, los buffers de Emacs se actualizan automaticamente (auto-revert).
+>
+> **Minuet** usa `qwen2.5-coder:0.5b` local en Ollama. Funciona en todos los lenguajes sin conexion a internet.
+>
+> **Traduccion y GTD** usan el modelo de espanol configurado en Ollama (100% local). Los modelos se eligen en `forja-menu.sh` o se cambian en caliente con `C-c M`.
 
 ### OpenCode — Asistente Agentico en la Nube (`C-c O`)
 
@@ -446,7 +459,7 @@ Disponible en todos los modos de programacion. Requiere `opencode` feature activ
 | `C-c O e` | Corregir errores Flycheck con IA |
 | `C-c F A` | Menu maestro → Agentes IA (PicoClaw/OpenClaw/OpenCode) |
 
-> A diferencia de Aider, OpenCode usa modelos en la nube (OpenRouter). Disponible en Termux via proot-distro Ubuntu. Ver [Guia 14](how_to/14_OpenCode.md).
+> OpenCode usa modelos en la nube (OpenRouter, 200+ modelos). El TUI se abre en Alacritty (`C-c O o`). Disponible en Termux via proot-distro Ubuntu. Ver [Guia 14](how_to/14_OpenCode.md).
 
 ### Sistema Multiusuario y Sync (`C-c U`)
 
@@ -535,9 +548,10 @@ PC Escuela (Arch) <-> Google Drive <-> Celular (Termux) / PC Casa (WSL/Arch)
 | GDB Debugger | ✅ | ❌ | ✅ |
 | FASM (x86 ASM) | ✅ (si seleccionado) | ❌ | ❌ |
 | ESP32 (idf.py) | ✅ (si seleccionado) | ❌ | ❌ |
-| Aider (IA) | ✅ (si seleccionado) | ❌ | ❌ |
-| Ollama (modelos) | ✅ (si seleccionado) | ❌ | ❌ |
-| Modelos IA | Configurable (0.5b-32b) | ❌ | ❌ |
+| Aider (nube, OpenRouter) | ✅ (si seleccionado) | ❌ | ❌ |
+| Minuet inline (Ollama local) | ✅ (si seleccionado) | ❌ | ❌ |
+| Ollama (modelos locales) | ✅ (si seleccionado) | ❌ | ❌ |
+| Modelos IA locales | Configurable (0.5b-32b) | ❌ | ❌ |
 | Traduccion (C-c T) | ✅ | ❌ (stub) | ✅ |
 | Live Server | Abre Firefox | `--no-browser` | `--no-browser` |
 | Godot | ✅ (si seleccionado) | ❌ | ❌ |
@@ -639,6 +653,7 @@ forja-menu.sh                     install.sh
 - Variables de plataforma: `my/is-termux`, `my/is-gui`, `my/is-wsl` (definidas en `init.el`)
 - Guard pattern: `(bound-and-true-p my/is-termux)`, `(bound-and-true-p my/is-wsl)`
 - Configuracion persistente: `~/.forja/profile.conf` (no commitear, es por maquina)
+- **Fix critico aplicado:** el regex en `my/forja--read-conf` excluia la letra `n`, haciendo que todos los features con 'n' en el nombre (`opencode`, `n8n`, `unreal`, etc.) no cargaran. Corregido en `init.el`.
 
 ---
 
