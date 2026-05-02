@@ -76,7 +76,9 @@ if [ "$PLATFORM" = "termux" ]; then
     echo -e "    ${YELLOW}?${NC} ~/.termux/termux.properties  (se preguntara)"
 fi
 echo ""
-echo -e "  ${DIM}NO se tocan: gcc, clang, rust, go, node, Ollama, modelos.${NC}"
+echo -e "  ${YELLOW}?${NC} ~/org-alumnos y ~/projects  (estructura vieja — se preguntara)"
+echo ""
+echo -e "  ${DIM}NO se tocan: gcc, clang, rust, go, node, Ollama, modelos, ~/forja-org/.${NC}"
 [ "$PURGE" = "0" ] && echo -e "  ${DIM}Tip: ./clear.sh --purge para eliminar también el caché de paquetes Emacs.${NC}"
 echo ""
 echo -e "  Despues de esto, corre:  ${WHITE}./update.sh${NC}"
@@ -208,7 +210,7 @@ fi
 # 5. NPM: desinstalar globals de FORJA
 # =============================================================================
 info "[5/6] Desinstalando globals de npm..."
-NPM_PKGS="typescript typescript-language-server vscode-langservers-extracted live-server prettier intelephense @prettier/plugin-php @mermaid-js/mermaid-cli n8n openclaw"
+NPM_PKGS="typescript typescript-language-server vscode-langservers-extracted live-server prettier intelephense @prettier/plugin-php @mermaid-js/mermaid-cli n8n openclaw opencode-ai"
 
 if command -v npm &>/dev/null; then
     if [ "$PLATFORM" = "arch" ] || [ "$PLATFORM" = "wsl" ]; then
@@ -233,6 +235,22 @@ if [ "$PLATFORM" != "termux" ] && command -v uv &>/dev/null; then
         && ok "aider-chat desinstalado" \
         || ok "aider-chat no estaba instalado"
 fi
+
+# =============================================================================
+# DIRECTORIOS VIEJOS: eliminar estructura pre-forja-org
+# =============================================================================
+for old_dir in "$HOME/org-alumnos" "$HOME/projects"; do
+    if [ -d "$old_dir" ]; then
+        echo -ne "  Eliminar $old_dir (estructura vieja)? [s/N]: "
+        read -r resp
+        if [[ "$resp" =~ ^[sS]$ ]]; then
+            rm -rf "$old_dir"
+            ok "$old_dir eliminado"
+        else
+            ok "$old_dir conservado"
+        fi
+    fi
+done
 
 # =============================================================================
 # TERMUX: config especifica (opcional)
