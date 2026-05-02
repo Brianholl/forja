@@ -28,14 +28,14 @@
 
 #+begin_src emacs-lisp
 ;; --- Minuet AI (Autocompletado predictivo tipo fantasma) ---
-;; Usa qwen2.5-coder:7b offline en Ollama vía openai-fim-compatible.
+;; Usa qwen2.5-coder:0.5b offline en Ollama vía openai-fim-compatible.
 ;; Patcheamos solo los campos necesarios para preservar :template y :get-text-fn.
 (use-package minuet
   :ensure t
   :config
   (setq minuet-provider 'openai-fim-compatible)
   (cl-loop for (k v) on
-           '(:model      "qwen2.5-coder:7b"
+           '(:model      "qwen2.5-coder:0.5b"
              :end-point  "http://localhost:11434/v1/completions"
              :api-key    (lambda () "ollama")
              :name       "Ollama"
