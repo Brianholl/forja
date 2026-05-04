@@ -184,20 +184,9 @@
 
 (defun my/aider-keybindings ()
   "Atajos de Aider para modos de programación."
-  ;; C-c i abre el hydra (igual que el global, pero asegura que no quede tapado)
-  (local-set-key (kbd "C-c i") #'my/hydra-aider/body)
-  ;; Atajos directos sin pasar por el hydra (para usuarios avanzados)
-  (local-set-key (kbd "C-c i o") #'my/aider-open-project)
-  (local-set-key (kbd "C-c i a") #'my/aider-add-current-file)
-  (local-set-key (kbd "C-c i x") #'aider-exit)
-  (local-set-key (kbd "C-c i s") #'aider-switch-to-buffer)
-  (local-set-key (kbd "C-c i c") #'aider-function-or-region-change)
-  (local-set-key (kbd "C-c i r") #'my/aider-ask-region)
-  (local-set-key (kbd "C-c i f") #'my/aider-fix-flycheck)
-  (local-set-key (kbd "C-c i t") #'aider-write-unit-test)
-  (local-set-key (kbd "C-c i p") #'aider-start-software-planning)
-  (local-set-key (kbd "C-c i u") #'aider-undo-last-change)
-  (local-set-key (kbd "C-c i h") #'aider-open-history))
+  ;; C-c i abre el hydra — los sub-atajos (o, a, x...) viven dentro del hydra,
+  ;; no como secuencias independientes: C-c i no es un prefix keymap.
+  (local-set-key (kbd "C-c i") #'my/hydra-aider/body))
 
 (add-hook 'prog-mode-hook #'my/aider-keybindings)
 ;; Modos que NO heredan de prog-mode → se agregan explícitamente
