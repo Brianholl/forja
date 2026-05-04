@@ -795,12 +795,12 @@ if forja_has_feature "opencode"; then
         " && ok "OpenCode instalado en proot-distro Ubuntu" \
           || warn "Error instalando OpenCode en Ubuntu — verifica con: proot-distro login ubuntu"
     else
-        if command -v opencode &>/dev/null; then
-            ok "OpenCode ya instalado: $(opencode --version 2>/dev/null)"
+        if command -v opencode &>/dev/null || [ -f "$HOME/.opencode/bin/opencode" ]; then
+            ok "OpenCode ya instalado"
         else
-            npm install -g opencode-ai \
-                && ok "OpenCode instalado: $(opencode --version 2>/dev/null)" \
-                || warn "No se pudo instalar OpenCode (verificar npm)"
+            curl -fsSL https://opencode.ai/install | bash \
+                && ok "OpenCode instalado" \
+                || warn "No se pudo instalar OpenCode (verificar: curl -fsSL https://opencode.ai/install | bash)"
         fi
         # PATH necesario para que opencode encuentre sus binarios
         if ! grep -q '\.opencode/bin' "$HOME/.bashrc" 2>/dev/null; then
