@@ -212,29 +212,30 @@ FORJA usa dos fuentes de IA complementarias:
 
 ### Modelos para codigo (Minuet / Ollama)
 
-| Modelo | RAM | Notas |
-| :--- | :--- | :--- |
-| `qwen2.5-coder:0.5b` | ~400 MB | Minimo, rapido |
-| `qwen2.5-coder:1.5b` | ~1 GB | Ligero, buen balance |
-| `qwen2.5-coder:3b` | ~2 GB | Bueno para code review |
-| `deepseek-coder-v2:lite` | ~3 GB | MoE 16B, muy bueno |
-| `qwen2.5-coder:7b` | ~5 GB | Preciso, recomendado para desktop |
-| `codellama:7b` | ~4 GB | Meta, bueno para C/C++ |
-| `qwen2.5-coder:14b` | ~9 GB | Avanzado |
-| `qwen2.5-coder:32b` | ~20 GB | El mejor, pesado |
+| Instalado | Modelo | RAM | Notas |
+| :---: | :--- | :--- | :--- |
+| ✅ | `qwen2.5-coder:0.5b` | ~400 MB | Minimo, rapido |
+| | `qwen2.5-coder:1.5b` | ~1 GB | Ligero, buen balance |
+| | `qwen2.5-coder:3b` | ~2 GB | Bueno para code review |
+| | `deepseek-coder-v2:lite` | ~3 GB | MoE 16B, muy bueno |
+| ✅ | `qwen2.5-coder:7b` | ~5 GB | Preciso, recomendado para desktop |
+| | `codellama:7b` | ~4 GB | Meta, bueno para C/C++ |
+| ✅ | `codellama:13b` | ~8 GB | Meta, fuerte en C/Rust |
+| | `qwen2.5-coder:14b` | ~9 GB | Avanzado |
+| | `qwen2.5-coder:32b` | ~20 GB | El mejor, pesado |
 
 ### Modelos para espanol (traduccion / GTD / Ollama)
 
-| Modelo | RAM | Notas |
-| :--- | :--- | :--- |
-| `qwen2.5:0.5b` | ~400 MB | Minimo, espanol basico |
-| `gemma3:1b` | ~800 MB | Google, multilingue |
-| `qwen2.5:3b` | ~2 GB | Bueno para traduccion |
-| `llama3.2:3b` | ~2 GB | Meta, rapido y capaz |
-| `mistral:7b` | ~4 GB | Fuerte en espanol |
-| `qwen2.5:7b` | ~5 GB | Preciso, recomendado |
-| `gemma3:12b` | ~8 GB | Google, excelente |
-| `qwen2.5:14b` | ~9 GB | Avanzado, traduce bien |
+| Instalado | Modelo | RAM | Notas |
+| :---: | :--- | :--- | :--- |
+| | `qwen2.5:0.5b` | ~400 MB | Minimo, espanol basico |
+| | `gemma3:1b` | ~800 MB | Google, multilingue |
+| | `qwen2.5:3b` | ~2 GB | Bueno para traduccion |
+| | `llama3.2:3b` | ~2 GB | Meta, rapido y capaz |
+| | `mistral:7b` | ~4 GB | Fuerte en espanol |
+| ✅ | `qwen2.5:7b` | ~5 GB | Preciso, recomendado |
+| | `gemma3:12b` | ~8 GB | Google, excelente |
+| ✅ | `qwen2.5:14b` | ~9 GB | Avanzado, traduce bien |
 
 > El menu `forja-menu.sh` solo muestra los modelos compatibles con tu RAM.
 > Para cambiar en caliente: `C-c M c` (codigo) o `C-c M e` (espanol).
