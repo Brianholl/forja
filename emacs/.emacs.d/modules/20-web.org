@@ -11,6 +11,12 @@
 * 10. Entorno de Desarrollo Web (Full Stack)
 Stack completo para desarrollo Full Stack.
 
+*¿Por qué Tree-Sitter?* El resaltado de sintaxis clásico de Emacs usa expresiones regulares, que fallan con código moderno (JSX, TypeScript genéricos, plantillas anidadas). Tree-Sitter construye un árbol de sintaxis real — el mismo que usa el compilador — y lo actualiza incrementalmente. El resultado: resaltado correcto en código complejo y navegación semántica (=M-x treesit-explore-mode= muestra el árbol en vivo).
+
+*¿Por qué =tsx= en vez de =ts-node=?* =tsx= ejecuta TypeScript directamente sin pasos de compilación intermedios, soporta JSX/TSX nativo, y tiene recarga automática con =tsx watch=. =ts-node= era la herramienta estándar hasta ~2022 pero es más lento en arranque y requiere más configuración para proyectos modernos.
+
+*¿Por qué los modos JS/TS siguen usando modos clásicos y no los =ts-mode=?* Bug conocido en Emacs + tree-sitter 0.26.x: las queries del modo built-in usan el predicado =#match= con anclas de Emacs que el motor de tree-sitter no entiende. El resultado es que =font-lock= falla silenciosamente y el buffer queda sin color. Se usa =typescript-mode= (basado en regex) hasta que el upstream corrija las queries.
+
 #+begin_src emacs-lisp
 ;; --- 1. Tree-Sitter (Sintaxis Moderna) ---
 (use-package emacs
@@ -415,6 +421,57 @@ Pregunta el tipo con completing-read."
     (with-temp-file (concat base-dir "/.gitignore")
       (insert "node_modules/\ndist/\n*.js.map\n"))
     (with-temp-file (concat base-dir "/.projectile") (insert ""))
+
+    (with-temp-file (concat base-dir "/FORJA.md")
+      (insert (format "# FORJA.md — %s (TypeScript %s)\n\n" name tipo))
+      (insert "## Stack\n\n")
+      (insert "| Herramienta | Qué es | Por qué existe |\n")
+      (insert "|:---|:---|:---|\n")
+      (insert "| **Node.js** | Runtime de JavaScript | Ejecuta JS/TS fuera del navegador |\n")
+      (insert "| **TypeScript** | Superset tipado de JS | Detecta errores antes de ejecutar |\n")
+      (insert "| **tsx** | Ejecutor directo de .ts | Evita compilar manualmente en desarrollo |\n")
+      (insert "| **tsc** | Compilador oficial de TS | Genera JS optimizado para producción en `dist/` |\n")
+      (insert "| **npm** | Gestor de paquetes | Instala y gestiona dependencias del proyecto |\n\n")
+      (insert "## Atajos → Comandos reales\n\n")
+      (insert "| Atajo | Qué hace FORJA | Comando real |\n")
+      (insert "|:---|:---|:---|\n")
+      (insert "| `F5` | Ejecuta el proyecto | `npm run dev` → `tsx watch src/index.ts` |\n")
+      (insert "| `C-c C-t` | Corre los tests | `npm test` → `jest` |\n")
+      (insert "| `C-c C-f` | Formatea el buffer | `prettier --write <archivo>` |\n")
+      (insert "| `C-c x` | Hydra build/run | Compila con `tsc` → `dist/` |\n\n")
+      (insert "## Ciclo completo\n\n")
+      (insert "```\n")
+      (insert "escribir src/index.ts\n")
+      (insert "    → F5          npm run dev  (dev — tsx watch: recarga al guardar)\n")
+      (insert "    → C-c x b     tsc          (build producción → dist/)\n")
+      (insert "    → C-c C-t     npm test     (tests con jest)\n")
+      (insert "    → C-c C-f     prettier     (formato automático)\n")
+      (insert "```\n\n")
+      (if (string= tipo "cli")
+          (progn
+            (insert "## Este proyecto es una CLI\n\n")
+            (insert "- El entry point es `src/index.ts` — lee `process.argv.slice(2)` para los argumentos.\n")
+            (insert "- En desarrollo: `F5` corre `tsx watch src/index.ts` directamente.\n")
+            (insert (format "- Para producción: `tsc` → `node dist/index.js` (o `%s` si está en PATH).\n\n" name)))
+        (progn
+          (insert "## Este proyecto es una librería npm\n\n")
+          (insert "- Exporta funciones desde `src/index.ts` — lo que no se exporte no es API pública.\n")
+          (insert "- `tsc` genera `dist/` con los `.js` y `.d.ts` para quien instale el paquete.\n")
+          (insert "- Para publicar: `npm publish` (requiere cuenta en npmjs.com).\n\n")))
+      (insert "## Cómo extender\n\n")
+      (insert "- **Nueva dependencia:** `npm install <paquete>` (o `-D` para devDependencies)\n")
+      (insert "- **Cambiar target JS:** editar `tsconfig.json` → `\"target\"`\n")
+      (insert "- **Agregar paths/alias:** editar `tsconfig.json` → `\"paths\"`\n")
+      (insert "- **Agregar jest:** `npm install -D jest ts-jest @types/jest` + `jest.config.ts`\n")
+      (insert "- **Config personal:** usar `~/.emacs.d/local.el` — no tocar el repo de FORJA\n\n")
+      (insert "## Si algo falla\n\n")
+      (insert "1. **`tsx: command not found`** — `npm install` no terminó. Espera o corre: `npm install`\n")
+      (insert "2. **`Cannot find module`** — `node_modules/` falta. Corre: `npm install`\n")
+      (insert "3. **Error de tipo TS** — el mensaje muestra archivo, línea, tipo esperado vs recibido. Lee despacio.\n")
+      (insert "4. **`tsc` falla silencioso** — corre `tsc --noEmit` para ver solo errores sin generar archivos.\n")
+      (insert "5. **`npm: command not found`** — instala Node.js:\n")
+      (insert "   - Arch: `sudo pacman -S nodejs npm`\n")
+      (insert "   - Debian/WSL: `sudo apt install nodejs npm`\n"))
 
     (my/git-init-and-commit base-dir name)
     ;; npm install en background — tsx y typescript quedan en node_modules/.bin/

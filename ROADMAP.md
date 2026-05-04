@@ -169,41 +169,51 @@ El paquete `yasnippet-snippets` ya cubre sintaxis básica — FORJA agrega patro
 > qué hace F5, qué es tsx, por qué existe package.json, cómo está
 > hecho FORJA con Lisp — antes de que algo falle, no después.
 
-### Bloque A — FORJA.md por proyecto
+### Bloque A — FORJA.md por proyecto ✓ v2.4
 
-Cada generador (`my/new-ts-project`, `my/new-rust-project`, etc.)
-crea un `FORJA.md` en la raíz del proyecto que explica:
+Cada generador crea un `FORJA.md` en la raíz del proyecto con:
+stack, mapa de atajos → comandos reales, ciclo completo, cómo extender, diagnóstico.
 
-- [ ] **Stack del lenguaje:** qué herramientas usa y por qué existen
-- [ ] **Mapa de atajos → comandos reales:** `F5 = npm run dev = tsx watch src/index.ts`
-- [ ] **Ciclo completo explicado:** escribir → compilar → ejecutar → depurar → testear
-- [ ] **Cómo extender:** dónde agregar configuración propia sin tocar el repo
-- [ ] **Qué hacer si falla:** checklist de diagnóstico por lenguaje
+- [x] **TypeScript** (`20-web.org`) — CLI y librería; tsx, tsc, npm
+- [x] **Rust** (`31-rust.org`) — proyecto base y Actix-web API; cargo, clippy, rust-gdb
+- [x] **Go** (`32-go.org`) — proyecto base y Gin API; go mod, gopls
+- [x] **Python** (`34-python.org`) — FastAPI + uvicorn + venv
+- [x] **C** (`30-cpp.org`) — gcc, Makefile, Unity, ASan, Valgrind, GDB
+- [x] **C++** (`30-cpp.org`) — g++/clang++, build.sh, clangd, GDB
+- [x] **Lua** (`42-lua.org`) — lua5.4, lua-language-server
+- [x] **Löve2D** (`42-lua.org`) — love, ciclo load/update/draw
+- [x] **Zig** (`43-zig.org`) — zig build, zls, comptime
+- [x] **Java** (`44-java.org`) — JDK 17, Maven, JUnit 5, jdtls
+- [x] **Kotlin** (`44-java.org`) — JDK 17, Gradle Kotlin DSL, kotlin-language-server
+- [x] **PHP** (`35-php.org`) — php built-in server, Composer, intelephense
+- [ ] **GDScript** — sin generador de proyecto; pospuesto a v3.0
 
-Lenguajes con generador a cubrir: TypeScript, Rust, Go, Python, C/C++,
-Java, Kotlin, Lua, Zig, PHP, GDScript
+### Bloque B — Errores que enseñan ✓ v2.4
 
-### Bloque B — Errores que enseñan
+Hook `my/forja-pedagogy-annotate` en `compilation-filter-hook` (`00-core.org`).
+Escanea la salida de compilación chunk a chunk e inserta hints en azul debajo de cada error conocido.
 
-Hook en `compilation-filter-hook` que detecta patrones de error comunes
-y los transforma en mensajes pedagógicos en el buffer de compilación:
+- [x] `command not found` → instalar herramienta, ver FORJA.md
+- [x] `No such file or directory` → dependencias faltantes o generador no corrido
+- [x] `cannot find module` (Node/Python/Rust/Go) → instalar dependencias
+- [x] TypeScript: `Type X is not assignable` / `Property does not exist`
+- [x] Rust: `cannot borrow` / `borrow of moved value` / `does not live long enough`
+- [x] `permission denied` → `chmod +x`
+- [x] Go: `declared and not used` / `imported and not used`
+- [x] Python: `ModuleNotFoundError` / `ImportError`
+- [x] Maven: `BUILD FAILURE`
+- [x] Exit codes 1, 127, 139
 
-- [ ] `command not found` → qué instalar, cómo, por qué falta
-- [ ] `cannot find module` / `no such file` → acción concreta
-- [ ] Errores de tipo (TS/Rust/Go) → referencia al concepto
-- [ ] `permission denied` → qué significa en este contexto
-- [ ] Exit code patterns → traducción a causa raíz
+### Bloque C — Arquitectura FORJA expuesta ✓ v2.4
 
-### Bloque C — Arquitectura FORJA expuesta
-
-- [ ] **How-to 14: Cómo está hecho FORJA** — Org-mode + `#+begin_src emacs-lisp` → `.el`,
-  estructura de módulos, `use-package`, hooks, hydras. Cómo leer un módulo.
-- [ ] **How-to 15: Tu propia configuración** — `local.el`, agregar atajos,
-  sobreescribir comportamiento sin tocar el repo base
-- [ ] **Clase 17 — El Taller del Herrero:** clase de escuela dedicada a leer
-  y modificar la configuración de FORJA en Lisp. El IDE como proyecto vivo.
-- [ ] **Comentarios pedagógicos en módulos clave** — `00-core.org`, `20-web.org`,
-  `30-cpp.org`: secciones "¿Por qué?" que explican cada decisión de diseño
+- [x] **How-to 15: Cómo está hecho FORJA** — Org-mode + tangle, estructura de módulos,
+  `use-package`, hooks, hydras, cómo leer un módulo (`how_to/15_Como_Esta_Hecho_FORJA.md`)
+- [x] **How-to 16: Tu propia configuración** — `local.el`, atajos propios, variables
+  reservadas `my/`, convención `mi/`, depuración (`how_to/16_Tu_Propia_Configuracion.md`)
+- [x] **Clase 17 — El Taller del Herrero** — 90 min, 4 partes: leer un módulo, entender
+  el tangle, modificar con `local.el`, reflexión (`escuela/clase-17-el-taller-del-herrero/`)
+- [x] **Comentarios pedagógicos en módulos clave** — `00-core.org`, `20-web.org`, `30-cpp.org`:
+  secciones "¿Por qué?" en texto Org (no tangle) explicando decisiones de diseño
 
 ---
 
@@ -236,3 +246,4 @@ Ideas post-release sin compromiso de fecha:
 | v2.0 | Abr 2026 | Encapsulamiento: generadores a módulos, hydras `my/hydra-*`, dispatch table |
 | v2.1 | Abr 2026 | TAO completo: org-caldav, modo examen, seguimiento.org, widget GTD, how-to 13 |
 | v2.2 | Abr 2026 | Compatibilidad: `test.sh --matrix`, COMPATIBILITY.md, PKGBUILD completo, FASM resuelto |
+| v2.4 | May 2026 | Transparencia completa: FORJA.md en 12 generadores, hook pedagógico, how-tos 15/16, Clase 17, comentarios "¿Por qué?" en módulos clave |

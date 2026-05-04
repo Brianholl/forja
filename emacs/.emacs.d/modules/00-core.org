@@ -106,6 +106,12 @@ mkdir -p ~/forja-org/local/gtd ~/forja-org/local/docs/{sops,checklists,templates
 * 20. Motor de Paquetes y Repositorios
 Configuración del gestor de paquetes y repositorios.
 
+*¿Por qué tres repositorios?* GNU ELPA es el oficial de Emacs (paquetes estables, mantenidos por la FSF). NonGNU ELPA amplía la cobertura sin requerir cesión de copyright. MELPA tiene miles de paquetes pero sin garantía de estabilidad — por eso tiene prioridad 0: se usa solo si los otros dos no tienen el paquete.
+
+*¿Por qué =use-package=?* Es la forma idiomática moderna de declarar paquetes en Emacs. Agrupa en un solo bloque la instalación, la activación condicional, los hooks y los atajos. Sin él, la misma configuración requeriría ~5 formas distintas dispersas por el archivo.
+
+*¿Por qué =use-package-always-ensure t=?* Para que cualquier paquete declarado con =use-package= se descargue automáticamente si no está instalado. Sin esto, un clone en una máquina nueva arrancaría con errores en lugar de instalarse solo.
+
 #+begin_src emacs-lisp
 (require 'package)
 
@@ -427,6 +433,10 @@ Herramientas centrales del sistema. Deben cargarse antes del hydra de compilaci�
 - ~my/forja-call-if-loaded~ — reemplaza el patrón =(if (fboundp ...))= repetido en hydras.
 - ~my/forja-lang-table~ — dispatch table: los módulos de lenguaje se registran aquí al cargarse.
 - ~my/hydra-build~ consulta esta tabla; agregar un lenguaje nuevo = tocar solo su módulo.
+
+*¿Por qué una dispatch table en vez de un =cond= por lenguaje?* Con un =cond=, agregar Go a =my/hydra-build= significaría tocar =00-core.el= aunque Go vive en =32-go.el=. Con la tabla, cada módulo se registra a sí mismo: =32-go.el= llama a =my/forja-register-lang= al cargarse. =00-core= no sabe nada de Go — solo sabe que existe la tabla. Agregar o quitar un lenguaje = tocar un solo archivo.
+
+*¿Por qué =my/forja-call-if-loaded=?* Los perfiles Minimal y Moderado no cargan todos los módulos. Si una hydra referencia directamente =(my/go-run)= y el módulo Go no está cargado, Emacs lanza un error. La macro envuelve la llamada en un =(fboundp)= para que la hydra falle elegantemente con un mensaje en vez de un stack trace.
 
 #+begin_src emacs-lisp
 ;;; ── my/forja-call-if-loaded ─────────────────────────────────────────────────
@@ -790,6 +800,75 @@ Si hay un proceso de compilación activo, lo mata."
     (ansi-color-apply-on-region compilation-filter-start (point))))
 
 (add-hook 'compilation-filter-hook 'my/colorize-compilation-buffer)
+
+;; --- ERRORES QUE ENSEÑAN ---
+;; Detecta patrones de error comunes y anota el buffer con hints pedagógicos.
+
+(defvar my/forja-pedagogy-patterns
+  '(;; Herramientas no instaladas
+    ("command not found"
+     . "El programa no está instalado o no está en el PATH. Mira 'Si algo falla' en el FORJA.md del proyecto.")
+    ("No such file or directory"
+     . "El archivo o directorio no existe. ¿Corriste el generador de proyecto? ¿Instalaste las dependencias?")
+    ("\\(cannot find module\\|Cannot find module\\|module not found\\|Module not found\\)"
+     . "Falta una dependencia. Corre: npm install (Node.js) · pip install (Python) · cargo build (Rust) · go mod tidy (Go).")
+    ;; TypeScript
+    ("Type '.*' is not assignable to type"
+     . "Error de tipos en TypeScript: el valor no coincide con el tipo esperado. El mensaje dice qué tipo se esperaba y cuál llegó.")
+    ("Property '.*' does not exist on type"
+     . "Accediendo a una propiedad que TypeScript no conoce en ese tipo. Revisa la declaración del tipo o agrega la propiedad.")
+    ;; Rust — borrow checker
+    ("\\(cannot borrow\\|borrow of moved value\\|does not live long enough\\)"
+     . "Borrow checker: cada valor tiene un dueño; los préstamos deben vivir menos que el dueño. Lee el 'help:' del mensaje.")
+    ;; Permisos
+    ("\\(Permission denied\\|permission denied\\)"
+     . "Sin permiso para ejecutar o escribir ese archivo. ¿El script tiene permisos de ejecución? Prueba: chmod +x <archivo>")
+    ;; Go — errores de uso
+    ("\\(declared and not used\\|imported and not used\\)"
+     . "Go prohíbe variables e imports sin usar. Elimínalos o usa '_' para ignorar el valor explícitamente.")
+    ;; Python
+    ("\\(ModuleNotFoundError\\|ImportError\\)"
+     . "Módulo Python no instalado. Activa el venv (C-c C-v) y corre: venv/bin/pip install <módulo>")
+    ;; Java/Maven
+    ("^\\[ERROR\\] BUILD FAILURE"
+     . "Maven no pudo compilar. Lee los mensajes [ERROR] anteriores — ahí está la causa real.")
+    ;; Exit codes significativos
+    ("exited abnormally with code 127"
+     . "Código 127: comando no encontrado. El shell no encontró el ejecutable. ¿Está instalado y en el PATH?")
+    ("exited abnormally with code 139"
+     . "Código 139: segmentation fault — acceso a memoria inválida. En C: corre 'make asan'. En Rust: RUST_BACKTRACE=1 cargo run.")
+    ("exited abnormally with code 1"
+     . "Código 1: error general. Revisa los mensajes anteriores para ver la causa."))
+  "Patrones de error y sus hints pedagógicos para el buffer de compilación.")
+
+(defun my/forja-pedagogy-annotate ()
+  "Detecta errores comunes en la salida de compilación e inserta hints pedagógicos."
+  (let ((inhibit-read-only t)
+        (end (point))
+        hints)
+    ;; Primera pasada: recolectar posiciones y hints sin modificar el buffer
+    (save-excursion
+      (goto-char compilation-filter-start)
+      (while (< (point) end)
+        (unless (get-text-property (line-beginning-position) 'forja-pedagogy)
+          (let ((line (buffer-substring-no-properties
+                       (line-beginning-position) (line-end-position))))
+            (catch 'found
+              (dolist (entry my/forja-pedagogy-patterns)
+                (when (string-match-p (car entry) line)
+                  (push (cons (line-end-position) (cdr entry)) hints)
+                  (throw 'found t))))))
+        (forward-line 1)))
+    ;; Segunda pasada: insertar de abajo a arriba para no invalidar posiciones
+    (save-excursion
+      (dolist (h (sort hints (lambda (a b) (> (car a) (car b)))))
+        (goto-char (car h))
+        (insert (propertize
+                 (concat "\n  ↳ FORJA: " (cdr h))
+                 'face '(:foreground "#5fafff" :slant italic)
+                 'forja-pedagogy t))))))
+
+(add-hook 'compilation-filter-hook 'my/forja-pedagogy-annotate)
 
 ;; Ver lista de errores solo bajo demanda
 (global-set-key (kbd "C-c E") 'flycheck-list-errors)
