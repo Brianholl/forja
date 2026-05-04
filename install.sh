@@ -802,6 +802,11 @@ if forja_has_feature "opencode"; then
                 && ok "OpenCode instalado: $(opencode --version 2>/dev/null)" \
                 || warn "No se pudo instalar OpenCode (verificar npm)"
         fi
+        # PATH necesario para que opencode encuentre sus binarios
+        if ! grep -q '\.opencode/bin' "$HOME/.bashrc" 2>/dev/null; then
+            printf '\n# opencode\nexport PATH="$HOME/.opencode/bin:$PATH"\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$HOME/.bashrc"
+            ok "PATH de OpenCode agregado a ~/.bashrc"
+        fi
     fi
     # Configurar API key via connect.sh (si existe)
     if [ -f "$HOME/forja/connect.sh" ]; then
