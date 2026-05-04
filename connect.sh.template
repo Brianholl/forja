@@ -1,0 +1,114 @@
+#!/bin/bash
+# =============================================================================
+# connect.sh.template — Plantilla de configuración personal para Forja PEIDE
+#
+# USO:
+#   1. Copiá este archivo: cp connect.sh.template connect.sh
+#   2. Completá las variables marcadas con TODO
+#   3. Ejecutá: bash connect.sh
+#
+# OBTENER CREDENCIALES:
+#   - rclone token: rclone config (seguir wizard para Google Drive)
+#   - OpenRouter key: https://openrouter.ai/keys (cuenta gratuita)
+# =============================================================================
+
+# --- Colores ---
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+# =============================================================================
+# VALIDAR QUE EL USUARIO COMPLETÓ LAS VARIABLES
+# =============================================================================
+RCLONE_TOKEN="TODO_PEGAR_TOKEN_DE_RCLONE"
+OPENROUTER_KEY="TODO_PEGAR_KEY_DE_OPENROUTER"
+
+if [[ "$RCLONE_TOKEN" == TODO* ]] || [[ "$OPENROUTER_KEY" == TODO* ]]; then
+    echo -e "${RED}[XX] Antes de ejecutar este script, editá connect.sh y completá:${NC}"
+    echo ""
+    [ "$RCLONE_TOKEN"   = "TODO_PEGAR_TOKEN_DE_RCLONE"     ] && echo "     - RCLONE_TOKEN   (obtenerlo con: rclone config)"
+    [ "$OPENROUTER_KEY" = "TODO_PEGAR_KEY_DE_OPENROUTER" ] && echo "     - OPENROUTER_KEY  (obtenerlo en: https://openrouter.ai/keys)"
+    echo ""
+    exit 1
+fi
+
+# =============================================================================
+# RCLONE — Google Drive
+# =============================================================================
+echo -e "${BLUE}[..] Configurando acceso a Google Drive...${NC}"
+
+mkdir -p ~/.config/rclone
+cat > ~/.config/rclone/rclone.conf << EOF
+[gdrive]
+type = drive
+scope = drive
+token = $RCLONE_TOKEN
+team_drive =
+EOF
+
+chmod 600 ~/.config/rclone/rclone.conf
+echo -e "${GREEN}[OK] Google Drive configurado${NC}"
+echo "El sistema Multiusuario en Emacs (C-c U s / C-c U S) ya funcionará de manera automática."
+
+# =============================================================================
+# OPENCODE — OpenRouter
+# Modelo por defecto: gratuito. Podés cambiarlo en opencode.json después.
+# Modelos gratuitos disponibles en: https://openrouter.ai/models?q=free
+# =============================================================================
+_opencode_json() {
+    cat << JSONEOF
+{
+    "\$schema": "https://opencode.ai/config.json",
+    "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+    "provider": {
+        "openrouter": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "OpenRouter",
+            "options": {
+                "baseURL": "https://openrouter.ai/api/v1",
+                "apiKey": "$OPENROUTER_KEY"
+            },
+            "models": {
+                "nvidia/nemotron-3-super-120b-a12b:free": {
+                    "name": "Nemotron 3 Super (free)",
+                    "limit": {
+                        "context": 262144,
+                        "output": 32768
+                    }
+                }
+            }
+        }
+    }
+}
+JSONEOF
+}
+
+if [ -n "$TERMUX_VERSION" ]; then
+    UBUNTU_ROOTFS="${PREFIX}/var/lib/proot-distro/installed-rootfs/ubuntu"
+    if [ -d "$UBUNTU_ROOTFS" ]; then
+        TMP_CFG="$(mktemp)"
+        _opencode_json > "$TMP_CFG"
+        UBUNTU_ROOT="$UBUNTU_ROOTFS/root"
+        mkdir -p "$UBUNTU_ROOT/.config/opencode"
+        cp "$TMP_CFG" "$UBUNTU_ROOT/.config/opencode/opencode.json"
+        rm -f "$TMP_CFG"
+        if ! grep -q "OPENROUTER_API_KEY" ~/.bashrc 2>/dev/null; then
+            echo "export OPENROUTER_API_KEY=\"$OPENROUTER_KEY\"" >> ~/.bashrc
+        fi
+        echo -e "${GREEN}[OK] OpenCode configurado para Termux (proot-distro Ubuntu)${NC}"
+    else
+        echo -e "${BLUE}[--] proot-distro/Ubuntu no instalado, OpenCode omitido${NC}"
+        echo "     Para instalar: pkg install proot-distro && proot-distro install ubuntu"
+        echo "     Luego volvé a ejecutar: bash connect.sh"
+    fi
+else
+    # Linux nativo / WSL2
+    mkdir -p "$HOME/.config/opencode"
+    _opencode_json > "$HOME/.config/opencode/opencode.json"
+    LOCAL_EL="$HOME/.emacs.d/local.el"
+    if ! grep -q "OPENROUTER_API_KEY" "$LOCAL_EL" 2>/dev/null; then
+        echo "(setenv \"OPENROUTER_API_KEY\" \"$OPENROUTER_KEY\")" >> "$LOCAL_EL"
+    fi
+    echo -e "${GREEN}[OK] OpenCode configurado para Linux nativo${NC}"
+fi
