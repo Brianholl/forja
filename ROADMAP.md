@@ -175,17 +175,25 @@ Cada generador crea un `FORJA.md` en la raíz del proyecto con:
 stack, mapa de atajos → comandos reales, ciclo completo, cómo extender, diagnóstico.
 
 - [x] **TypeScript** (`20-web.org`) — CLI y librería; tsx, tsc, npm
+- [x] **Web Frontend** (`20-web.org`) — HTML/CSS/JS, live-server
+- [x] **Tailwind CSS** (`20-web.org`) — HTML + Tailwind CDN, live-server
+- [x] **Express API** (`20-web.org`) — Node.js, Express, cors, dotenv
 - [x] **Rust** (`31-rust.org`) — proyecto base y Actix-web API; cargo, clippy, rust-gdb
 - [x] **Go** (`32-go.org`) — proyecto base y Gin API; go mod, gopls
 - [x] **Python** (`34-python.org`) — FastAPI + uvicorn + venv
+- [x] **PHP** (`35-php.org`) — php built-in server, Composer, intelephense
 - [x] **C** (`30-cpp.org`) — gcc, Makefile, Unity, ASan, Valgrind, GDB
 - [x] **C++** (`30-cpp.org`) — g++/clang++, build.sh, clangd, GDB
+- [x] **nob** (`30-cpp.org`) — gcc, nob.h (build system en C)
+- [x] **ESP32** (`30-cpp.org`) — ESP-IDF, CMake, idf.py, FreeRTOS
+- [x] **Raylib C** (`30-cpp.org`) — gcc, Raylib, build.sh, game loop
+- [x] **Raylib C++** (`30-cpp.org`) — g++, Raylib, build.sh, game loop
 - [x] **Lua** (`42-lua.org`) — lua5.4, lua-language-server
 - [x] **Löve2D** (`42-lua.org`) — love, ciclo load/update/draw
 - [x] **Zig** (`43-zig.org`) — zig build, zls, comptime
 - [x] **Java** (`44-java.org`) — JDK 17, Maven, JUnit 5, jdtls
 - [x] **Kotlin** (`44-java.org`) — JDK 17, Gradle Kotlin DSL, kotlin-language-server
-- [x] **PHP** (`35-php.org`) — php built-in server, Composer, intelephense
+- [x] **Unreal Engine 4.27** (`40-unreal.org`) — UBT, Clang, build/editor/cook/package scripts
 - [ ] **GDScript** — sin generador de proyecto; pospuesto a v3.0
 
 ### Bloque B — Errores que enseñan ✓ v2.4
@@ -246,4 +254,4 @@ Ideas post-release sin compromiso de fecha:
 | v2.0 | Abr 2026 | Encapsulamiento: generadores a módulos, hydras `my/hydra-*`, dispatch table |
 | v2.1 | Abr 2026 | TAO completo: org-caldav, modo examen, seguimiento.org, widget GTD, how-to 13 |
 | v2.2 | Abr 2026 | Compatibilidad: `test.sh --matrix`, COMPATIBILITY.md, PKGBUILD completo, FASM resuelto |
-| v2.4 | May 2026 | Transparencia completa: FORJA.md en 12 generadores, hook pedagógico, how-tos 15/16, Clase 17, comentarios "¿Por qué?" en módulos clave |
+| v2.4 | May 2026 | Transparencia completa: FORJA.md en 21 generadores (todos los stacks), hook pedagógico, how-tos 15/16, Clase 17, comentarios "¿Por qué?" en módulos clave |
