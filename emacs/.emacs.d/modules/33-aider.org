@@ -109,21 +109,34 @@
 * 19. Indicador visual de actividad del modelo
 
 #+begin_src emacs-lisp
-;; Muestra "⚙Aider…" en el modeline mientras el modelo está procesando.
-;; Se activa al enviar cualquier comando y se limpia cuando vuelve el prompt "> ".
+;; Muestra "⚙ Aider pensando…" en el modeline Y en el echo area mientras el modelo
+;; procesa. Un timer periódico refresca el echo area cada 4 s para que no lo borre
+;; otro mensaje. Se limpia en cuanto Aider devuelve el prompt "> ".
 (defvar my/aider--working nil)
+(defvar my/aider--thinking-timer nil
+  "Timer periódico que refresca el mensaje de actividad en el echo area.")
 
 (defun my/aider--output-tracker (output)
   "Limpia el indicador de actividad cuando Aider devuelve el prompt en OUTPUT."
-  (when (and my/aider--working (string-match-p "> $" output))
+  (when (and my/aider--working (string-match-p "> " output))
     (setq my/aider--working nil)
+    (when my/aider--thinking-timer
+      (cancel-timer my/aider--thinking-timer)
+      (setq my/aider--thinking-timer nil))
     (message "✅ Aider listo")
     (force-mode-line-update t)))
 
 (defun my/aider--mark-working (&rest _)
   "Activa el indicador de actividad al enviar un comando a Aider."
   (setq my/aider--working t)
-  (force-mode-line-update t))
+  (force-mode-line-update t)
+  (message "⚙ Aider pensando…")
+  (when my/aider--thinking-timer
+    (cancel-timer my/aider--thinking-timer))
+  (setq my/aider--thinking-timer
+        (run-with-timer 4 4 (lambda ()
+                              (when my/aider--working
+                                (message "⚙ Aider pensando…"))))))
 
 (advice-add 'aider-input-sender :before #'my/aider--mark-working)
 (advice-add 'aider--comint-send-string-syntax-highlight :before #'my/aider--mark-working)
@@ -144,6 +157,24 @@
          (get-buffer buf-name)
          (comint-check-proc buf-name))))
 
+;; --- Esperar a que Aider muestre el prompt (máx TIMEOUT segundos) ---
+(defun my/aider--prompt-visible-p ()
+  "Devuelve t si el prompt de Aider (> ) es el último texto del buffer."
+  (when-let* ((buf-name (aider-buffer-name))
+              (buf (get-buffer buf-name)))
+    (with-current-buffer buf
+      (string-match-p "> $"
+                      (buffer-substring-no-properties
+                       (max (point-min) (- (point-max) 10))
+                       (point-max))))))
+
+(defun my/aider--wait-ready (&optional timeout)
+  "Bloquea hasta que Aider muestre el prompt o pasen TIMEOUT segundos (por defecto 15)."
+  (let ((deadline (+ (float-time) (or timeout 15))))
+    (while (and (< (float-time) deadline)
+                (not (my/aider--prompt-visible-p)))
+      (sit-for 0.4))))
+
 (defun my/aider-open-project ()
   "Abre Aider en la raíz del proyecto actual."
   (interactive)
@@ -156,21 +187,26 @@
 
 (defun my/aider-add-current-file ()
   "Agrega el archivo actual al contexto de Aider.
-   Si Aider no está corriendo, lo inicia primero."
+   Si Aider no está corriendo, lo inicia y espera el prompt antes de continuar."
   (interactive)
   (if (buffer-file-name)
       (progn
         (unless (my/aider-buffer-running-p)
           (my/aider-open-project)
-          (sit-for 2))
+          (my/aider--wait-ready))
         (aider-add-current-file))
     (message "❌ Este buffer no tiene archivo asociado")))
 
 (defun my/aider-ask-region ()
-  "Pregunta a Aider sobre la región seleccionada."
+  "Pregunta a Aider sobre la región seleccionada.
+   Inicia Aider si no está corriendo."
   (interactive)
   (if (use-region-p)
-      (aider-send-block-or-region)
+      (progn
+        (unless (my/aider-buffer-running-p)
+          (my/aider-open-project)
+          (my/aider--wait-ready))
+        (aider-send-block-or-region))
     (message "❌ No hay región seleccionada")))
 
 (defun my/aider-fix-flycheck ()
@@ -178,18 +214,18 @@
   (interactive)
   (unless (my/aider-buffer-running-p)
     (my/aider-open-project)
-    (sit-for 2))
+    (my/aider--wait-ready))
   (my/aider-add-current-file)
   (aider-flycheck-fix-errors-in-scope))
 
 (defun my/aider-keybindings ()
-  "Atajos de Aider para modos de programación."
-  ;; C-c i abre el hydra — los sub-atajos (o, a, x...) viven dentro del hydra,
-  ;; no como secuencias independientes: C-c i no es un prefix keymap.
+  "Registra C-c i → hydra de Aider en el mapa local del buffer."
   (local-set-key (kbd "C-c i") #'my/hydra-aider/body))
 
-(add-hook 'prog-mode-hook #'my/aider-keybindings)
+(add-hook 'prog-mode-hook     #'my/aider-keybindings)
 ;; Modos que NO heredan de prog-mode → se agregan explícitamente
 (add-hook 'web-mode-hook      #'my/aider-keybindings)  ; JSX / Vue
-(add-hook 'html-ts-mode-hook  #'my/aider-keybindings)  ; HTML (hereda de text-mode)
+(add-hook 'html-ts-mode-hook  #'my/aider-keybindings)  ; HTML
+(add-hook 'org-mode-hook      #'my/aider-keybindings)  ; Org (bloques de código)
+(add-hook 'markdown-mode-hook #'my/aider-keybindings)  ; Markdown
 #+end_src
