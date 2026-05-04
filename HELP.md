@@ -228,7 +228,7 @@ FORJA usa dos fuentes de IA complementarias:
 
 | Instalado | Modelo | RAM | Notas |
 | :---: | :--- | :--- | :--- |
-| | `qwen2.5:0.5b` | ~400 MB | Minimo, espanol basico |
+| ✅ | `qwen2.5:0.5b` | ~400 MB | Minimo, espanol basico |
 | | `gemma3:1b` | ~800 MB | Google, multilingue |
 | | `qwen2.5:3b` | ~2 GB | Bueno para traduccion |
 | | `llama3.2:3b` | ~2 GB | Meta, rapido y capaz |
