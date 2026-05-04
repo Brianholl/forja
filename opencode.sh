@@ -11,9 +11,10 @@ if [ -n "$TERMUX_VERSION" ] || [[ "$HOME" == /data/data/com.termux* ]]; then
     fi
     exec proot-distro login ubuntu -- sh -c "cd '$PROJECT' && opencode"
 else
-    if ! command -v opencode &>/dev/null; then
-        echo "Error: opencode no instalado. Corré: npm install -g opencode-ai"
+    OPENCODE_BIN="$(command -v opencode 2>/dev/null || echo "$HOME/.opencode/bin/opencode")"
+    if [ ! -x "$OPENCODE_BIN" ]; then
+        echo "Error: opencode no instalado. Corré: curl -fsSL https://opencode.ai/install | bash"
         exit 1
     fi
-    cd "$PROJECT" && exec opencode
+    cd "$PROJECT" && exec "$OPENCODE_BIN"
 fi

@@ -106,9 +106,14 @@ else
     # Linux nativo / WSL2
     mkdir -p "$HOME/.config/opencode"
     _opencode_json > "$HOME/.config/opencode/opencode.json"
+    # Inyectar en local.el para que Emacs herede la variable
     LOCAL_EL="$HOME/.emacs.d/local.el"
     if ! grep -q "OPENROUTER_API_KEY" "$LOCAL_EL" 2>/dev/null; then
         echo "(setenv \"OPENROUTER_API_KEY\" \"$OPENROUTER_KEY\")" >> "$LOCAL_EL"
+    fi
+    # Exportar en .bashrc para opencode en terminal (fuera de Emacs)
+    if ! grep -q "OPENROUTER_API_KEY" "$HOME/.bashrc" 2>/dev/null; then
+        printf '\n# OpenRouter (Aider + OpenCode)\nexport OPENROUTER_API_KEY="%s"\n' "$OPENROUTER_KEY" >> "$HOME/.bashrc"
     fi
     echo -e "${GREEN}[OK] OpenCode configurado para Linux nativo${NC}"
 fi

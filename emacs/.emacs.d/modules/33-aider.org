@@ -19,9 +19,39 @@
 
 ;; OLLAMA_API_BASE sigue activo para el autocompletado inline (minuet)
 (setenv "OLLAMA_API_BASE" "http://localhost:11434")
+#+end_src
 
-;; Atajo para el menú nativo completo de aider.el
-(global-set-key (kbd "C-c i") #'aider-transient-menu)
+* 12. Hydra de Aider (C-c i)
+
+#+begin_src emacs-lisp
+;; Hydra propia en lugar de aider-transient-menu — más confiable y consistente
+;; con el resto de FORJA. El transient menu de aider.el falla en algunos contextos.
+(defhydra my/hydra-aider (:color blue :hint nil)
+  "
+  🤖 Aider ────────────────────────────────────────────────────────────
+  Sesión                Código                    Tests / Utilidades
+  ─────────────────── ─────────────────────────── ────────────────────
+  _o_ abrir proyecto   _c_ cambiar func/región    _t_ unit tests
+  _a_ agregar archivo  _r_ preguntar región        _p_ planificar
+  _s_ ir al buffer     _?_ pregunta libre          _u_ deshacer último
+  _f_ fix flycheck     _x_ salir Aider             _h_ historial
+  ─────────────────────────────────────────── [_q_ cancelar] ──────────
+"
+  ("o" my/aider-open-project              "abrir")
+  ("a" my/aider-add-current-file          "add archivo")
+  ("s" aider-switch-to-buffer             "ir buffer")
+  ("x" aider-exit                         "salir")
+  ("c" aider-function-or-region-change    "cambiar")
+  ("r" my/aider-ask-region                "región")
+  ("?" aider-ask-question                 "pregunta")
+  ("f" my/aider-fix-flycheck              "fix errores")
+  ("t" aider-write-unit-test              "unit tests")
+  ("p" aider-start-software-planning      "planificar")
+  ("u" aider-undo-last-change             "deshacer")
+  ("h" aider-open-history                 "historial")
+  ("q" nil                                "cancelar"))
+
+(global-set-key (kbd "C-c i") #'my/hydra-aider/body)
 #+end_src
 
 * 15. Autocompletado Inline (Local FIM)
@@ -65,13 +95,42 @@
           (revert-buffer t t t))))))
 
 (defun my/aider--install-revert-hook ()
-  "Instala el filtro de auto-revert en el buffer de Aider."
+  "Instala los hooks de output en el buffer de Aider."
   (when-let ((buf (get-buffer (aider-buffer-name))))
     (with-current-buffer buf
       (add-hook 'comint-output-filter-functions
-                #'my/aider--revert-edited-buffer nil t))))
+                #'my/aider--revert-edited-buffer nil t)
+      (add-hook 'comint-output-filter-functions
+                #'my/aider--output-tracker nil t))))
 
 (advice-add 'aider-run-aider :after (lambda (&rest _) (my/aider--install-revert-hook)))
+#+end_src
+
+* 19. Indicador visual de actividad del modelo
+
+#+begin_src emacs-lisp
+;; Muestra "⚙Aider…" en el modeline mientras el modelo está procesando.
+;; Se activa al enviar cualquier comando y se limpia cuando vuelve el prompt "> ".
+(defvar my/aider--working nil)
+
+(defun my/aider--output-tracker (output)
+  "Limpia el indicador de actividad cuando Aider devuelve el prompt en OUTPUT."
+  (when (and my/aider--working (string-match-p "> $" output))
+    (setq my/aider--working nil)
+    (message "✅ Aider listo")
+    (force-mode-line-update t)))
+
+(defun my/aider--mark-working (&rest _)
+  "Activa el indicador de actividad al enviar un comando a Aider."
+  (setq my/aider--working t)
+  (force-mode-line-update t))
+
+(advice-add 'aider-input-sender :before #'my/aider--mark-working)
+(advice-add 'aider--comint-send-string-syntax-highlight :before #'my/aider--mark-working)
+
+(add-to-list 'global-mode-string
+             '(:eval (when my/aider--working
+                       (propertize " ⚙Aider…" 'face 'warning))))
 #+end_src
 
 * 20. Funciones de Conveniencia
@@ -125,20 +184,18 @@
 
 (defun my/aider-keybindings ()
   "Atajos de Aider para modos de programación."
-  ;; Sesión
+  ;; C-c i abre el hydra (igual que el global, pero asegura que no quede tapado)
+  (local-set-key (kbd "C-c i") #'my/hydra-aider/body)
+  ;; Atajos directos sin pasar por el hydra (para usuarios avanzados)
   (local-set-key (kbd "C-c i o") #'my/aider-open-project)
   (local-set-key (kbd "C-c i a") #'my/aider-add-current-file)
   (local-set-key (kbd "C-c i x") #'aider-exit)
   (local-set-key (kbd "C-c i s") #'aider-switch-to-buffer)
-  ;; Código
   (local-set-key (kbd "C-c i c") #'aider-function-or-region-change)
   (local-set-key (kbd "C-c i r") #'my/aider-ask-region)
-  (local-set-key (kbd "C-c i q") #'aider-ask-question)
   (local-set-key (kbd "C-c i f") #'my/aider-fix-flycheck)
-  ;; Tests y planificación
   (local-set-key (kbd "C-c i t") #'aider-write-unit-test)
   (local-set-key (kbd "C-c i p") #'aider-start-software-planning)
-  ;; Utilidades
   (local-set-key (kbd "C-c i u") #'aider-undo-last-change)
   (local-set-key (kbd "C-c i h") #'aider-open-history))
 
