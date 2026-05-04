@@ -67,20 +67,22 @@ Cuando hay un alumno activo, los proyectos se crean dentro de su carpeta
 personal. Esto permite que cada alumno tenga sus propios proyectos aislados.
 
 #+begin_src emacs-lisp
-(defvar my/mu-projects-global (expand-file-name "projects/" "~/")
+(defvar my/mu-projects-global (expand-file-name "forja-org/local/projects/" "~/")
   "Directorio global de proyectos (usado cuando no hay alumno activo).")
 
 (defun my/mu-projects-base ()
   "Retorna el directorio base de proyectos.
 Si hay un alumno activo, retorna ~/forja-org/cloud/ALUMNO/projects/.
-Si no, retorna ~/projects/ (comportamiento original)."
+Si no, retorna ~/forja-org/local/projects/."
   (if my/mu-alumno-actual
       (let ((dir (expand-file-name
                   (concat my/mu-alumno-actual "/projects/")
                   my/mu-base-dir)))
         (make-directory dir t)
         dir)
-    my/mu-projects-global))
+    (progn
+      (make-directory my/mu-projects-global t)
+      my/mu-projects-global)))
 #+end_src
 
 * 2. Detección de USB

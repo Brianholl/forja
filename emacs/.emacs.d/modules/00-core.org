@@ -632,8 +632,10 @@ Si hay un proceso de compilación activo, lo mata."
 ;; --- Base de proyectos (fallback si 49-multiusuario no está cargado) ---
 (unless (fboundp 'my/mu-projects-base)
   (defun my/mu-projects-base ()
-    "Fallback: retorna ~/projects/ cuando el módulo multiusuario no está activo."
-    (expand-file-name "projects/" "~/")))
+    "Fallback: retorna ~/forja-org/local/projects/ cuando el módulo multiusuario no está activo."
+    (let ((dir (expand-file-name "forja-org/local/projects/" "~/")))
+      (make-directory dir t)
+      dir)))
 
 ;; --- FORMATEO CON ASTYLE (Estilo K&R / Tsoding) ---
 
