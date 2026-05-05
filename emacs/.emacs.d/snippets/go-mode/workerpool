@@ -1,0 +1,55 @@
+# -*- mode: snippet -*-
+# name: Worker Pool (Go)
+# key: workerpool
+# --
+// Worker Pool — N goroutines procesando trabajos de una cola
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+type ${1:Trabajo} struct {
+	ID    int
+	Dato  string
+}
+
+type ${2:Resultado} struct {
+	TrabajoID int
+	Salida    string
+}
+
+func trabajador(id int, trabajos <-chan $1, resultados chan<- $2, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for t := range trabajos {
+		salida := fmt.Sprintf("worker-%d procesó trabajo-%d: %s", id, t.ID, t.Dato)
+		resultados <- $2{TrabajoID: t.ID, Salida: salida}
+	}
+}
+
+func main() {
+	const numWorkers = ${3:3}
+	const numTrabajos = ${4:9}
+
+	trabajos   := make(chan $1, numTrabajos)
+	resultados := make(chan $2, numTrabajos)
+	var wg sync.WaitGroup
+
+	for i := 1; i <= numWorkers; i++ {
+		wg.Add(1)
+		go trabajador(i, trabajos, resultados, &wg)
+	}
+
+	for i := 1; i <= numTrabajos; i++ {
+		trabajos <- $1{ID: i, Dato: fmt.Sprintf("${5:item}-%d", i)}
+	}
+	close(trabajos)
+
+	go func() { wg.Wait(); close(resultados) }()
+
+	for r := range resultados {
+		fmt.Println(r.Salida)
+	}
+}
+$0

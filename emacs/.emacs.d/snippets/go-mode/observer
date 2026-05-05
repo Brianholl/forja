@@ -1,0 +1,67 @@
+# -*- mode: snippet -*-
+# name: Observer (Go)
+# key: observer
+# --
+// Observer — bus de eventos genérico con canales
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+type ${1:EventBus}[T any] struct {
+	mu   sync.RWMutex
+	subs []chan T
+}
+
+func (b *$1[T]) Suscribir() <-chan T {
+	ch := make(chan T, ${2:8})
+	b.mu.Lock()
+	b.subs = append(b.subs, ch)
+	b.mu.Unlock()
+	return ch
+}
+
+func (b *$1[T]) Emitir(evento T) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	for _, ch := range b.subs {
+		select {
+		case ch <- evento:
+		default:   // suscriptor lento: descartar
+		}
+	}
+}
+
+type ${3:Evento} struct {
+	Tipo  string
+	Datos string
+}
+
+func main() {
+	bus := &$1[$3]{}
+
+	ch1 := bus.Suscribir()
+	ch2 := bus.Suscribir()
+
+	var wg sync.WaitGroup
+	escuchar := func(nombre string, ch <-chan $3) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for e := range ch {
+				fmt.Printf("[%s] %s: %s\n", nombre, e.Tipo, e.Datos)
+			}
+		}()
+	}
+	escuchar("${4:Logger}", ch1)
+	escuchar("${5:Email}",  ch2)
+
+	bus.Emitir($3{"${6:login}",  "${7:usuario=ana}"})
+	bus.Emitir($3{"${8:compra}", "${9:item=teclado}"})
+
+	close(ch1); close(ch2)
+	wg.Wait()
+}
+$0

@@ -1,0 +1,22 @@
+# -*- mode: snippet -*-
+# name: Singleton (Python)
+# key: singleton
+# --
+# Singleton — una única instancia via __new__
+class ${1:Configuracion}:
+    _instancia = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instancia is None:
+            cls._instancia = super().__new__(cls)
+        return cls._instancia
+
+    def __init__(self, ${2:ruta}: str = "${3:/etc/app.cfg}"):
+        if not hasattr(self, "_listo"):
+            self.${2:ruta} = ${2:ruta}
+            self._listo = True
+
+a = $1()
+b = $1()
+print("¿Misma instancia?", a is b)   # True
+$0

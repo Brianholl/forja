@@ -1,0 +1,32 @@
+# -*- mode: snippet -*-
+# name: Decorator (Lua)
+# key: decorator
+# --
+-- Decorator — envolver funciones con comportamiento adicional
+local function ${1:cronometro}(fn)
+    return function(...)
+        local t0 = os.clock()
+        local resultados = table.pack(fn(...))
+        print(string.format("[%s] %.4fs", "${1:cronometro}", os.clock() - t0))
+        return table.unpack(resultados, 1, resultados.n)
+    end
+end
+
+local function ${2:registro}(fn, nombre)
+    return function(...)
+        print(string.format("[%s] llamando %s", "${2:registro}", nombre or "fn"))
+        return fn(...)
+    end
+end
+
+-- Función original
+local function ${3:sumar}(a, b)
+    return a + b
+end
+
+-- Decorar
+local $3_log  = $2($3, "${3:sumar}")
+local $3_perf = $1($3_log)
+
+print($3_perf(${4:10}, ${5:32}))
+$0

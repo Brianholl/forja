@@ -1,0 +1,42 @@
+# -*- mode: snippet -*-
+# name: Factory Method (PHP)
+# key: factory
+# --
+<?php
+// Factory Method — subclases eligen el objeto a crear
+interface ${1:Notificador}
+{
+    public function enviar(string $mensaje): void;
+}
+
+class ${2:Email} implements $1
+{
+    public function enviar(string $mensaje): void
+    {
+        echo "[Email] {$mensaje}\n";
+    }
+}
+
+class ${3:SMS} implements $1
+{
+    public function enviar(string $mensaje): void
+    {
+        echo "[SMS] {$mensaje}\n";
+    }
+}
+
+class ${4:NotificadorFactory}
+{
+    public static function crear(string $tipo): $1
+    {
+        return match ($tipo) {
+            'email' => new $2(),
+            'sms'   => new $3(),
+            default => throw new \InvalidArgumentException("Tipo desconocido: {$tipo}"),
+        };
+    }
+}
+
+$n = $4::crear('email');
+$n->enviar('${5:Hola mundo}');
+$0

@@ -1,0 +1,30 @@
+# -*- mode: snippet -*-
+# name: Factory (GDScript)
+# key: factory
+# --
+# Factory — crear nodos/entidades por tipo sin acoplar al caller
+extends Node
+class_name ${1:EnemyFactory}
+
+enum ${2:TipoEnemigo} { ${3:BASICO}, ${4:RAPIDO}, ${5:JEFE} }
+
+const ESCENAS = {
+	$2.$3: preload("res://enemigos/${6:basico}.tscn"),
+	$2.$4: preload("res://enemigos/${7:rapido}.tscn"),
+	$2.$5: preload("res://enemigos/${8:jefe}.tscn"),
+}
+
+static func crear(tipo: $2, posicion: Vector2, padre: Node) -> Node:
+	var escena = ESCENAS.get(tipo)
+	if escena == null:
+		push_error("[$1] tipo desconocido: %d" % tipo)
+		return null
+	var instancia = escena.instantiate()
+	instancia.global_position = posicion
+	padre.add_child(instancia)
+	return instancia
+
+# Uso:
+# $1.crear($2.$3, Vector2(100, 200), self)
+# $1.crear($2.$5, Vector2(640, 360), $Enemigos)
+$0

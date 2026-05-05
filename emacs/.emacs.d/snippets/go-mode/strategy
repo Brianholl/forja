@@ -1,0 +1,41 @@
+# -*- mode: snippet -*-
+# name: Strategy (Go)
+# key: strategy
+# --
+// Strategy — interfaz pequeña como estrategia intercambiable
+package main
+
+import (
+	"fmt"
+	"sort"
+)
+
+type ${1:Comparador}[T any] interface {
+	Comparar(a, b T) bool
+}
+
+type ${2:PorNombre} struct{}
+type ${3:PorEdad}   struct{}
+
+type ${4:Persona} struct {
+	Nombre string
+	Edad   int
+}
+
+func ($2) Comparar(a, b $4) bool { return a.Nombre < b.Nombre }
+func ($3) Comparar(a, b $4) bool { return a.Edad < b.Edad }
+
+func ordenar[T any](lista []T, cmp $1[T]) []T {
+	copia := append([]T{}, lista...)
+	sort.Slice(copia, func(i, j int) bool {
+		return cmp.Comparar(copia[i], copia[j])
+	})
+	return copia
+}
+
+func main() {
+	personas := []$4{{"${5:Carlos}", ${6:30}}, {"${7:Ana}", ${8:25}}, {"${9:Beto}", ${10:35}}}
+	fmt.Println("Por nombre:", ordenar(personas, $2{}))
+	fmt.Println("Por edad:",   ordenar(personas, $3{}))
+}
+$0

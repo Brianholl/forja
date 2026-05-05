@@ -1,0 +1,38 @@
+# -*- mode: snippet -*-
+# name: Singleton (PHP)
+# key: singleton
+# --
+<?php
+// Singleton — constructor privado + instancia estática
+class ${1:Conexion}
+{
+    private static ?self $instancia = null;
+    private \PDO $pdo;
+
+    private function __construct(string $dsn)
+    {
+        $this->pdo = new \PDO($dsn);
+        echo "[$1] conexión creada\n";
+    }
+
+    public static function obtener(): self
+    {
+        if (self::$instancia === null) {
+            self::$instancia = new self("${2:sqlite::memory:}");
+        }
+        return self::$instancia;
+    }
+
+    public function consultar(string $sql): array
+    {
+        return $this->pdo->query($sql)->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    private function __clone() {}
+    private function __wakeup() {}
+}
+
+$a = $1::obtener();
+$b = $1::obtener();
+var_dump($a === $b);   // true
+$0

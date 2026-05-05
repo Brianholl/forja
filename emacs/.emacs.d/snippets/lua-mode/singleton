@@ -1,0 +1,40 @@
+# -*- mode: snippet -*-
+# name: Singleton (Lua)
+# key: singleton
+# --
+-- Singleton — módulo-tabla con instancia única
+local ${1:Config} = (function()
+    local _instancia = nil
+
+    local M = {}
+    M.__index = M
+
+    local function _nuevo()
+        return setmetatable({
+            ${2:nivel_log}  = "${3:info}",
+            ${4:max_reintentos} = ${5:3},
+        }, M)
+    end
+
+    function M.obtener()
+        if not _instancia then
+            _instancia = _nuevo()
+            print("[$1] instancia creada")
+        end
+        return _instancia
+    end
+
+    function M:info()
+        print(string.format("[$1] %s=%s %s=%d",
+            "${2:nivel_log}", self.${2:nivel_log},
+            "${4:max_reintentos}", self.${4:max_reintentos}))
+    end
+
+    return M
+end)()
+
+local a = $1.obtener()
+local b = $1.obtener()
+a:info()
+print("¿Misma instancia?", a == b)   -- true
+$0

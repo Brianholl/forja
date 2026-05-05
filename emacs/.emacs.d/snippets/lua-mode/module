@@ -1,0 +1,42 @@
+# -*- mode: snippet -*-
+# name: Module (Lua)
+# key: module
+# --
+-- Module — encapsulamiento con tabla privada; interfaz pública explícita
+local ${1:M} = (function()
+    -- Estado privado
+    local _${2:contador} = 0
+    local _${3:limite}   = ${4:10}
+
+    -- Interfaz pública
+    local pub = {}
+
+    function pub.incrementar(n)
+        n = n or 1
+        _$2 = math.min(_$2 + n, _$3)
+        return _$2
+    end
+
+    function pub.decrementar(n)
+        n = n or 1
+        _$2 = math.max(_$2 - n, 0)
+        return _$2
+    end
+
+    function pub.valor()
+        return _$2
+    end
+
+    function pub.reiniciar()
+        _$2 = 0
+    end
+
+    return pub
+end)()
+
+$1.incrementar(3)
+$1.incrementar(2)
+print("valor:", $1.valor())   -- 5
+$1.reiniciar()
+print("tras reset:", $1.valor())   -- 0
+$0

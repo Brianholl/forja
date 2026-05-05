@@ -1,0 +1,26 @@
+# -*- mode: snippet -*-
+# name: Prototype (Python)
+# key: prototype
+# --
+# Prototype — clonar objetos sin depender de su clase concreta
+import copy
+from dataclasses import dataclass, field
+from typing import List
+
+@dataclass
+class ${1:Personaje}:
+    nombre: str
+    hp: int
+    inventario: List[str] = field(default_factory=list)
+
+    def clonar(self) -> "${1:Personaje}":
+        return copy.deepcopy(self)
+
+base = $1("${2:Arquetipo}", ${3:100}, ["espada", "escudo"])
+clon = base.clonar()
+clon.nombre = "${4:Variante}"
+clon.inventario.append("pocion")
+
+print(base)   # inventario sin pocion
+print(clon)   # inventario con pocion
+$0

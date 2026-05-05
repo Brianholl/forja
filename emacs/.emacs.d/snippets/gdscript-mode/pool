@@ -1,0 +1,44 @@
+# -*- mode: snippet -*-
+# name: Object Pool (GDScript)
+# key: pool
+# --
+# Object Pool — reutilizar instancias costosas (balas, partículas, enemigos)
+extends Node
+class_name ${1:Pool}
+
+@export var escena: PackedScene
+@export var tamaño_inicial: int = ${2:20}
+
+var _disponibles: Array[Node] = []
+
+func _ready() -> void:
+	for i in tamaño_inicial:
+		_disponibles.push_back(_crear())
+
+func _crear() -> Node:
+	var inst = escena.instantiate()
+	inst.set_meta("en_pool", true)
+	add_child(inst)
+	inst.hide()
+	return inst
+
+func obtener(posicion: Vector2 = Vector2.ZERO) -> Node:
+	var obj: Node
+	if _disponibles.is_empty():
+		obj = _crear()
+	else:
+		obj = _disponibles.pop_back()
+	obj.global_position = posicion
+	obj.show()
+	return obj
+
+func devolver(obj: Node) -> void:
+	obj.hide()
+	_disponibles.push_back(obj)
+
+# Uso:
+# @onready var pool_balas: ${1:Pool} = $PoolBalas
+# var bala = pool_balas.obtener(posicion_disparo)
+# # cuando la bala muere:
+# pool_balas.devolver(self)
+$0

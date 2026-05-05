@@ -1,0 +1,18 @@
+# -*- mode: snippet -*-
+# name: Singleton (Kotlin)
+# key: singleton
+# --
+// Singleton — object declaration: instancia única garantizada por el runtime
+object ${1:Configuracion} {
+    val ${2:baseDatos}: String = "${3:jdbc:postgresql://localhost/app}"
+    var ${4:debug}: Boolean = false
+
+    fun info() = println("DB=$${2:baseDatos} debug=$${4:debug}")
+}
+
+fun main() {
+    $1.${4:debug} = true
+    $1.info()
+    println($1 === $1)   // true
+}
+$0

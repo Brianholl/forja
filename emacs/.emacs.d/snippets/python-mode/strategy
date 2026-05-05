@@ -1,0 +1,41 @@
+# -*- mode: snippet -*-
+# name: Strategy (Python)
+# key: strategy
+# --
+# Strategy — intercambiar algoritmos en tiempo de ejecución
+from typing import Callable, List
+
+${1:Ordenar} = Callable[[List[int]], List[int]]
+
+def por_burbuja(lista: List[int]) -> List[int]:
+    l = lista[:]
+    for i in range(len(l)):
+        for j in range(len(l) - i - 1):
+            if l[j] > l[j + 1]:
+                l[j], l[j + 1] = l[j + 1], l[j]
+    return l
+
+def por_insercion(lista: List[int]) -> List[int]:
+    l = lista[:]
+    for i in range(1, len(l)):
+        clave = l[i]
+        j = i - 1
+        while j >= 0 and l[j] > clave:
+            l[j + 1] = l[j]
+            j -= 1
+        l[j + 1] = clave
+    return l
+
+class ${2:Clasificador}:
+    def __init__(self, estrategia: $1 = sorted):
+        self.estrategia = estrategia
+
+    def ordenar(self, datos: List[int]) -> List[int]:
+        return self.estrategia(datos)
+
+c = $2(por_burbuja)
+print(c.ordenar([${3:5, 2, 8, 1, 9}]))
+
+c.estrategia = por_insercion
+print(c.ordenar([${3:5, 2, 8, 1, 9}]))
+$0

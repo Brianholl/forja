@@ -1,0 +1,62 @@
+# -*- mode: snippet -*-
+# name: Interface via VTable (Zig)
+# key: interface
+# --
+// Interface — vtable manual; despacho dinámico sin herencia
+const std = @import("std");
+
+// VTable y tipo de interfaz
+const ${1:Forma}VTable = struct {
+    area:   *const fn (ctx: *anyopaque) f64,
+    nombre: *const fn (ctx: *anyopaque) []const u8,
+};
+
+const ${1:Forma} = struct {
+    ctx:    *anyopaque,
+    vtable: *const ${1:Forma}VTable,
+
+    pub fn area(self: $1) f64           { return self.vtable.area(self.ctx); }
+    pub fn nombre(self: $1) []const u8  { return self.vtable.nombre(self.ctx); }
+};
+
+// Implementación concreta 1
+const ${2:Circulo} = struct {
+    radio: f64,
+
+    fn area(ctx: *anyopaque) f64 {
+        const self: *$2 = @ptrCast(@alignCast(ctx));
+        return std.math.pi * self.radio * self.radio;
+    }
+    fn nombre(_: *anyopaque) []const u8 { return "círculo"; }
+
+    const vtable = ${1:Forma}VTable{ .area = area, .nombre = nombre };
+
+    pub fn forma(self: *$2) $1 { return .{ .ctx = self, .vtable = &vtable }; }
+};
+
+// Implementación concreta 2
+const ${3:Rectangulo} = struct {
+    ancho: f64,
+    alto:  f64,
+
+    fn area(ctx: *anyopaque) f64 {
+        const self: *$3 = @ptrCast(@alignCast(ctx));
+        return self.ancho * self.alto;
+    }
+    fn nombre(_: *anyopaque) []const u8 { return "rectángulo"; }
+
+    const vtable = ${1:Forma}VTable{ .area = area, .nombre = nombre };
+
+    pub fn forma(self: *$3) $1 { return .{ .ctx = self, .vtable = &vtable }; }
+};
+
+pub fn main() void {
+    var c = $2{ .radio = ${4:5.0} };
+    var r = $3{ .ancho = ${5:4.0}, .alto = ${6:3.0} };
+
+    const formas = [_]$1{ c.forma(), r.forma() };
+    for (formas) |f| {
+        std.debug.print("{s}: área = {d:.2}\n", .{ f.nombre(), f.area() });
+    }
+}
+$0

@@ -1,0 +1,51 @@
+# -*- mode: snippet -*-
+# name: Error Wrapping (Go)
+# key: errwrap
+# --
+// Error Wrapping — jerarquía de errores con %w, errors.Is y errors.As
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+type ${1:ErrDB} struct {
+	Codigo int
+	Detalle string
+}
+
+func (e *$1) Error() string {
+	return fmt.Sprintf("db error %d: %s", e.Codigo, e.Detalle)
+}
+
+var Err${2:NoEncontrado} = errors.New("${3:registro no encontrado}")
+
+func ${4:buscar}(id int) error {
+	if id <= 0 {
+		return fmt.Errorf("${4:buscar}: %w", &$1{${5:404}, "${6:id inválido}"})
+	}
+	if id > ${7:100} {
+		return fmt.Errorf("${4:buscar}: %w", Err${2:NoEncontrado})
+	}
+	return nil
+}
+
+func main() {
+	for _, id := range []int{-1, ${8:200}, ${9:42}} {
+		if err := $4(id); err != nil {
+			var dbErr *$1
+			switch {
+			case errors.As(err, &dbErr):
+				fmt.Printf("error DB código=%d\n", dbErr.Codigo)
+			case errors.Is(err, Err$2):
+				fmt.Println("no encontrado")
+			default:
+				fmt.Println("error:", err)
+			}
+		} else {
+			fmt.Printf("id=%d OK\n", id)
+		}
+	}
+}
+$0

@@ -1,0 +1,56 @@
+# -*- mode: snippet -*-
+# name: State Machine (Rust)
+# key: state
+# --
+// State Machine — estados como tipos distintos; transiciones verificadas en compilación
+struct ${1:Borrador};
+struct ${2:EnRevision};
+struct ${3:Publicado};
+
+struct ${4:Articulo}<Estado> {
+    titulo: String,
+    contenido: String,
+    _estado: std::marker::PhantomData<Estado>,
+}
+
+impl ${4:Articulo}<$1> {
+    fn nuevo(titulo: &str) -> Self {
+        Self {
+            titulo: titulo.to_owned(),
+            contenido: String::new(),
+            _estado: std::marker::PhantomData,
+        }
+    }
+    fn editar(mut self, contenido: &str) -> Self {
+        self.contenido = contenido.to_owned(); self
+    }
+    fn enviar_revision(self) -> $4<$2> {
+        println!("[{}] enviado a revisión", self.titulo);
+        $4 { titulo: self.titulo, contenido: self.contenido, _estado: std::marker::PhantomData }
+    }
+}
+
+impl ${4:Articulo}<$2> {
+    fn aprobar(self) -> $4<$3> {
+        println!("[{}] aprobado", self.titulo);
+        $4 { titulo: self.titulo, contenido: self.contenido, _estado: std::marker::PhantomData }
+    }
+    fn rechazar(self) -> $4<$1> {
+        println!("[{}] rechazado, vuelve a borrador", self.titulo);
+        $4 { titulo: self.titulo, contenido: self.contenido, _estado: std::marker::PhantomData }
+    }
+}
+
+impl ${4:Articulo}<$3> {
+    fn url(&self) -> String { format!("/blog/{}", self.titulo.to_lowercase().replace(' ', "-")) }
+}
+
+fn main() {
+    let url = $4::nuevo("${5:Rust para principiantes}")
+        .editar("${6:Contenido del artículo...}")
+        .enviar_revision()
+        .aprobar()
+        .url();
+    println!("publicado en: {url}");
+}
+$0

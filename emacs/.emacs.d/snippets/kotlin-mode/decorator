@@ -1,0 +1,30 @@
+# -*- mode: snippet -*-
+# name: Decorator (Kotlin)
+# key: decorator
+# --
+// Decorator — delegation by para extender sin herencia
+interface ${1:Logger} {
+    fun log(mensaje: String)
+}
+
+class ${2:ConsoleLogger} : $1 {
+    override fun log(mensaje: String) = println(mensaje)
+}
+
+class ${3:TimestampLogger}(private val base: $1) : $1 by base {
+    override fun log(mensaje: String) {
+        val ts = java.time.LocalTime.now().toString().take(8)
+        base.log("[$ts] $mensaje")
+    }
+}
+
+class ${4:NivelLogger}(private val base: $1, private val nivel: String) : $1 by base {
+    override fun log(mensaje: String) = base.log("[$nivel] $mensaje")
+}
+
+fun main() {
+    val logger: $1 = $4($3($2()), "${5:INFO}")
+    logger.log("${6:Aplicación iniciada}")
+    logger.log("${7:Conexión establecida}")
+}
+$0

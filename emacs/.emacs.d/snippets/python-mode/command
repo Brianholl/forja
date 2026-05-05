@@ -1,0 +1,47 @@
+# -*- mode: snippet -*-
+# name: Command (Python)
+# key: command
+# --
+# Command — encapsular operaciones como objetos para undo/redo
+from abc import ABC, abstractmethod
+from typing import List
+
+class ${1:Comando}(ABC):
+    @abstractmethod
+    def ejecutar(self) -> None: ...
+    @abstractmethod
+    def deshacer(self) -> None: ...
+
+class ${2:Texto}:
+    def __init__(self): self.contenido = ""
+
+class ${3:Insertar}($1):
+    def __init__(self, texto: $2, fragmento: str):
+        self._texto = texto
+        self._fragmento = fragmento
+
+    def ejecutar(self) -> None:
+        self._texto.contenido += self._fragmento
+        print(f"Insertar: '{self._fragmento}' → '{self._texto.contenido}'")
+
+    def deshacer(self) -> None:
+        self._texto.contenido = self._texto.contenido[: -len(self._fragmento)]
+        print(f"Deshacer → '{self._texto.contenido}'")
+
+class ${4:Editor}:
+    def __init__(self): self._historial: List[$1] = []
+
+    def ejecutar(self, cmd: $1) -> None:
+        cmd.ejecutar()
+        self._historial.append(cmd)
+
+    def deshacer(self) -> None:
+        if self._historial:
+            self._historial.pop().deshacer()
+
+t = $2()
+e = $4()
+e.ejecutar($3(t, "${5:Hola }"))
+e.ejecutar($3(t, "${6:mundo}"))
+e.deshacer()
+$0

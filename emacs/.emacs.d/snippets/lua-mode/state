@@ -1,0 +1,48 @@
+# -*- mode: snippet -*-
+# name: State (Lua)
+# key: state
+# --
+-- State — tabla de funciones por estado; transición explícita
+local ${1:Maquina} = {}
+$1.__index = $1
+
+local ${2:ESTADOS} = {}
+
+${2:ESTADOS}.${3:idle} = {
+    entrar  = function(m) print("[idle] entrando") end,
+    salir   = function(m) print("[idle] saliendo") end,
+    update  = function(m, dt)
+        if m.velocidad > 0 then m:cambiar("${4:corriendo}") end
+    end,
+}
+
+${2:ESTADOS}.${4:corriendo} = {
+    entrar  = function(m) print("[corriendo] entrando") end,
+    salir   = function(m) print("[corriendo] saliendo") end,
+    update  = function(m, dt)
+        if m.velocidad == 0 then m:cambiar("${3:idle}") end
+    end,
+}
+
+function $1.nuevo()
+    local self = setmetatable({ velocidad = 0 }, $1)
+    self._estado = ${2:ESTADOS}.${3:idle}
+    self._estado.entrar(self)
+    return self
+end
+
+function $1:cambiar(nombre)
+    self._estado.salir(self)
+    self._estado = ${2:ESTADOS}[nombre]
+    assert(self._estado, "estado desconocido: " .. nombre)
+    self._estado.entrar(self)
+end
+
+function $1:update(dt)
+    self._estado.update(self, dt)
+end
+
+local m = $1.nuevo()
+m.velocidad = 5;  m:update(0.016)
+m.velocidad = 0;  m:update(0.016)
+$0

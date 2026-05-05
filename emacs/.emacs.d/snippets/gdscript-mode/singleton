@@ -1,0 +1,36 @@
+# -*- mode: snippet -*-
+# name: Singleton / Autoload (GDScript)
+# key: singleton
+# --
+# Singleton — Autoload: registrar en Project > Project Settings > Autoload
+# Nombre del nodo: ${1:GameManager}
+extends Node
+
+# Variables de estado global
+var ${2:puntuacion}: int = 0
+var ${3:nivel_actual}: int = 1
+var ${4:jugador_nombre}: String = ""
+
+signal ${5:puntuacion_cambiada}(nueva: int)
+signal ${6:nivel_cambiado}(nivel: int)
+
+func _ready() -> void:
+	print("[$1] iniciado")
+
+func sumar_puntos(puntos: int) -> void:
+	$2 += puntos
+	emit_signal("${5:puntuacion_cambiada}", $2)
+
+func siguiente_nivel() -> void:
+	$3 += 1
+	emit_signal("${6:nivel_cambiado}", $3)
+	get_tree().change_scene_to_file("res://escenas/nivel_%d.tscn" % $3)
+
+func reiniciar() -> void:
+	$2 = 0
+	$3 = 1
+
+# Uso desde cualquier escena:
+# GameManager.sumar_puntos(10)
+# GameManager.puntuacion
+$0

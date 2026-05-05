@@ -1,0 +1,39 @@
+# -*- mode: snippet -*-
+# name: Abstract Factory (PHP)
+# key: abstractfactory
+# --
+<?php
+// Abstract Factory — familias de objetos sin especificar clases concretas
+interface ${1:Boton}   { public function render(): string; }
+interface ${2:Input}   { public function render(): string; }
+
+interface ${3:UI}Factory
+{
+    public function crearBoton(): $1;
+    public function crearInput(): $2;
+}
+
+class ${4:Bootstrap}$1 implements $1
+{
+    public function render(): string { return '<button class="btn btn-primary">Click</button>'; }
+}
+
+class ${4:Bootstrap}$2 implements $2
+{
+    public function render(): string { return '<input class="form-control">'; }
+}
+
+class ${4:Bootstrap}$3Factory implements $3Factory
+{
+    public function crearBoton(): $1 { return new ${4:Bootstrap}$1(); }
+    public function crearInput(): $2 { return new ${4:Bootstrap}$2(); }
+}
+
+function renderFormulario($3Factory $fab): void
+{
+    echo $fab->crearBoton()->render() . "\n";
+    echo $fab->crearInput()->render() . "\n";
+}
+
+renderFormulario(new ${4:Bootstrap}$3Factory());
+$0

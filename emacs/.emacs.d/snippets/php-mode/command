@@ -1,0 +1,63 @@
+# -*- mode: snippet -*-
+# name: Command (PHP)
+# key: command
+# --
+<?php
+// Command — encapsular operaciones; undo/redo con pila
+interface ${1:Comando}
+{
+    public function ejecutar(): void;
+    public function deshacer(): void;
+}
+
+class ${2:Texto}
+{
+    public string $contenido = '';
+}
+
+class ${3:Insertar} implements $1
+{
+    public function __construct(
+        private $2 $texto,
+        private string $fragmento
+    ) {}
+
+    public function ejecutar(): void
+    {
+        $this->texto->contenido .= $this->fragmento;
+        echo "+ '{$this->fragmento}' → '{$this->texto->contenido}'\n";
+    }
+
+    public function deshacer(): void
+    {
+        $this->texto->contenido = substr(
+            $this->texto->contenido, 0, -strlen($this->fragmento)
+        );
+        echo "undo → '{$this->texto->contenido}'\n";
+    }
+}
+
+class ${4:Editor}
+{
+    private array $historial = [];
+
+    public function ejecutar($1 $cmd): void
+    {
+        $cmd->ejecutar();
+        $this->historial[] = $cmd;
+    }
+
+    public function deshacer(): void
+    {
+        if ($cmd = array_pop($this->historial)) {
+            $cmd->deshacer();
+        }
+    }
+}
+
+$t = new $2();
+$e = new $4();
+$e->ejecutar(new $3($t, '${5:Hola }'));
+$e->ejecutar(new $3($t, '${6:mundo}'));
+$e->deshacer();
+$0

@@ -1,0 +1,52 @@
+# -*- mode: snippet -*-
+# name: Iterator (Zig)
+# key: iterator
+# --
+// Iterator — struct con next() que retorna ?T; compatible con while
+const std = @import("std");
+
+const ${1:RangoIter} = struct {
+    actual: ${2:i32},
+    fin:    ${2:i32},
+    paso:   ${2:i32} = 1,
+
+    pub fn next(self: *${1:RangoIter}) ?${2:i32} {
+        if (self.paso > 0 and self.actual >= self.fin) return null;
+        if (self.paso < 0 and self.actual <= self.fin) return null;
+        const val = self.actual;
+        self.actual += self.paso;
+        return val;
+    }
+};
+
+const ${3:FibIter} = struct {
+    a: u64 = 0,
+    b: u64 = 1,
+
+    pub fn next(self: *${3:FibIter}) ?u64 {
+        const val = self.a;
+        const siguiente = self.a +| self.b;   // saturación en overflow
+        self.a = self.b;
+        self.b = siguiente;
+        return val;
+    }
+};
+
+pub fn main() void {
+    // Rango 0..10 paso 2
+    var rango = $1{ .actual = ${4:0}, .fin = ${5:10}, .paso = ${6:2} };
+    while (rango.next()) |v| {
+        std.debug.print("{d} ", .{v});
+    }
+    std.debug.print("\n", .{});
+
+    // Primeros 10 Fibonacci
+    var fib = $3{};
+    var cuenta: usize = 0;
+    while (fib.next()) |v| : (cuenta += 1) {
+        if (cuenta >= ${7:10}) break;
+        std.debug.print("{d} ", .{v});
+    }
+    std.debug.print("\n", .{});
+}
+$0

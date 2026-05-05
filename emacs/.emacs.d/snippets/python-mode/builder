@@ -1,0 +1,46 @@
+# -*- mode: snippet -*-
+# name: Builder (Python)
+# key: builder
+# --
+# Builder — construir objetos complejos paso a paso
+from dataclasses import dataclass, field
+from typing import List
+
+@dataclass
+class ${1:Consulta}:
+    tabla: str
+    campos: List[str]
+    condicion: str = ""
+    limite: int = 100
+
+class ${1:Consulta}Builder:
+    def __init__(self, tabla: str):
+        self._tabla = tabla
+        self._campos: List[str] = []
+        self._condicion = ""
+        self._limite = 100
+
+    def campos(self, *campos: str) -> "${1:Consulta}Builder":
+        self._campos.extend(campos)
+        return self
+
+    def donde(self, condicion: str) -> "${1:Consulta}Builder":
+        self._condicion = condicion
+        return self
+
+    def limite(self, n: int) -> "${1:Consulta}Builder":
+        self._limite = n
+        return self
+
+    def build(self) -> $1:
+        return $1(self._tabla, self._campos, self._condicion, self._limite)
+
+consulta = (
+    ${1:Consulta}Builder("${2:usuarios}")
+    .campos("id", "nombre", "email")
+    .donde("activo = TRUE")
+    .limite(50)
+    .build()
+)
+print(consulta)
+$0

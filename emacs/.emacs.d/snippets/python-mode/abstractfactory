@@ -1,0 +1,38 @@
+# -*- mode: snippet -*-
+# name: Abstract Factory (Python)
+# key: abstractfactory
+# --
+# Abstract Factory — familias de objetos relacionados sin especificar clases concretas
+from abc import ABC, abstractmethod
+
+class ${1:Boton}(ABC):
+    @abstractmethod
+    def render(self) -> str: ...
+
+class ${2:Checkbox}(ABC):
+    @abstractmethod
+    def render(self) -> str: ...
+
+class ${3:UI}Factory(ABC):
+    @abstractmethod
+    def crear_boton(self) -> $1: ...
+    @abstractmethod
+    def crear_checkbox(self) -> $2: ...
+
+class ${4:Windows}$1($1):
+    def render(self) -> str: return "[ Botón Windows ]"
+
+class ${4:Windows}$2($2):
+    def render(self) -> str: return "[x] Checkbox Windows"
+
+class ${4:Windows}$3Factory($3Factory):
+    def crear_boton(self)    -> $1: return ${4:Windows}$1()
+    def crear_checkbox(self) -> $2: return ${4:Windows}$2()
+
+def app(fabrica: $3Factory) -> None:
+    b = fabrica.crear_boton()
+    c = fabrica.crear_checkbox()
+    print(b.render(), c.render())
+
+app(${4:Windows}$3Factory())
+$0

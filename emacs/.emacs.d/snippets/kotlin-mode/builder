@@ -1,0 +1,37 @@
+# -*- mode: snippet -*-
+# name: Builder (Kotlin)
+# key: builder
+# --
+// Builder — data class + apply para construcción fluida
+data class ${1:Peticion}(
+    val url: String,
+    val metodo: String = "GET",
+    val cabeceras: Map<String, String> = emptyMap(),
+    val cuerpo: String? = null,
+    val tiempoEspera: Int = 30
+)
+
+class ${1:Peticion}Builder(private val url: String) {
+    private var metodo = "GET"
+    private val cabeceras = mutableMapOf<String, String>()
+    private var cuerpo: String? = null
+    private var tiempoEspera = 30
+
+    fun metodo(m: String)                    = apply { metodo = m }
+    fun cabecera(clave: String, valor: String) = apply { cabeceras[clave] = valor }
+    fun cuerpo(c: String)                    = apply { cuerpo = c }
+    fun tiempoEspera(seg: Int)               = apply { tiempoEspera = seg }
+
+    fun build() = $1(url, metodo, cabeceras.toMap(), cuerpo, tiempoEspera)
+}
+
+fun main() {
+    val peticion = ${1:Peticion}Builder("${2:https://api.ejemplo.com/datos}")
+        .metodo("POST")
+        .cabecera("Content-Type", "application/json")
+        .cuerpo("""{"nombre":"forja"}""")
+        .tiempoEspera(10)
+        .build()
+    println(peticion)
+}
+$0

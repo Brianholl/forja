@@ -1,0 +1,50 @@
+# -*- mode: snippet -*-
+# name: errdefer Pattern (Zig)
+# key: errdefer
+# --
+// errdefer — liberar recursos solo cuando la función falla
+const std = @import("std");
+
+const ${1:Recurso} = struct {
+    id:   usize,
+    datos: []u8,
+
+    pub fn adquirir(aloc: std.mem.Allocator, id: usize, tamanio: usize) !$1 {
+        const datos = try aloc.alloc(u8, tamanio);
+        std.debug.print("[$1] #{d} adquirido ({d} bytes)\n", .{ id, tamanio });
+        return .{ .id = id, .datos = datos };
+    }
+
+    pub fn liberar(self: $1, aloc: std.mem.Allocator) void {
+        aloc.free(self.datos);
+        std.debug.print("[$1] #{d} liberado\n", .{self.id});
+    }
+};
+
+fn ${2:inicializar}(aloc: std.mem.Allocator) !void {
+    const r1 = try $1.adquirir(aloc, 1, ${3:64});
+    errdefer r1.liberar(aloc);   // se ejecuta SOLO si la función falla
+
+    const r2 = try $1.adquirir(aloc, 2, ${4:128});
+    errdefer r2.liberar(aloc);
+
+    // Simular fallo condicional
+    if (r1.datos.len + r2.datos.len > ${5:1000}) {
+        // errdefer liberará r1 y r2 automáticamente
+        return error.RecursosInsuficientes;
+    }
+
+    // Éxito: caller es responsable de liberar
+    defer r1.liberar(aloc);
+    defer r2.liberar(aloc);
+    std.debug.print("${2:inicializar} completado\n", .{});
+}
+
+pub fn main() void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    $2(gpa.allocator()) catch |err| {
+        std.debug.print("error: {}\n", .{err});
+    };
+}
+$0

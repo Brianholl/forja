@@ -1,0 +1,31 @@
+# -*- mode: snippet -*-
+# name: Singleton (Rust)
+# key: singleton
+# --
+// Singleton — OnceLock para inicialización lazy y thread-safe (std, sin deps)
+use std::sync::OnceLock;
+
+#[derive(Debug)]
+struct ${1:Config} {
+    nivel_log: String,
+    max_conexiones: usize,
+}
+
+static ${2:CONFIG}: OnceLock<$1> = OnceLock::new();
+
+fn config() -> &'static $1 {
+    $2.get_or_init(|| {
+        println!("[$1] inicializando");
+        $1 {
+            nivel_log:      std::env::var("LOG_LEVEL").unwrap_or_else(|_| "${3:info}".into()),
+            max_conexiones: ${4:10},
+        }
+    })
+}
+
+fn main() {
+    println!("{:?}", config());
+    println!("{:?}", config());   // misma instancia, no re-inicializa
+    println!("¿Mismo puntero? {}", std::ptr::eq(config(), config()));
+}
+$0

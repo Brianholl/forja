@@ -1,0 +1,35 @@
+# -*- mode: snippet -*-
+# name: Observer via Signals (GDScript)
+# key: observer
+# --
+# Observer — señales de Godot como sistema de eventos desacoplado
+extends Node
+
+# --- Emisor ---
+class_name ${1:Jugador}
+
+signal ${2:hp_cambiado}(nuevo_hp: int, maximo: int)
+signal ${3:muerto}
+signal ${4:nivel_subio}(nivel: int)
+
+var hp: int = ${5:100}
+var hp_max: int = ${5:100}
+
+func recibir_danio(cantidad: int) -> void:
+	hp = clampi(hp - cantidad, 0, hp_max)
+	emit_signal("${2:hp_cambiado}", hp, hp_max)
+	if hp == 0:
+		emit_signal("${3:muerto}")
+
+# --- Receptor (en otra escena/nodo) ---
+# func _ready() -> void:
+#     var jugador = $Jugador
+#     jugador.${2:hp_cambiado}.connect(_al_cambiar_hp)
+#     jugador.${3:muerto}.connect(_al_morir)
+#
+# func _al_cambiar_hp(nuevo: int, maximo: int) -> void:
+#     $BarraHP.value = float(nuevo) / maximo
+#
+# func _al_morir() -> void:
+#     $PantallaGameOver.show()
+$0

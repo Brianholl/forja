@@ -1,0 +1,27 @@
+# -*- mode: snippet -*-
+# name: Observer (Python)
+# key: observer
+# --
+# Observer — notificar automáticamente a múltiples suscriptores
+from typing import Callable, List
+
+${1:Manejador} = Callable[[str, object], None]
+
+class ${2:EventBus}:
+    def __init__(self):
+        self._subs: dict[str, List[$1]] = {}
+
+    def suscribir(self, evento: str, fn: $1) -> None:
+        self._subs.setdefault(evento, []).append(fn)
+
+    def emitir(self, evento: str, datos: object = None) -> None:
+        for fn in self._subs.get(evento, []):
+            fn(evento, datos)
+
+bus = $2()
+
+bus.suscribir("${3:pedido.creado}", lambda e, d: print(f"[Email] {e}: {d}"))
+bus.suscribir("${3:pedido.creado}", lambda e, d: print(f"[Stock] reservando {d}"))
+
+bus.emitir("${3:pedido.creado}", {"id": 42, "producto": "${4:teclado}"})
+$0

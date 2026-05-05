@@ -1,0 +1,56 @@
+# -*- mode: snippet -*-
+# name: Observer (PHP)
+# key: observer
+# --
+<?php
+// Observer — SplSubject / SplObserver de la SPL
+class ${1:Pedido} implements \SplSubject
+{
+    private string $estado = 'pendiente';
+    private \SplObjectStorage $observadores;
+
+    public function __construct(public readonly int $id)
+    {
+        $this->observadores = new \SplObjectStorage();
+    }
+
+    public function attach(\SplObserver $o): void { $this->observadores->attach($o); }
+    public function detach(\SplObserver $o): void { $this->observadores->detach($o); }
+
+    public function notify(): void
+    {
+        foreach ($this->observadores as $o) { $o->update($this); }
+    }
+
+    public function cambiarEstado(string $estado): void
+    {
+        $this->estado = $estado;
+        echo "[Pedido #{$this->id}] → {$estado}\n";
+        $this->notify();
+    }
+
+    public function getEstado(): string { return $this->estado; }
+}
+
+class ${2:NotificadorEmail} implements \SplObserver
+{
+    public function update(\SplSubject $sujeto): void
+    {
+        echo "[Email] pedido #{$sujeto->id} ahora en: {$sujeto->getEstado()}\n";
+    }
+}
+
+class ${3:ActualizadorStock} implements \SplObserver
+{
+    public function update(\SplSubject $sujeto): void
+    {
+        echo "[Stock] ajustando inventario para pedido #{$sujeto->id}\n";
+    }
+}
+
+$pedido = new $1(${4:42});
+$pedido->attach(new $2());
+$pedido->attach(new $3());
+$pedido->cambiarEstado('${5:procesando}');
+$pedido->cambiarEstado('${6:enviado}');
+$0

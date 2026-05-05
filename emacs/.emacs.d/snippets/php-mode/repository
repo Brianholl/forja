@@ -1,0 +1,71 @@
+# -*- mode: snippet -*-
+# name: Repository (PHP)
+# key: repository
+# --
+<?php
+// Repository — abstraer el acceso a datos; intercambiable en tests
+final class ${1:Usuario}
+{
+    public function __construct(
+        public readonly int    $id,
+        public readonly string $nombre,
+        public readonly string $email,
+    ) {}
+}
+
+interface ${1:Usuario}Repository
+{
+    public function buscarPorId(int $id): ?$1;
+    public function buscarTodos(): array;
+    public function guardar($1 $usuario): void;
+    public function eliminar(int $id): void;
+}
+
+class ${2:En}Memoria${1:Usuario}Repository implements ${1:Usuario}Repository
+{
+    private array $datos = [];
+
+    public function buscarPorId(int $id): ?$1
+    {
+        return $this->datos[$id] ?? null;
+    }
+
+    public function buscarTodos(): array
+    {
+        return array_values($this->datos);
+    }
+
+    public function guardar($1 $u): void
+    {
+        $this->datos[$u->id] = $u;
+    }
+
+    public function eliminar(int $id): void
+    {
+        unset($this->datos[$id]);
+    }
+}
+
+// Servicio de dominio — no sabe qué almacén usa
+class ${3:Servicio}$1
+{
+    public function __construct(private ${1:Usuario}Repository $repo) {}
+
+    public function registrar(int $id, string $nombre, string $email): $1
+    {
+        $u = new $1($id, $nombre, $email);
+        $this->repo->guardar($u);
+        return $u;
+    }
+}
+
+$repo     = new $2Memoria${1:Usuario}Repository();
+$servicio = new $3$1($repo);
+
+$servicio->registrar(${4:1}, '${5:Ana}', '${6:ana@ejemplo.com}');
+$servicio->registrar(${7:2}, '${8:Beto}', '${9:beto@ejemplo.com}');
+
+foreach ($repo->buscarTodos() as $u) {
+    echo "{$u->id}: {$u->nombre} <{$u->email}>\n";
+}
+$0

@@ -1,0 +1,44 @@
+# -*- mode: snippet -*-
+# name: Strategy (Zig)
+# key: strategy
+# --
+// Strategy — puntero a función como estrategia intercambiable
+const std = @import("std");
+
+const ${1:Comparar} = *const fn (a: i32, b: i32) bool;
+
+fn ${2:ascendente}(a: i32, b: i32) bool { return a < b; }
+fn ${3:descendente}(a: i32, b: i32) bool { return a > b; }
+fn ${4:porAbsoluto}(a: i32, b: i32) bool { return @abs(a) < @abs(b); }
+
+fn ordenarBurbuja(lista: []i32, cmp: $1) void {
+    const n = lista.len;
+    var i: usize = 0;
+    while (i < n) : (i += 1) {
+        var j: usize = 0;
+        while (j < n - i - 1) : (j += 1) {
+            if (!cmp(lista[j], lista[j + 1])) {
+                const tmp = lista[j];
+                lista[j] = lista[j + 1];
+                lista[j + 1] = tmp;
+            }
+        }
+    }
+}
+
+pub fn main() void {
+    var datos = [_]i32{ ${5:-3, 1, -7, 2, 5, -4} };
+
+    var copia1 = datos;
+    ordenarBurbuja(&copia1, $2);
+    std.debug.print("asc:  {any}\n", .{copia1});
+
+    var copia2 = datos;
+    ordenarBurbuja(&copia2, $3);
+    std.debug.print("desc: {any}\n", .{copia2});
+
+    var copia3 = datos;
+    ordenarBurbuja(&copia3, $4);
+    std.debug.print("abs:  {any}\n", .{copia3});
+}
+$0

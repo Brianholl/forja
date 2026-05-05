@@ -1,0 +1,40 @@
+# -*- mode: snippet -*-
+# name: Newtype (Rust)
+# key: newtype
+# --
+// Newtype — tipos distintos para el mismo tipo primitivo; sin costo en runtime
+use std::fmt;
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+struct ${1:Metros}(f64);
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+struct ${2:Pies}(f64);
+
+impl $1 {
+    pub fn valor(self) -> f64 { self.0 }
+}
+
+impl From<$2> for $1 {
+    fn from(p: $2) -> Self { $1(p.0 * 0.3048) }
+}
+
+impl fmt::Display for $1 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:.2}m", self.0)
+    }
+}
+
+fn escalar(distancia: $1) -> String {
+    format!("distancia recibida: {distancia}")
+}
+
+fn main() {
+    let altura = $1(${3:1.80});
+    let altura_pies: $1 = $2(${4:5.9}).into();
+
+    println!("{}", escalar(altura));
+    println!("en metros: {altura_pies}");
+    // escalar($2(5.9));   // error de compilación: tipos incompatibles
+}
+$0

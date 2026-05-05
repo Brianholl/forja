@@ -1,0 +1,43 @@
+# -*- mode: snippet -*-
+# name: Builder (PHP)
+# key: builder
+# --
+<?php
+// Builder — construir objetos complejos con interfaz fluida
+final class ${1:Consulta}
+{
+    public function __construct(
+        public readonly string $tabla,
+        public readonly array  $campos,
+        public readonly string $condicion,
+        public readonly int    $limite,
+    ) {}
+}
+
+class ${1:Consulta}Builder
+{
+    private array  $campos    = [];
+    private string $condicion = '';
+    private int    $limite    = 100;
+
+    public function __construct(private string $tabla) {}
+
+    public function campos(string ...$c): self { $this->campos = $c; return $this; }
+    public function donde(string $c):    self { $this->condicion = $c; return $this; }
+    public function limite(int $n):      self { $this->limite = $n;    return $this; }
+
+    public function build(): $1
+    {
+        if (empty($this->tabla)) throw new \LogicException('tabla requerida');
+        return new $1($this->tabla, $this->campos, $this->condicion, $this->limite);
+    }
+}
+
+$q = (new ${1:Consulta}Builder('${2:usuarios}'))
+    ->campos('id', 'nombre', 'email')
+    ->donde('activo = 1')
+    ->limite(50)
+    ->build();
+
+print_r($q);
+$0

@@ -1,0 +1,48 @@
+# -*- mode: snippet -*-
+# name: Decorator (Rust)
+# key: decorator
+# --
+// Decorator — wrapper genérico sobre un trait con comportamiento adicional
+trait ${1:Almacen} {
+    fn guardar(&self, clave: &str, valor: &str);
+    fn cargar(&self, clave: &str) -> Option<String>;
+}
+
+struct ${2:MemoriaSimple}(std::collections::HashMap<String, String>);
+
+impl $2 {
+    fn nuevo() -> Self { Self(std::collections::HashMap::new()) }
+}
+
+impl $1 for std::cell::RefCell<$2> {
+    fn guardar(&self, k: &str, v: &str) { self.borrow_mut().0.insert(k.into(), v.into()); }
+    fn cargar(&self, k: &str) -> Option<String> { self.borrow().0.get(k).cloned() }
+}
+
+struct ${3:AlmacenLog}<A: $1> {
+    base: A,
+}
+
+impl<A: $1> $1 for $3<A> {
+    fn guardar(&self, k: &str, v: &str) {
+        println!("[LOG] guardar '{k}'='{v}'");
+        self.base.guardar(k, v);
+    }
+    fn cargar(&self, k: &str) -> Option<String> {
+        let r = self.base.cargar(k);
+        println!("[LOG] cargar '{k}' → {r:?}");
+        r
+    }
+}
+
+fn usar(a: &impl $1) {
+    a.guardar("${4:usuario}", "${5:ana}");
+    println!("cargado: {:?}", a.cargar("${4:usuario}"));
+}
+
+fn main() {
+    let base = std::cell::RefCell::new($2::nuevo());
+    let decorado = $3 { base };
+    usar(&decorado);
+}
+$0

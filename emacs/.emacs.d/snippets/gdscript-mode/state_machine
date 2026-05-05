@@ -1,0 +1,46 @@
+# -*- mode: snippet -*-
+# name: State Machine (GDScript)
+# key: state_machine
+# --
+# State Machine — enum + match para comportamiento por estado
+extends ${1:CharacterBody2D}
+
+enum ${2:Estado} { ${3:IDLE}, ${4:CORRER}, ${5:SALTAR}, ${6:CAER} }
+
+var estado_actual: $2 = $2.$3
+
+func _physics_process(delta: float) -> void:
+	match estado_actual:
+		$2.$3:
+			_estado_${3:idle}(delta)
+		$2.$4:
+			_estado_${4:correr}(delta)
+		$2.$5:
+			_estado_${5:saltar}(delta)
+		$2.$6:
+			_estado_${6:caer}(delta)
+
+func _estado_${3:idle}(_delta: float) -> void:
+	if Input.is_action_pressed("ui_right") or Input.is_action_pressed("ui_left"):
+		_cambiar($2.$4)
+	elif not is_on_floor():
+		_cambiar($2.$6)
+
+func _estado_${4:correr}(_delta: float) -> void:
+	if not Input.is_action_pressed("ui_right") and not Input.is_action_pressed("ui_left"):
+		_cambiar($2.$3)
+	if Input.is_action_just_pressed("ui_accept"):
+		_cambiar($2.$5)
+
+func _estado_${5:saltar}(_delta: float) -> void:
+	if velocity.y > 0:
+		_cambiar($2.$6)
+
+func _estado_${6:caer}(_delta: float) -> void:
+	if is_on_floor():
+		_cambiar($2.$3)
+
+func _cambiar(nuevo: $2) -> void:
+	print("[SM] %s → %s" % [$2.keys()[estado_actual], $2.keys()[nuevo]])
+	estado_actual = nuevo
+$0

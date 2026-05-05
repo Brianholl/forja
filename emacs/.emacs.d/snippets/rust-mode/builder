@@ -1,0 +1,48 @@
+# -*- mode: snippet -*-
+# name: Builder (Rust)
+# key: builder
+# --
+// Builder — construcción validada con Result
+#[derive(Debug)]
+struct ${1:Conexion} {
+    host: String,
+    puerto: u16,
+    max_reintentos: u8,
+}
+
+#[derive(Default)]
+struct ${1:Conexion}Builder {
+    host: Option<String>,
+    puerto: Option<u16>,
+    max_reintentos: u8,
+}
+
+impl ${1:Conexion}Builder {
+    pub fn host(mut self, h: impl Into<String>) -> Self {
+        self.host = Some(h.into()); self
+    }
+    pub fn puerto(mut self, p: u16) -> Self {
+        self.puerto = Some(p); self
+    }
+    pub fn max_reintentos(mut self, n: u8) -> Self {
+        self.max_reintentos = n; self
+    }
+    pub fn build(self) -> Result<$1, String> {
+        Ok($1 {
+            host:           self.host.ok_or("falta host")?,
+            puerto:         self.puerto.ok_or("falta puerto")?,
+            max_reintentos: self.max_reintentos,
+        })
+    }
+}
+
+fn main() {
+    let conn = ${1:Conexion}Builder::default()
+        .host("${2:localhost}")
+        .puerto(${3:5432})
+        .max_reintentos(${4:3})
+        .build()
+        .expect("configuración inválida");
+    println!("{conn:?}");
+}
+$0

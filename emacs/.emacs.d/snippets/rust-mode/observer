@@ -1,0 +1,41 @@
+# -*- mode: snippet -*-
+# name: Observer (Rust)
+# key: observer
+# --
+// Observer — callbacks con Box<dyn Fn> y lista de suscriptores
+type ${1:Manejador}<T> = Box<dyn Fn(&T) + Send + Sync>;
+
+struct ${2:EventBus}<T> {
+    suscriptores: Vec<$1<T>>,
+}
+
+impl<T: std::fmt::Debug> $2<T> {
+    fn nuevo() -> Self { Self { suscriptores: Vec::new() } }
+
+    fn suscribir(&mut self, f: impl Fn(&T) + Send + Sync + 'static) {
+        self.suscriptores.push(Box::new(f));
+    }
+
+    fn emitir(&self, evento: &T) {
+        for f in &self.suscriptores {
+            f(evento);
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ${3:Evento} {
+    tipo_: String,
+    datos: String,
+}
+
+fn main() {
+    let mut bus: $2<$3> = $2::nuevo();
+
+    bus.suscribir(|e| println!("[Logger]  {:?}", e));
+    bus.suscribir(|e| println!("[Auditoria] tipo={}", e.tipo_));
+
+    bus.emitir(&$3 { tipo_: "${4:login}".into(),  datos: "${5:usuario=ana}".into() });
+    bus.emitir(&$3 { tipo_: "${6:logout}".into(), datos: "${7:usuario=ana}".into() });
+}
+$0

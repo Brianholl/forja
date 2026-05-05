@@ -1,0 +1,52 @@
+# -*- mode: snippet -*-
+# name: Adapter (PHP)
+# key: adapter
+# --
+<?php
+// Adapter — convertir interfaz incompatible en la que el cliente espera
+interface ${1:Almacen}
+{
+    public function guardar(string $clave, string $valor): void;
+    public function cargar(string $clave): ?string;
+}
+
+// Biblioteca de terceros con interfaz diferente
+class ${2:Redis}Client
+{
+    private array $store = [];
+
+    public function set(string $key, string $val, int $ttl = 0): void
+    {
+        $this->store[$key] = $val;
+        echo "[Redis] SET {$key}\n";
+    }
+
+    public function get(string $key): ?string
+    {
+        return $this->store[$key] ?? null;
+    }
+}
+
+class ${3:Redis}Adapter implements $1
+{
+    public function __construct(private $2Client $redis) {}
+
+    public function guardar(string $clave, string $valor): void
+    {
+        $this->redis->set($clave, $valor);
+    }
+
+    public function cargar(string $clave): ?string
+    {
+        return $this->redis->get($clave);
+    }
+}
+
+function usar($1 $almacen): void
+{
+    $almacen->guardar('${4:usuario}', '${5:ana}');
+    echo $almacen->cargar('${4:usuario}') . "\n";
+}
+
+usar(new $3Adapter(new $2Client()));
+$0

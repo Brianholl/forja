@@ -1,0 +1,40 @@
+# -*- mode: snippet -*-
+# name: State (Python)
+# key: state
+# --
+# State — cambiar comportamiento según el estado interno del objeto
+from __future__ import annotations
+from abc import ABC, abstractmethod
+
+class ${1:Estado}(ABC):
+    @abstractmethod
+    def insertar_moneda(self, maquina: "${2:Maquina}") -> None: ...
+    @abstractmethod
+    def expulsar(self, maquina: "$2") -> None: ...
+    @abstractmethod
+    def girar(self, maquina: "$2") -> None: ...
+
+class ${3:SinMoneda}($1):
+    def insertar_moneda(self, m: "$2"):
+        print("Moneda insertada"); m.estado = ${4:ConMoneda}()
+    def expulsar(self, m): print("No hay moneda")
+    def girar(self, m):    print("Inserta una moneda primero")
+
+class ${4:ConMoneda}($1):
+    def insertar_moneda(self, m): print("Ya hay una moneda")
+    def expulsar(self, m):
+        print("Moneda devuelta"); m.estado = $3()
+    def girar(self, m):
+        print("¡Premio!"); m.estado = $3()
+
+class $2:
+    def __init__(self): self.estado: $1 = $3()
+    def insertar_moneda(self): self.estado.insertar_moneda(self)
+    def expulsar(self):        self.estado.expulsar(self)
+    def girar(self):           self.estado.girar(self)
+
+m = $2()
+m.insertar_moneda()
+m.girar()
+m.girar()   # sin moneda
+$0

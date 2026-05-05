@@ -1,0 +1,28 @@
+# -*- mode: snippet -*-
+# name: Strategy (Kotlin)
+# key: strategy
+# --
+// Strategy — lambdas como estrategias intercambiables
+typealias ${1:Validador}<T> = (T) -> Boolean
+
+class ${2:Formulario}(private val validar: $1<String>) {
+    fun enviar(dato: String): Boolean {
+        if (!validar(dato)) {
+            println("[Error] '$dato' no es válido")
+            return false
+        }
+        println("[OK] '$dato' aceptado")
+        return true
+    }
+}
+
+val esEmail: $1<String>  = { "@" in it && "." in it.substringAfter("@") }
+val noVacio: $1<String>  = { it.isNotBlank() }
+val longitud: $1<String> = { it.length in 8..64 }
+
+fun main() {
+    $2(esEmail).enviar("${3:usuario@ejemplo.com}")
+    $2(esEmail).enviar("${4:noesunmail}")
+    $2 { noVacio(it) && longitud(it) }.enviar("${5:password123}")
+}
+$0

@@ -1,0 +1,56 @@
+# -*- mode: snippet -*-
+# name: Builder (Zig)
+# key: builder
+# --
+// Builder — construcción paso a paso con validación al final
+const std = @import("std");
+
+const ${1:Servidor} = struct {
+    host:    []const u8,
+    puerto:  u16,
+    workers: u8,
+    tls:     bool,
+};
+
+const ${1:Servidor}Builder = struct {
+    host:    []const u8 = "${2:localhost}",
+    puerto:  u16        = ${3:8080},
+    workers: u8         = ${4:4},
+    tls:     bool       = false,
+
+    const Self = @This();
+
+    pub fn conHost(self: Self, h: []const u8) Self {
+        var s = self; s.host = h; return s;
+    }
+    pub fn conPuerto(self: Self, p: u16) Self {
+        var s = self; s.puerto = p; return s;
+    }
+    pub fn conWorkers(self: Self, w: u8) Self {
+        var s = self; s.workers = w; return s;
+    }
+    pub fn conTLS(self: Self) Self {
+        var s = self; s.tls = true; return s;
+    }
+    pub fn build(self: Self) !$1 {
+        if (self.puerto == 0) return error.PuertoInvalido;
+        if (self.workers == 0) return error.WorkersInvalido;
+        return .{
+            .host    = self.host,
+            .puerto  = self.puerto,
+            .workers = self.workers,
+            .tls     = self.tls,
+        };
+    }
+};
+
+pub fn main() !void {
+    const srv = try (${1:Servidor}Builder{})
+        .conHost("${5:0.0.0.0}")
+        .conPuerto(${6:443})
+        .conWorkers(${7:8})
+        .conTLS()
+        .build();
+    std.debug.print("{any}\n", .{srv});
+}
+$0

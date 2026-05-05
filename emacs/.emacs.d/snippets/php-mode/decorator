@@ -1,0 +1,49 @@
+# -*- mode: snippet -*-
+# name: Decorator (PHP)
+# key: decorator
+# --
+<?php
+// Decorator — extender comportamiento sin herencia
+interface ${1:Logger}
+{
+    public function log(string $mensaje): void;
+}
+
+class ${2:ConsoleLogger} implements $1
+{
+    public function log(string $mensaje): void
+    {
+        echo $mensaje . "\n";
+    }
+}
+
+abstract class ${3:Decorador}$1 implements $1
+{
+    public function __construct(protected $1 $base) {}
+}
+
+class ${4:Timestamp}$1 extends $3$1
+{
+    public function log(string $mensaje): void
+    {
+        $this->base->log('[' . date('H:i:s') . '] ' . $mensaje);
+    }
+}
+
+class ${5:Nivel}$1 extends $3$1
+{
+    public function __construct($1 $base, private string $nivel = 'INFO')
+    {
+        parent::__construct($base);
+    }
+
+    public function log(string $mensaje): void
+    {
+        $this->base->log("[{$this->nivel}] {$mensaje}");
+    }
+}
+
+$logger = new $4$1(new $5$1(new $2(), '${6:DEBUG}'));
+$logger->log('${7:Aplicación iniciada}');
+$logger->log('${8:Conexión establecida}');
+$0

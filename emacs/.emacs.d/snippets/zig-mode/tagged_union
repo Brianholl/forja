@@ -1,0 +1,36 @@
+# -*- mode: snippet -*-
+# name: Tagged Union (Zig)
+# key: tagged_union
+# --
+// Tagged Union — tipo suma seguro; switch exhaustivo garantizado por el compilador
+const std = @import("std");
+
+const ${1:Valor} = union(enum) {
+    ${2:entero}: i64,
+    ${3:flotante}: f64,
+    ${4:texto}: []const u8,
+    ${5:booleano}: bool,
+    nulo,
+};
+
+fn describir(v: $1) void {
+    switch (v) {
+        .${2:entero}   => |n| std.debug.print("entero: {d}\n",   .{n}),
+        .${3:flotante} => |f| std.debug.print("flotante: {d}\n", .{f}),
+        .${4:texto}    => |s| std.debug.print("texto: {s}\n",    .{s}),
+        .${5:booleano} => |b| std.debug.print("bool: {}\n",      .{b}),
+        .nulo          =>     std.debug.print("nulo\n",           .{}),
+    }
+}
+
+pub fn main() void {
+    const valores = [_]$1{
+        .{ .${2:entero}   = ${6:42} },
+        .{ .${3:flotante} = ${7:3.14} },
+        .{ .${4:texto}    = "${8:hola}" },
+        .{ .${5:booleano} = true },
+        .nulo,
+    };
+    for (valores) |v| describir(v);
+}
+$0

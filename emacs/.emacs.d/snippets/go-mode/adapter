@@ -1,0 +1,48 @@
+# -*- mode: snippet -*-
+# name: Adapter (Go)
+# key: adapter
+# --
+// Adapter — envolver una API externa para cumplir una interfaz local
+package main
+
+import "fmt"
+
+// Interfaz que necesita el dominio
+type ${1:Almacen} interface {
+	Guardar(id string, datos []byte) error
+	Cargar(id string) ([]byte, error)
+}
+
+// Biblioteca de terceros (interfaz diferente)
+type ${2:S3Client} struct{ bucket string }
+
+func (c *$2) PutObject(bucket, key string, body []byte) error {
+	fmt.Printf("[S3] PUT s3://%s/%s (%d bytes)\n", bucket, key, len(body))
+	return nil
+}
+func (c *$2) GetObject(bucket, key string) ([]byte, error) {
+	fmt.Printf("[S3] GET s3://%s/%s\n", bucket, key)
+	return []byte("datos-de-prueba"), nil
+}
+
+// Adapter
+type ${3:S3Adapter} struct{ cliente *$2 }
+
+func (a *$3) Guardar(id string, datos []byte) error {
+	return a.cliente.PutObject(a.cliente.bucket, id, datos)
+}
+func (a *$3) Cargar(id string) ([]byte, error) {
+	return a.cliente.GetObject(a.cliente.bucket, id)
+}
+
+func usar(a $1, id string) {
+	_ = a.Guardar(id, []byte("hola"))
+	datos, _ := a.Cargar(id)
+	fmt.Println("cargado:", string(datos))
+}
+
+func main() {
+	var almacen $1 = &$3{&$2{"${4:mi-bucket}"}}
+	usar(almacen, "${5:archivo.bin}")
+}
+$0

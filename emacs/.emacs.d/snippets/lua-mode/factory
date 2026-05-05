@@ -1,0 +1,37 @@
+# -*- mode: snippet -*-
+# name: Factory (Lua)
+# key: factory
+# --
+-- Factory — crear objetos por tipo sin exponer constructores
+local ${1:Arma} = {}
+$1.__index = $1
+
+local _tipos = {}
+
+function _tipos.${2:espada}()
+    return setmetatable({ nombre = "${2:espada}", danio = ${3:15}, alcance = ${4:1} }, $1)
+end
+
+function _tipos.${5:arco}()
+    return setmetatable({ nombre = "${5:arco}", danio = ${6:10}, alcance = ${7:5} }, $1)
+end
+
+function _tipos.${8:baston}()
+    return setmetatable({ nombre = "${8:bastón}", danio = ${9:5}, alcance = ${10:3} }, $1)
+end
+
+function $1.crear(tipo)
+    local fn = _tipos[tipo]
+    assert(fn, "Arma desconocida: " .. tipo)
+    return fn()
+end
+
+function $1:describir()
+    return string.format("%s [danio=%d alcance=%d]", self.nombre, self.danio, self.alcance)
+end
+
+local a = $1.crear("${2:espada}")
+local b = $1.crear("${5:arco}")
+print(a:describir())
+print(b:describir())
+$0

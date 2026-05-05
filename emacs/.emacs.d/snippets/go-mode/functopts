@@ -1,0 +1,40 @@
+# -*- mode: snippet -*-
+# name: Functional Options (Go)
+# key: functopts
+# --
+// Functional Options — configuración opcional sin romper la API
+package main
+
+import "fmt"
+
+type ${1:Servidor} struct {
+	host    string
+	puerto  int
+	timeout int
+	tls     bool
+}
+
+type ${1:Servidor}Opcion func(*$1)
+
+func ConHost(h string)    ${1:Servidor}Opcion { return func(s *$1) { s.host = h } }
+func ConPuerto(p int)     ${1:Servidor}Opcion { return func(s *$1) { s.puerto = p } }
+func ConTimeout(t int)    ${1:Servidor}Opcion { return func(s *$1) { s.timeout = t } }
+func ConTLS()             ${1:Servidor}Opcion { return func(s *$1) { s.tls = true } }
+
+func Nuevo$1(opts ...${1:Servidor}Opcion) *$1 {
+	s := &$1{host: "${2:localhost}", puerto: ${3:8080}, timeout: ${4:30}}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
+}
+
+func main() {
+	s := Nuevo$1(
+		ConHost("${5:0.0.0.0}"),
+		ConPuerto(${6:443}),
+		ConTLS(),
+	)
+	fmt.Printf("%+v\n", *s)
+}
+$0

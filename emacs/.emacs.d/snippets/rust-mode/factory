@@ -1,0 +1,47 @@
+# -*- mode: snippet -*-
+# name: Factory (Rust)
+# key: factory
+# --
+// Factory — función que retorna Box<dyn Trait>
+trait ${1:Forma}: std::fmt::Debug {
+    fn area(&self) -> f64;
+    fn nombre(&self) -> &str;
+}
+
+#[derive(Debug)] struct ${2:Circulo}   { radio: f64 }
+#[derive(Debug)] struct ${3:Rectangulo}{ ancho: f64, alto: f64 }
+#[derive(Debug)] struct ${4:Triangulo} { base: f64, altura: f64 }
+
+impl $1 for $2 {
+    fn area(&self)   -> f64  { std::f64::consts::PI * self.radio.powi(2) }
+    fn nombre(&self) -> &str { "círculo" }
+}
+impl $1 for $3 {
+    fn area(&self)   -> f64  { self.ancho * self.alto }
+    fn nombre(&self) -> &str { "rectángulo" }
+}
+impl $1 for $4 {
+    fn area(&self)   -> f64  { 0.5 * self.base * self.altura }
+    fn nombre(&self) -> &str { "triángulo" }
+}
+
+fn crear_${1:forma}(tipo: &str, a: f64, b: f64) -> Box<dyn $1> {
+    match tipo {
+        "circulo"    => Box::new($2 { radio: a }),
+        "rectangulo" => Box::new($3 { ancho: a, alto: b }),
+        "triangulo"  => Box::new($4 { base: a, altura: b }),
+        otro         => panic!("forma desconocida: {otro}"),
+    }
+}
+
+fn main() {
+    let formas: Vec<Box<dyn $1>> = vec![
+        crear_${1:forma}("circulo",    ${5:5.0}, 0.0),
+        crear_${1:forma}("rectangulo", ${6:4.0}, ${7:3.0}),
+        crear_${1:forma}("triangulo",  ${8:6.0}, ${9:4.0}),
+    ];
+    for f in &formas {
+        println!("{}: área = {:.2}", f.nombre(), f.area());
+    }
+}
+$0

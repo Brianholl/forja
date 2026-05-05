@@ -1,0 +1,35 @@
+# -*- mode: snippet -*-
+# name: Visitor (Kotlin)
+# key: visitor
+# --
+// Visitor — operaciones sobre jerarquía sin modificar las clases; when exhaustivo
+sealed class ${1:Expresion} {
+    data class ${2:Numero}(val valor: Double)            : $1()
+    data class ${3:Suma}(val izq: $1, val der: $1)       : $1()
+    data class ${4:Producto}(val izq: $1, val der: $1)   : $1()
+    data class ${5:Negacion}(val expr: $1)               : $1()
+}
+
+fun evaluar(expr: $1): Double = when (expr) {
+    is $1.$2        -> expr.valor
+    is $1.$3        -> evaluar(expr.izq) + evaluar(expr.der)
+    is $1.$4        -> evaluar(expr.izq) * evaluar(expr.der)
+    is $1.$5        -> -evaluar(expr.expr)
+}
+
+fun imprimir(expr: $1): String = when (expr) {
+    is $1.$2        -> expr.valor.toString()
+    is $1.$3        -> "(${imprimir(expr.izq)} + ${imprimir(expr.der)})"
+    is $1.$4        -> "(${imprimir(expr.izq)} * ${imprimir(expr.der)})"
+    is $1.$5        -> "(-${imprimir(expr.expr)})"
+}
+
+fun main() {
+    // (3 + 4) * -2 = -14
+    val arbol = $1.$4(
+        $1.$3($1.$2(${6:3.0}), $1.$2(${7:4.0})),
+        $1.$5($1.$2(${8:2.0}))
+    )
+    println("\${imprimir(arbol)} = \${evaluar(arbol)}")
+}
+$0

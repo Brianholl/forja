@@ -1,0 +1,35 @@
+# -*- mode: snippet -*-
+# name: Observer (Lua)
+# key: observer
+# --
+-- Observer — bus de eventos con suscriptores por tipo
+local ${1:EventBus} = {}
+$1.__index = $1
+
+function $1.nuevo()
+    return setmetatable({ _subs = {} }, $1)
+end
+
+function $1:suscribir(evento, fn)
+    self._subs[evento] = self._subs[evento] or {}
+    table.insert(self._subs[evento], fn)
+end
+
+function $1:emitir(evento, datos)
+    for _, fn in ipairs(self._subs[evento] or {}) do
+        fn(datos)
+    end
+end
+
+-- Uso
+local bus = $1.nuevo()
+
+bus:suscribir("${2:jugador.murio}", function(d)
+    print("[Logger] jugador murió en x=" .. (d.x or "?"))
+end)
+bus:suscribir("${2:jugador.murio}", function(d)
+    print("[UI] mostrar pantalla de game over")
+end)
+
+bus:emitir("${2:jugador.murio}", { x = ${3:120}, y = ${4:64} })
+$0

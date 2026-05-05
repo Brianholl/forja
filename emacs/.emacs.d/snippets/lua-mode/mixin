@@ -1,0 +1,49 @@
+# -*- mode: snippet -*-
+# name: Mixin (Lua)
+# key: mixin
+# --
+-- Mixin — copiar métodos de múltiples tablas en una clase
+local function mezclar(destino, ...)
+    for _, fuente in ipairs({...}) do
+        for k, v in pairs(fuente) do
+            if destino[k] == nil then
+                destino[k] = v
+            end
+        end
+    end
+    return destino
+end
+
+-- Mixins reutilizables
+local ${1:Serializable} = {
+    serializar = function(self)
+        local partes = {}
+        for k, v in pairs(self) do
+            if type(v) ~= "function" then
+                table.insert(partes, k .. "=" .. tostring(v))
+            end
+        end
+        return "{" .. table.concat(partes, ", ") .. "}"
+    end,
+}
+
+local ${2:Comparable} = {
+    igual = function(self, otro)
+        return self.${3:id} == otro.${3:id}
+    end,
+}
+
+-- Clase que usa los mixins
+local ${4:Entidad} = {}
+$4.__index = $4
+mezclar($4, $1, $2)
+
+function $4.nuevo(${3:id}, ${5:nombre})
+    return setmetatable({ ${3:id} = ${3:id}, ${5:nombre} = ${5:nombre} }, $4)
+end
+
+local a = $4.nuevo(${6:1}, "${7:Ana}")
+local b = $4.nuevo(${6:1}, "${8:Beto}")
+print(a:serializar())
+print("¿iguales?", a:igual(b))   -- true (mismo id)
+$0

@@ -1,0 +1,30 @@
+# -*- mode: snippet -*-
+# name: Adapter (Kotlin)
+# key: adapter
+# --
+// Adapter — adaptar una interfaz incompatible sin modificar el original
+interface ${1:Reproductor} {
+    fun reproducir(archivo: String)
+}
+
+// Clase de terceros con interfaz diferente
+class ${2:VlcPlayer} {
+    fun abrirArchivo(ruta: String) = println("[VLC] abriendo $ruta")
+    fun reproducirVlc()            = println("[VLC] reproduciendo")
+}
+
+class ${3:Adaptador}Vlc : $1 {
+    private val vlc = $2()
+    override fun reproducir(archivo: String) {
+        vlc.abrirArchivo(archivo)
+        vlc.reproducirVlc()
+    }
+}
+
+fun reproducirMedia(p: $1, archivo: String) = p.reproducir(archivo)
+
+fun main() {
+    val adaptado: $1 = $3Vlc()
+    reproducirMedia(adaptado, "${4:pelicula.mkv}")
+}
+$0

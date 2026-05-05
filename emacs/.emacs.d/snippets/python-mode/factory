@@ -1,0 +1,29 @@
+# -*- mode: snippet -*-
+# name: Factory Method (Python)
+# key: factory
+# --
+# Factory Method — subclases deciden qué objeto crear
+from abc import ABC, abstractmethod
+
+class ${1:Notificador}(ABC):
+    @abstractmethod
+    def enviar(self, mensaje: str) -> None: ...
+
+class ${2:Email}($1):
+    def enviar(self, mensaje: str) -> None:
+        print(f"[Email] {mensaje}")
+
+class ${3:SMS}($1):
+    def enviar(self, mensaje: str) -> None:
+        print(f"[SMS] {mensaje}")
+
+def crear_$1(tipo: str) -> $1:
+    tipos = {"email": $2, "sms": $3}
+    cls = tipos.get(tipo)
+    if cls is None:
+        raise ValueError(f"Tipo desconocido: {tipo}")
+    return cls()
+
+n = crear_$1("email")
+n.enviar("Hola mundo")
+$0

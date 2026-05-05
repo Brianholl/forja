@@ -1,0 +1,48 @@
+# -*- mode: snippet -*-
+# name: Command (Kotlin)
+# key: command
+# --
+// Command — función de orden superior como comando; undo/redo con stack
+typealias ${1:Accion} = () -> Unit
+
+class ${2:Historial} {
+    private val hecho   = ArrayDeque<Pair<$1, $1>>()
+    private val deshecho = ArrayDeque<Pair<$1, $1>>()
+
+    fun ejecutar(hacer: $1, deshacer: $1) {
+        hacer()
+        hecho.addLast(hacer to deshacer)
+        deshecho.clear()
+    }
+
+    fun deshacer() {
+        hecho.removeLastOrNull()?.let { (_, des) ->
+            des()
+            deshecho.addLast(it)
+        }
+    }
+
+    fun rehacer() {
+        deshecho.removeLastOrNull()?.let { (hac, _) ->
+            hac()
+            hecho.addLast(it)
+        }
+    }
+}
+
+fun main() {
+    val texto = StringBuilder()
+    val h = $2()
+
+    h.ejecutar(
+        hacer    = { texto.append("${3:Hola }"); println("+ '${3:Hola }'  → '$texto'") },
+        deshacer = { repeat(${4:5}) { texto.deleteCharAt(texto.lastIndex) }; println("- undo       → '$texto'") }
+    )
+    h.ejecutar(
+        hacer    = { texto.append("${5:mundo}"); println("+ '${5:mundo}' → '$texto'") },
+        deshacer = { repeat(${6:5}) { texto.deleteCharAt(texto.lastIndex) }; println("- undo       → '$texto'") }
+    )
+    h.deshacer()
+    h.rehacer()
+}
+$0

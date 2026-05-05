@@ -1,0 +1,63 @@
+# -*- mode: snippet -*-
+# name: Fan-Out / Fan-In (Go)
+# key: fanout
+# --
+// Fan-Out / Fan-In — distribuir trabajo y consolidar resultados
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func fuente(items ...int) <-chan int {
+	ch := make(chan int)
+	go func() {
+		defer close(ch)
+		for _, v := range items {
+			ch <- v
+		}
+	}()
+	return ch
+}
+
+func procesar(in <-chan int) <-chan int {
+	out := make(chan int)
+	go func() {
+		defer close(out)
+		for v := range in {
+			out <- v * v   // trabajo real aquí
+		}
+	}()
+	return out
+}
+
+func consolidar(canales ...<-chan int) <-chan int {
+	var wg sync.WaitGroup
+	out := make(chan int)
+	reenviar := func(c <-chan int) {
+		defer wg.Done()
+		for v := range c {
+			out <- v
+		}
+	}
+	wg.Add(len(canales))
+	for _, c := range canales {
+		go reenviar(c)
+	}
+	go func() { wg.Wait(); close(out) }()
+	return out
+}
+
+func main() {
+	entrada := fuente(${1:1, 2, 3, 4, 5, 6, 7, 8})
+	trabajadores := ${2:3}
+	canales := make([]<-chan int, trabajadores)
+	for i := range canales {
+		canales[i] = procesar(entrada)
+	}
+	for v := range consolidar(canales...) {
+		fmt.Println(v)
+	}
+}
+$0

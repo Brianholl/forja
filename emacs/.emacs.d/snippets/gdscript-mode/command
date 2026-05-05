@@ -1,0 +1,47 @@
+# -*- mode: snippet -*-
+# name: Command (GDScript)
+# key: command
+# --
+# Command — acciones como objetos; undo/redo para editor o replay
+class_name ${1:Comando}
+
+func ejecutar() -> void:
+	pass
+
+func deshacer() -> void:
+	pass
+
+# --- Comando concreto ---
+class ${2:MoverComando} extends $1:
+	var nodo: Node2D
+	var delta_pos: Vector2
+	var pos_anterior: Vector2
+
+	func _init(n: Node2D, delta: Vector2) -> void:
+		nodo = n
+		delta_pos = delta
+
+	func ejecutar() -> void:
+		pos_anterior = nodo.global_position
+		nodo.global_position += delta_pos
+
+	func deshacer() -> void:
+		nodo.global_position = pos_anterior
+
+# --- Historial ---
+class ${3:Historial}:
+	var _pila: Array[$1] = []
+
+	func ejecutar(cmd: $1) -> void:
+		cmd.ejecutar()
+		_pila.push_back(cmd)
+
+	func deshacer() -> void:
+		if _pila.is_empty(): return
+		_pila.pop_back().deshacer()
+
+# Uso en la escena principal:
+# var historial = ${3:Historial}.new()
+# historial.ejecutar(${2:MoverComando}.new($Jugador, Vector2(${4:32}, 0)))
+# historial.deshacer()
+$0

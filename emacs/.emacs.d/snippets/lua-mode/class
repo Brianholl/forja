@@ -1,0 +1,42 @@
+# -*- mode: snippet -*-
+# name: Class (Lua)
+# key: class
+# --
+-- Clase base via metatables — herencia simple
+local ${1:Clase} = {}
+$1.__index = $1
+
+function $1.nuevo(${2:...})
+    local self = setmetatable({}, $1)
+    self:init(${2:...})
+    return self
+end
+
+function $1:init(${3:nombre})
+    self.${3:nombre} = ${3:nombre}
+end
+
+function $1:__tostring()
+    return "$1(" .. tostring(self.${3:nombre}) .. ")"
+end
+
+-- Subclase
+local ${4:Sub}$1 = setmetatable({}, { __index = $1 })
+$4$1.__index = $4$1
+
+function $4$1.nuevo(${3:nombre}, ${5:extra})
+    local self = $1.nuevo(${3:nombre})
+    self.${5:extra} = ${5:extra}
+    return setmetatable(self, $4$1)
+end
+
+function $4$1:describir()
+    return tostring(self) .. " extra=" .. tostring(self.${5:extra})
+end
+
+-- Prueba
+local obj = $1.nuevo("${6:base}")
+local sub = $4$1.nuevo("${7:hijo}", "${8:dato}")
+print(tostring(obj))
+print(sub:describir())
+$0

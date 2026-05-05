@@ -1,0 +1,32 @@
+# -*- mode: snippet -*-
+# name: Proxy (Python)
+# key: proxy
+# --
+# Proxy — controlar acceso a un objeto (caché, permisos, logging)
+from abc import ABC, abstractmethod
+
+class ${1:Servicio}(ABC):
+    @abstractmethod
+    def solicitar(self, recurso: str) -> str: ...
+
+class ${1:Servicio}Real($1):
+    def solicitar(self, recurso: str) -> str:
+        print(f"[Real] cargando {recurso}")
+        return f"datos de {recurso}"
+
+class ${2:Proxy}$1($1):
+    def __init__(self):
+        self._real = ${1:Servicio}Real()
+        self._cache: dict[str, str] = {}
+
+    def solicitar(self, recurso: str) -> str:
+        if recurso not in self._cache:
+            self._cache[recurso] = self._real.solicitar(recurso)
+        else:
+            print(f"[Proxy] caché: {recurso}")
+        return self._cache[recurso]
+
+svc: $1 = $2$1()
+print(svc.solicitar("${3:config.json}"))
+print(svc.solicitar("${3:config.json}"))   # desde caché
+$0

@@ -1,0 +1,47 @@
+# -*- mode: snippet -*-
+# name: Component (GDScript)
+# key: component
+# --
+# Component — sistema de componentes: comportamientos como nodos hijos
+# Componente base
+class_name ${1:Componente}
+extends Node
+
+func _ready() -> void:
+	assert(get_parent() is ${2:Entidad}, "[%s] debe ser hijo de $2" % name)
+
+func duenio() -> $2:
+	return get_parent() as $2
+
+# --- Entidad contenedora ---
+class_name $2
+extends ${3:CharacterBody2D}
+
+func obtener_componente(tipo: GDScript) -> $1:
+	for hijo in get_children():
+		if hijo is tipo:
+			return hijo as $1
+	return null
+
+# --- Componente concreto: Salud ---
+class_name ${4:ComponenteSalud}
+extends $1
+
+@export var hp_max: int = ${5:100}
+var hp: int
+
+signal muerto
+
+func _ready() -> void:
+	super._ready()
+	hp = hp_max
+
+func recibir_danio(d: int) -> void:
+	hp = clampi(hp - d, 0, hp_max)
+	if hp == 0:
+		emit_signal("muerto")
+
+# Uso en la entidad:
+# var salud = obtener_componente(${4:ComponenteSalud})
+# salud.recibir_danio(10)
+$0

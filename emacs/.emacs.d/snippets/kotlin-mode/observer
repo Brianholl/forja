@@ -1,0 +1,29 @@
+# -*- mode: snippet -*-
+# name: Observer (Kotlin)
+# key: observer
+# --
+// Observer — callbacks tipados con función de orden superior
+class ${1:EventBus}<T> {
+    private val suscriptores = mutableListOf<(T) -> Unit>()
+
+    fun suscribir(fn: (T) -> Unit)   { suscriptores += fn }
+    fun desuscribir(fn: (T) -> Unit) { suscriptores -= fn }
+    fun emitir(evento: T)            { suscriptores.forEach { it(evento) } }
+}
+
+data class ${2:Pedido}(val id: Int, val producto: String, val total: Double)
+
+fun main() {
+    val bus = $1<$2>()
+
+    val email   = { p: $2 -> println("[Email]  Pedido #\${p.id}: \${p.producto}") }
+    val factura = { p: $2 -> println("[Factura] Total: $\${p.total}") }
+
+    bus.suscribir(email)
+    bus.suscribir(factura)
+    bus.emitir($2(${3:1}, "${4:teclado}", ${5:59.99}))
+
+    bus.desuscribir(email)
+    bus.emitir($2(${6:2}, "${7:mouse}", ${8:29.99}))   // solo factura
+}
+$0

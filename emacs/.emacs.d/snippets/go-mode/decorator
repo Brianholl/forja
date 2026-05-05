@@ -1,0 +1,54 @@
+# -*- mode: snippet -*-
+# name: Decorator (Go)
+# key: decorator
+# --
+// Decorator — envolver handlers HTTP con middleware
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"time"
+)
+
+type ${1:Middleware} func(http.HandlerFunc) http.HandlerFunc
+
+func ${2:Logger}() $1 {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			inicio := time.Now()
+			next(w, r)
+			fmt.Printf("[LOG] %s %s %v\n", r.Method, r.URL.Path, time.Since(inicio))
+		}
+	}
+}
+
+func ${3:Auth}(token string) $1 {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Authorization") != "Bearer "+token {
+				http.Error(w, "no autorizado", http.StatusUnauthorized)
+				return
+			}
+			next(w, r)
+		}
+	}
+}
+
+func aplicar(h http.HandlerFunc, ms ...$1) http.HandlerFunc {
+	for i := len(ms) - 1; i >= 0; i-- {
+		h = ms[i](h)
+	}
+	return h
+}
+
+func ${4:hola}(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "Hola desde FORJA")
+}
+
+func main() {
+	http.HandleFunc("/${5:api}", aplicar($4, $2(), $3("${6:secreto}")))
+	fmt.Println("Servidor en :${7:8080}")
+	http.ListenAndServe(":${7:8080}", nil)
+}
+$0

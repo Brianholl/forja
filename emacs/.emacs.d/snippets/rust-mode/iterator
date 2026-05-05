@@ -1,0 +1,38 @@
+# -*- mode: snippet -*-
+# name: Iterator (Rust)
+# key: iterator
+# --
+// Iterator — implementar Iterator para un tipo propio
+struct ${1:Fibonacci} {
+    a: u64,
+    b: u64,
+}
+
+impl $1 {
+    fn nuevo() -> Self { Self { a: 0, b: 1 } }
+}
+
+impl Iterator for $1 {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<u64> {
+        let siguiente = self.a.checked_add(self.b)?;
+        self.a = self.b;
+        self.b = siguiente;
+        Some(self.a)
+    }
+}
+
+fn main() {
+    // Primeros N términos
+    let primeros: Vec<u64> = $1::nuevo().take(${2:10}).collect();
+    println!("Fibonacci: {primeros:?}");
+
+    // Suma de pares menores a N
+    let suma: u64 = $1::nuevo()
+        .take_while(|&n| n < ${3:100})
+        .filter(|n| n % 2 == 0)
+        .sum();
+    println!("Suma pares < ${3:100}: {suma}");
+}
+$0

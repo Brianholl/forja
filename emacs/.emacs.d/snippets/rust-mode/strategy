@@ -1,0 +1,53 @@
+# -*- mode: snippet -*-
+# name: Strategy (Rust)
+# key: strategy
+# --
+// Strategy — trait como estrategia intercambiable
+trait ${1:Ordenar} {
+    fn ordenar(&self, lista: &mut Vec<i32>);
+    fn nombre(&self) -> &str;
+}
+
+struct ${2:BubbleSort};
+struct ${3:InsertionSort};
+
+impl $1 for $2 {
+    fn nombre(&self) -> &str { "bubble" }
+    fn ordenar(&self, v: &mut Vec<i32>) {
+        let n = v.len();
+        for i in 0..n {
+            for j in 0..n - i - 1 {
+                if v[j] > v[j + 1] { v.swap(j, j + 1); }
+            }
+        }
+    }
+}
+
+impl $1 for $3 {
+    fn nombre(&self) -> &str { "insertion" }
+    fn ordenar(&self, v: &mut Vec<i32>) {
+        for i in 1..v.len() {
+            let clave = v[i];
+            let mut j = i;
+            while j > 0 && v[j - 1] > clave { v[j] = v[j - 1]; j -= 1; }
+            v[j] = clave;
+        }
+    }
+}
+
+struct ${4:Clasificador} { estrategia: Box<dyn $1> }
+
+impl $4 {
+    fn nuevo(e: impl $1 + 'static) -> Self { Self { estrategia: Box::new(e) } }
+    fn ordenar(&self, lista: &mut Vec<i32>) {
+        self.estrategia.ordenar(lista);
+        println!("[{}] {:?}", self.estrategia.nombre(), lista);
+    }
+}
+
+fn main() {
+    let datos = vec![${5:5, 3, 8, 1, 9, 2}];
+    $4::nuevo($2).ordenar(&mut datos.clone());
+    $4::nuevo($3).ordenar(&mut datos.clone());
+}
+$0

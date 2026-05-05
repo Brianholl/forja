@@ -1,0 +1,35 @@
+# -*- mode: snippet -*-
+# name: Singleton (Go)
+# key: singleton
+# --
+// Singleton — sync.Once garantiza inicialización única y thread-safe
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+type ${1:DB} struct {
+	dsn string
+}
+
+var (
+	instancia${1:DB} *$1
+	una vez${1:DB}   sync.Once
+)
+
+func Obtener$1() *$1 {
+	unaVez${1:DB}.Do(func() {
+		instancia${1:DB} = &$1{dsn: "${2:postgres://localhost:5432/app}"}
+		fmt.Println("[$1] conexión creada")
+	})
+	return instancia${1:DB}
+}
+
+func main() {
+	a := Obtener$1()
+	b := Obtener$1()
+	fmt.Println("¿Misma instancia?", a == b)   // true
+}
+$0

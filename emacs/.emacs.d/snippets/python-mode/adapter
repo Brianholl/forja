@@ -1,0 +1,31 @@
+# -*- mode: snippet -*-
+# name: Adapter (Python)
+# key: adapter
+# --
+# Adapter — convertir la interfaz de una clase en otra que el cliente espera
+class ${1:AnalizadorXML}:
+    def parsear_xml(self, datos: str) -> dict:
+        print(f"[XML] parseando: {datos}")
+        return {"formato": "xml", "datos": datos}
+
+class ${2:AnalizadorJSON}:
+    def parsear_json(self, datos: str) -> dict:
+        import json
+        return json.loads(datos)
+
+class ${3:AdaptadorJSON}($1):
+    """Hace que $2 parezca un $1."""
+    def __init__(self):
+        self._json = $2()
+
+    def parsear_xml(self, datos: str) -> dict:
+        # El cliente llama parsear_xml, pero internamente usamos JSON
+        return self._json.parsear_json(datos)
+
+def procesar(analizador: $1, datos: str) -> None:
+    resultado = analizador.parsear_xml(datos)
+    print("Resultado:", resultado)
+
+procesar($1(),           "<item>valor</item>")
+procesar($3(), '{"item": "valor"}')
+$0

@@ -1,0 +1,45 @@
+# -*- mode: snippet -*-
+# name: Arena Allocator (Zig)
+# key: arena
+# --
+// Arena Allocator — asignar muchos objetos y liberarlos todos de una vez
+const std = @import("std");
+
+const ${1:Nodo} = struct {
+    valor: ${2:i32},
+    siguiente: ?*$1 = null,
+};
+
+fn construir_lista(aloc: std.mem.Allocator, valores: []const ${2:i32}) !*$1 {
+    var cabeza: ?*$1 = null;
+    for (valores) |v| {
+        const nodo = try aloc.create($1);
+        nodo.* = .{ .valor = v, .siguiente = cabeza };
+        cabeza = nodo;
+    }
+    return cabeza orelse error.ListaVacia;
+}
+
+fn imprimir_lista(nodo: ?*$1) void {
+    var curr = nodo;
+    while (curr) |n| : (curr = n.siguiente) {
+        std.debug.print("{d} ", .{n.valor});
+    }
+    std.debug.print("\n", .{});
+}
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    // Arena sobre GPA: un solo free() libera todos los nodos
+    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
+    defer arena.deinit();   // libera toda la arena aquí
+    const aloc = arena.allocator();
+
+    const valores = [_]${2:i32}{ ${3:1, 2, 3, 4, 5} };
+    const lista = try construir_lista(aloc, &valores);
+    imprimir_lista(lista);
+    // No hace falta liberar nodo a nodo: arena.deinit() lo hace todo
+}
+$0

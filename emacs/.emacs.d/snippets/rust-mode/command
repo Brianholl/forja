@@ -1,0 +1,64 @@
+# -*- mode: snippet -*-
+# name: Command (Rust)
+# key: command
+# --
+// Command — trait con ejecutar/deshacer; historial en Vec<Box<dyn Comando>>
+trait ${1:Comando} {
+    fn ejecutar(&mut self, texto: &mut String);
+    fn deshacer(&mut self, texto: &mut String);
+}
+
+struct ${2:Insertar} { fragmento: String }
+struct ${3:Eliminar} { eliminado: String }
+
+impl $1 for $2 {
+    fn ejecutar(&mut self, t: &mut String) {
+        t.push_str(&self.fragmento);
+        println!("+ '{}' → '{t}'", self.fragmento);
+    }
+    fn deshacer(&mut self, t: &mut String) {
+        let n = self.fragmento.len();
+        t.truncate(t.len() - n);
+        println!("undo   → '{t}'");
+    }
+}
+
+impl $1 for $3 {
+    fn ejecutar(&mut self, t: &mut String) {
+        self.eliminado = t.clone();
+        t.clear();
+        println!("clear  → '{t}'");
+    }
+    fn deshacer(&mut self, t: &mut String) {
+        *t = self.eliminado.clone();
+        println!("undo   → '{t}'");
+    }
+}
+
+struct ${4:Editor} {
+    texto: String,
+    historial: Vec<Box<dyn $1>>,
+}
+
+impl $4 {
+    fn nuevo() -> Self { Self { texto: String::new(), historial: Vec::new() } }
+    fn ejecutar(&mut self, mut cmd: Box<dyn $1>) {
+        cmd.ejecutar(&mut self.texto);
+        self.historial.push(cmd);
+    }
+    fn deshacer(&mut self) {
+        if let Some(mut cmd) = self.historial.pop() {
+            cmd.deshacer(&mut self.texto);
+        }
+    }
+}
+
+fn main() {
+    let mut ed = $4::nuevo();
+    ed.ejecutar(Box::new($2 { fragmento: "${5:Hola }".into() }));
+    ed.ejecutar(Box::new($2 { fragmento: "${6:mundo}".into() }));
+    ed.ejecutar(Box::new($3 { eliminado: String::new() }));
+    ed.deshacer();
+    ed.deshacer();
+}
+$0

@@ -135,17 +135,17 @@ El paquete `yasnippet-snippets` ya cubre sintaxis básica — FORJA agrega patro
 | Lenguaje | Modo | Base (pkg) | FORJA | Estado |
 |----------|------|:---:|:---:|:---:|
 | TypeScript | `typescript-mode` | 0 | 12  | `[x]` |
-| Python | `python-mode` | 187 (sintaxis) | ~12 | `[ ]` |
+| Python | `python-mode` | 187 (sintaxis) | 12 | `[x]` |
 | Java | `java-mode` | 33 | 21  | `[x]` |
-| Kotlin | `kotlin-mode` | 17 | ~10 | `[ ]` |
-| Go | `go-mode` | 29 | ~10 | `[ ]` |
-| Rust | `rust-mode` | 65 | ~10 | `[ ]` |
-| GDScript | `gdscript-mode` | 16 | ~8 | `[ ]` |
-| Lua | `lua-mode` | 11 | ~8 | `[ ]` |
-| PHP | `php-mode` | 42 | ~10 | `[ ]` |
-| Zig | `zig-mode` | 12 | ~8 | `[ ]` |
+| Kotlin | `kotlin-mode` | 17 | 10 | `[x]` |
+| Go | `go-mode` | 29 | 10 | `[x]` |
+| Rust | `rust-mode` | 65 | 10 | `[x]` |
+| GDScript | `gdscript-mode` | 16 | 8 | `[x]` |
+| Lua | `lua-mode` | 11 | 8 | `[x]` |
+| PHP | `php-mode` | 42 | 10 | `[x]` |
+| Zig | `zig-mode` | 12 | 8 | `[x]` |
 
-**Total estimado: ~106 snippets**
+**Total: 109 snippets FORJA (179 archivos en total incluyendo C/C++ y Unreal)**
 
 ### Detalle por lenguaje
 
@@ -254,4 +254,5 @@ Ideas post-release sin compromiso de fecha:
 | v2.0 | Abr 2026 | Encapsulamiento: generadores a módulos, hydras `my/hydra-*`, dispatch table |
 | v2.1 | Abr 2026 | TAO completo: org-caldav, modo examen, seguimiento.org, widget GTD, how-to 13 |
 | v2.2 | Abr 2026 | Compatibilidad: `test.sh --matrix`, COMPATIBILITY.md, PKGBUILD completo, FASM resuelto |
+| v2.3 | May 2026 | Snippets multilenguaje: 109 patrones idiomáticos en Python, Kotlin, Go, Rust, GDScript, Lua, PHP, Zig (179 snippets totales) |
 | v2.4 | May 2026 | Transparencia completa: FORJA.md en 21 generadores (todos los stacks), hook pedagógico, how-tos 15/16, Clase 17, comentarios "¿Por qué?" en módulos clave |

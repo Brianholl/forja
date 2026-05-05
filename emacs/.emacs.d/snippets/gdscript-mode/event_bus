@@ -1,0 +1,31 @@
+# -*- mode: snippet -*-
+# name: Event Bus (GDScript)
+# key: event_bus
+# --
+# Event Bus — Autoload global para desacoplar emisores y receptores
+# Registrar en Project > Autoload con nombre "${1:Eventos}"
+extends Node
+
+# Declarar todas las señales del juego aquí
+signal ${2:jugador_murio}
+signal ${3:nivel_completado}(numero: int, estrellas: int)
+signal ${4:item_recogido}(tipo: String, cantidad: int)
+signal ${5:pausa_cambiada}(pausado: bool)
+signal ${6:puntuacion_actualizada}(total: int)
+
+# Uso — Emisor (en cualquier script):
+# $1.emit_signal("${2:jugador_murio}")
+# $1.emit_signal("${3:nivel_completado}", numero_nivel, estrellas)
+# $1.emit_signal("${4:item_recogido}", "moneda", 1)
+
+# Uso — Receptor (en cualquier script):
+# func _ready() -> void:
+#     $1.${2:jugador_murio}.connect(_al_morir)
+#     $1.${3:nivel_completado}.connect(_al_completar_nivel)
+#
+# func _al_morir() -> void:
+#     $PantallaGameOver.show()
+#
+# func _al_completar_nivel(numero: int, estrellas: int) -> void:
+#     print("Nivel %d completado con %d estrellas" % [numero, estrellas])
+$0

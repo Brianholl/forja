@@ -1,0 +1,57 @@
+# -*- mode: snippet -*-
+# name: Comptime Generic (Zig)
+# key: comptime_generic
+# --
+// Comptime Generic — tipos parametrizados resueltos en compilación
+const std = @import("std");
+
+fn ${1:Pila}(comptime T: type) type {
+    return struct {
+        const Self = @This();
+        items: std.ArrayList(T),
+
+        pub fn init(aloc: std.mem.Allocator) Self {
+            return .{ .items = std.ArrayList(T).init(aloc) };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.items.deinit();
+        }
+
+        pub fn push(self: *Self, val: T) !void {
+            try self.items.append(val);
+        }
+
+        pub fn pop(self: *Self) ?T {
+            if (self.items.items.len == 0) return null;
+            return self.items.pop();
+        }
+
+        pub fn tope(self: Self) ?T {
+            if (self.items.items.len == 0) return null;
+            return self.items.items[self.items.items.len - 1];
+        }
+
+        pub fn len(self: Self) usize {
+            return self.items.items.len;
+        }
+    };
+}
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const aloc = gpa.allocator();
+
+    var pila_int = $1(${2:i32}).init(aloc);
+    defer pila_int.deinit();
+
+    try pila_int.push(${3:10});
+    try pila_int.push(${4:20});
+    try pila_int.push(${5:30});
+
+    std.debug.print("tope: {?d}\n", .{pila_int.tope()});
+    std.debug.print("pop:  {?d}\n", .{pila_int.pop()});
+    std.debug.print("len:  {d}\n",  .{pila_int.len()});
+}
+$0
