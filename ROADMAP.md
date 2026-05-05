@@ -134,7 +134,7 @@ El paquete `yasnippet-snippets` ya cubre sintaxis básica — FORJA agrega patro
 
 | Lenguaje | Modo | Base (pkg) | FORJA | Estado |
 |----------|------|:---:|:---:|:---:|
-| TypeScript | `typescript-mode` | 0 | ~12 | `[ ]` |
+| TypeScript | `typescript-mode` | 0 | 12  | `[x]` |
 | Python | `python-mode` | 187 (sintaxis) | ~12 | `[ ]` |
 | Java | `java-mode` | 33 | ~18 | `[ ]` |
 | Kotlin | `kotlin-mode` | 17 | ~10 | `[ ]` |
