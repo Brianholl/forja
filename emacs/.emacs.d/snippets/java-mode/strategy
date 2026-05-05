@@ -1,0 +1,38 @@
+# -*- mode: snippet -*-
+# name: Strategy (Java)
+# key: strategy
+# --
+// Strategy — encapsula algoritmos intercambiables detrás de una interfaz común
+// Intención: definir una familia de algoritmos y hacerlos intercambiables.
+
+import java.util.*;
+
+@FunctionalInterface
+interface ${1:Estrategia} {
+    List<Integer> ordenar(List<Integer> datos);
+}
+
+class ${2:Ordenador} {
+    private $1 estrategia;
+
+    ${2}($1 e) { estrategia = e; }
+    void set($1 e) { estrategia = e; }
+
+    List<Integer> ejecutar(List<Integer> d) { return estrategia.ordenar(d); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        List<Integer> datos = Arrays.asList(5, 3, 8, 1, 9, 2);
+
+        $1 asc  = d -> { var r = new ArrayList<>(d); Collections.sort(r); return r; };
+        $1 desc = d -> { var r = new ArrayList<>(d); r.sort(Comparator.reverseOrder()); return r; };
+
+        $2 ctx = new $2(asc);
+        System.out.println("Asc:  " + ctx.ejecutar(datos));
+
+        ctx.set(desc);
+        System.out.println("Desc: " + ctx.ejecutar(datos));
+    }
+}
+$0

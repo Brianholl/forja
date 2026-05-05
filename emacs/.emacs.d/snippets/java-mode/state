@@ -1,0 +1,42 @@
+# -*- mode: snippet -*-
+# name: State (Java)
+# key: state
+# --
+// State — delega comportamiento al objeto de estado actual
+// Intención: permitir a un objeto cambiar su comportamiento al cambiar de estado.
+
+interface ${1:Estado} {
+    void moneda(${2:Torniquete} t);
+    void pasar ($2 t);
+}
+
+class ${2:Torniquete} {
+    $1 estado = new ${3:Bloqueado}(this);
+
+    void setEstado($1 e) { estado = e; }
+    void moneda()        { estado.moneda(this); }
+    void pasar()         { estado.pasar(this);  }
+}
+
+class ${3:Bloqueado} implements $1 {
+    $2 t; ${3}($2 t) { this.t = t; }
+    public void moneda($2 x) { System.out.println("[Moneda] Desbloqueando"); x.setEstado(new ${4:Desbloqueado}(x)); }
+    public void pasar ($2 x) { System.out.println("[Pasar]  ¡Bloqueado!"); }
+}
+
+class ${4:Desbloqueado} implements $1 {
+    $2 t; ${4}($2 t) { this.t = t; }
+    public void moneda($2 x) { System.out.println("[Moneda] Ya desbloqueado"); }
+    public void pasar ($2 x) { System.out.println("[Pasar]  Adelante"); x.setEstado(new ${3}(x)); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $2 t = new $2();
+        t.pasar();    // bloqueado
+        t.moneda();   // desbloquea
+        t.pasar();    // pasa → bloquea
+        t.pasar();    // bloqueado de nuevo
+    }
+}
+$0

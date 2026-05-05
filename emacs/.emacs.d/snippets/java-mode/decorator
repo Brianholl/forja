@@ -1,0 +1,43 @@
+# -*- mode: snippet -*-
+# name: Decorator (Java)
+# key: decorator
+# --
+// Decorator — agrega comportamiento envolviendo el objeto original
+// Intención: adjuntar responsabilidades adicionales a un objeto dinámicamente.
+
+interface ${1:Cafe} {
+    String descripcion();
+    double costo();
+}
+
+class ${2:CafeSimple} implements $1 {
+    public String descripcion() { return "$2"; }
+    public double costo()       { return 1.00; }
+}
+
+abstract class ${3:DecoradorCafe} implements $1 {
+    protected $1 cafe;
+    ${3}($1 c) { cafe = c; }
+}
+
+class ${4:Leche} extends $3 {
+    ${4}($1 c) { super(c); }
+    public String descripcion() { return cafe.descripcion() + " + Leche"; }
+    public double costo()       { return cafe.costo() + 0.25; }
+}
+
+class ${5:Chocolate} extends $3 {
+    ${5}($1 c) { super(c); }
+    public String descripcion() { return cafe.descripcion() + " + Chocolate"; }
+    public double costo()       { return cafe.costo() + 0.50; }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $1 c = new $2();
+        c = new $4(c);
+        c = new $5(new $4(c));
+        System.out.printf("%s → $%.2f%n", c.descripcion(), c.costo());
+    }
+}
+$0

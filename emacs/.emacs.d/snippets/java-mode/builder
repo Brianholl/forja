@@ -1,0 +1,43 @@
+# -*- mode: snippet -*-
+# name: Builder (Java)
+# key: builder
+# --
+// Builder — construcción paso a paso con inner Builder estático
+// Intención: construir objetos complejos separando construcción de representación.
+
+class ${1:Casa} {
+    private final String paredes, techo, ventanas;
+
+    private $1(Builder b) {
+        paredes  = b.paredes;
+        techo    = b.techo;
+        ventanas = b.ventanas;
+    }
+
+    @Override public String toString() {
+        return "$1{paredes=" + paredes + ", techo=" + techo + ", ventanas=" + ventanas + "}";
+    }
+
+    static class Builder {
+        private String paredes  = "${2:ladrillo}";
+        private String techo    = "${3:tejas}";
+        private String ventanas = "${4:doble}";
+
+        Builder paredes (String v) { paredes  = v; return this; }
+        Builder techo   (String v) { techo    = v; return this; }
+        Builder ventanas(String v) { ventanas = v; return this; }
+        $1 build()                 { return new $1(this); }
+    }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $1 c = new $1.Builder()
+                .paredes("madera")
+                .techo("paja")
+                .ventanas("simple")
+                .build();
+        System.out.println(c);
+    }
+}
+$0

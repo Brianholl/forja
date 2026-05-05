@@ -1,0 +1,36 @@
+# -*- mode: snippet -*-
+# name: Iterator (Java)
+# key: iterator
+# --
+// Iterator — acceso secuencial sin exponer la representación interna
+// Intención: proveer una forma de acceder a elementos de un agregado secuencialmente.
+
+import java.util.*;
+
+class ${1:Coleccion}<T> implements Iterable<T> {
+    private final List<T> items = new ArrayList<>();
+
+    void agregar(T item) { items.add(item); }
+
+    @Override
+    public Iterator<T> iterator() {
+        return new Iterator<T>() {
+            int idx = 0;
+            public boolean hasNext() { return idx < items.size(); }
+            public T next()          { return items.get(idx++); }
+        };
+    }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $1<String> cursos = new $1<>();
+        cursos.agregar("${2:Java}");
+        cursos.agregar("${3:Patrones de Diseño}");
+        cursos.agregar("${4:Algoritmos}");
+
+        for (String c : cursos)
+            System.out.println("📚 " + c);
+    }
+}
+$0

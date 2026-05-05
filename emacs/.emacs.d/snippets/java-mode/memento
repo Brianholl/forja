@@ -1,0 +1,57 @@
+# -*- mode: snippet -*-
+# name: Memento (Java)
+# key: memento
+# --
+// Memento — captura y restaura el estado de un objeto sin violar encapsulamiento
+// Intención: poder guardar y restaurar estados pasados de un objeto.
+
+import java.util.*;
+
+class ${1:Editor} {
+    private String contenido = "";
+
+    void escribir(String texto) { contenido += texto; }
+    String getContenido()      { return contenido; }
+
+    // Crea un snapshot del estado actual
+    ${2:Memento} guardar()      { return new $2(contenido); }
+
+    // Restaura el estado desde un snapshot
+    void restaurar($2 m)       { contenido = m.getEstado(); }
+
+    static class ${2:Memento} {
+        private final String estado;
+        private $2(String e) { estado = e; }
+        String getEstado()   { return estado; }
+    }
+}
+
+class ${3:Historial} {
+    private final Deque<$1.$2> snapshots = new ArrayDeque<>();
+
+    void push($1.$2 m) { snapshots.push(m); }
+    $1.$2 pop()        { return snapshots.isEmpty() ? null : snapshots.pop(); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $1 editor  = new $1();
+        $3 historial = new $3();
+
+        editor.escribir("Hola ");
+        historial.push(editor.guardar());     // snapshot 1
+
+        editor.escribir("Mundo");
+        historial.push(editor.guardar());     // snapshot 2
+
+        editor.escribir(" (borrar esto)");
+        System.out.println("Actual: " + editor.getContenido());
+
+        editor.restaurar(historial.pop());    // deshace último
+        System.out.println("Undo:   " + editor.getContenido());
+
+        editor.restaurar(historial.pop());    // deshace otro
+        System.out.println("Undo:   " + editor.getContenido());
+    }
+}
+$0

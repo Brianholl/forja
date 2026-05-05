@@ -1,0 +1,61 @@
+# -*- mode: snippet -*-
+# name: Mediator (Java)
+# key: mediator
+# --
+// Mediator — objeto central que coordina la comunicación entre componentes
+// Intención: reducir el acoplamiento entre objetos haciendo que se comuniquen a través del mediador.
+
+interface ${1:Mediador} {
+    void notificar(Object emisor, String evento);
+}
+
+class ${2:Componente} {
+    protected $1 mediador;
+    ${2}($1 m) { mediador = m; }
+}
+
+class ${3:Boton} extends $2 {
+    ${3}($1 m) { super(m); }
+    void click() {
+        System.out.println("[$3] Click");
+        mediador.notificar(this, "click");
+    }
+}
+
+class ${4:Checkbox} extends $2 {
+    boolean marcado = false;
+    ${4}($1 m) { super(m); }
+    void toggle() {
+        marcado = !marcado;
+        System.out.println("[$4] " + (marcado ? "activado" : "desactivado"));
+        mediador.notificar(this, "toggle");
+    }
+}
+
+class ${5:Dialogo} implements $1 {
+    $3 boton;
+    $4 checkbox;
+
+    ${5}() {
+        boton    = new $3(this);
+        checkbox = new $4(this);
+    }
+
+    public void notificar(Object emisor, String evento) {
+        if (emisor == boton && "click".equals(evento)) {
+            System.out.println("[$5] Botón clickeado → abriendo formulario");
+        } else if (emisor == checkbox && "toggle".equals(evento)) {
+            System.out.println("[$5] Checkbox=" + checkbox.marcado + " → actualizando UI");
+        }
+    }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $5 dialogo = new $5();
+        dialogo.boton.click();
+        dialogo.checkbox.toggle();
+        dialogo.checkbox.toggle();
+    }
+}
+$0

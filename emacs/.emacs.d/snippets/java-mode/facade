@@ -1,0 +1,35 @@
+# -*- mode: snippet -*-
+# name: Facade (Java)
+# key: facade
+# --
+// Facade — interfaz simple sobre subsistemas complejos
+// Intención: ofrecer una interfaz unificada a un conjunto de interfaces del subsistema.
+
+class ${1:CPU}     { void ejecutar() { System.out.println("[CPU] Ejecutando instrucciones"); } }
+class ${2:Memoria} { void cargar()   { System.out.println("[RAM] Cargando datos en memoria"); } }
+class ${3:Disco}   { void leer()     { System.out.println("[Disco] Leyendo sistema operativo"); } }
+
+class ${4:Computadora} {
+    private $1 cpu     = new $1();
+    private $2 memoria = new $2();
+    private $3 disco   = new $3();
+
+    void encender() {
+        System.out.println("=== Encendiendo $4 ===");
+        disco.leer();
+        memoria.cargar();
+        cpu.ejecutar();
+        System.out.println("Sistema listo.");
+    }
+
+    void apagar() { System.out.println("=== Apagando $4 ==="); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $4 pc = new $4();
+        pc.encender();
+        pc.apagar();
+    }
+}
+$0

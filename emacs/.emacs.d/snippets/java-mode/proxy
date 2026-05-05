@@ -1,0 +1,43 @@
+# -*- mode: snippet -*-
+# name: Proxy (Java)
+# key: proxy
+# --
+// Proxy — representante que controla el acceso a otro objeto (lazy init)
+// Intención: controlar acceso, añadir lazy-init, logging o caché transparentemente.
+
+interface ${1:Imagen} {
+    void mostrar();
+}
+
+class ${2:ImagenReal} implements $1 {
+    private final String archivo;
+
+    ${2}(String a) {
+        archivo = a;
+        System.out.println("[$2] Cargando " + archivo + " desde disco...");
+    }
+
+    public void mostrar() { System.out.println("[$2] Mostrando " + archivo); }
+}
+
+class ${3:ImagenProxy} implements $1 {
+    private final String archivo;
+    private $2 real;
+
+    ${3}(String a) { archivo = a; }
+
+    public void mostrar() {
+        if (real == null) real = new $2(archivo);   // lazy init: carga solo si se necesita
+        real.mostrar();
+    }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $1 img = new $3("foto_pesada.png");
+        System.out.println("-- proxy creado, imagen AÚN no cargada --");
+        img.mostrar();   // carga aquí
+        img.mostrar();   // ya en memoria
+    }
+}
+$0

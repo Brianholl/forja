@@ -1,0 +1,36 @@
+# -*- mode: snippet -*-
+# name: Template Method (Java)
+# key: templatemethod
+# --
+// Template Method — esqueleto del algoritmo en abstract class, pasos en subclases
+// Intención: definir el esqueleto de un algoritmo difiriendo algunos pasos a subclases.
+
+abstract class ${1:Juego} {
+    // Template Method — final para proteger el algoritmo
+    final void jugar() {
+        inicializar();
+        while (!terminado()) turno();
+        terminar();
+    }
+
+    abstract void    inicializar();
+    abstract boolean terminado();
+    abstract void    turno();
+    abstract void    terminar();
+}
+
+class ${2:Ajedrez} extends $1 {
+    private int movimientos = 0;
+
+    public void    inicializar() { System.out.println("[$2] Piezas en posición inicial"); }
+    public boolean terminado()   { return movimientos >= ${3:3}; }
+    public void    turno()       { System.out.println("[$2] Movimiento " + ++movimientos); }
+    public void    terminar()    { System.out.println("[$2] Jaque mate — fin"); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        new $2().jugar();
+    }
+}
+$0

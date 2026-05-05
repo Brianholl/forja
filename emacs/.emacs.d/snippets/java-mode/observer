@@ -1,0 +1,43 @@
+# -*- mode: snippet -*-
+# name: Observer (Java)
+# key: observer
+# --
+// Observer — notificación automática a múltiples interesados
+// Intención: definir dependencia 1-a-N para propagar cambios de estado.
+
+import java.util.*;
+
+interface ${1:Observador} {
+    void actualizar(int estado);
+}
+
+class ${2:Sujeto} {
+    private final List<$1> obs = new ArrayList<>();
+    private int estado;
+
+    void suscribir  ($1 o) { obs.add(o); }
+    void desuscribir($1 o) { obs.remove(o); }
+
+    void setEstado(int v) {
+        System.out.println("[Sujeto] Estado → " + v);
+        estado = v;
+        obs.forEach(o -> o.actualizar(estado));
+    }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $2 sujeto = new $2();
+
+        $1 logger = e -> System.out.println("[Logger] evento=" + e);
+        $1 email  = e -> System.out.println("[Email]  notificando estado=" + e);
+
+        sujeto.suscribir(logger);
+        sujeto.suscribir(email);
+        sujeto.setEstado(1);
+
+        sujeto.desuscribir(email);
+        sujeto.setEstado(2);   // solo logger
+    }
+}
+$0

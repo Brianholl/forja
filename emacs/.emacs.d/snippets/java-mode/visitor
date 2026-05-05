@@ -1,0 +1,57 @@
+# -*- mode: snippet -*-
+# name: Visitor (Java)
+# key: visitor
+# --
+// Visitor — doble despacho para agregar operaciones sin modificar las clases
+// Intención: separar un algoritmo de la estructura de objetos sobre la que opera.
+
+interface ${1:Visitante} {
+    void visitar(${2:Circulo} c);
+    void visitar(${3:Cuadrado} c);
+}
+
+interface ${4:Figura} {
+    void aceptar($1 v);
+}
+
+class ${2:Circulo} implements $4 {
+    double radio;
+    ${2}(double r) { radio = r; }
+    public void aceptar($1 v) { v.visitar(this); }
+}
+
+class ${3:Cuadrado} implements $4 {
+    double lado;
+    ${3}(double l) { lado = l; }
+    public void aceptar($1 v) { v.visitar(this); }
+}
+
+class ${5:CalculadorArea} implements $1 {
+    public void visitar($2 c) {
+        System.out.printf("[$2] Área = %.2f%n", Math.PI * c.radio * c.radio);
+    }
+    public void visitar($3 c) {
+        System.out.printf("[$3] Área = %.2f%n", c.lado * c.lado);
+    }
+}
+
+class ${6:CalculadorPerimetro} implements $1 {
+    public void visitar($2 c) {
+        System.out.printf("[$2] Perímetro = %.2f%n", 2 * Math.PI * c.radio);
+    }
+    public void visitar($3 c) {
+        System.out.printf("[$3] Perímetro = %.2f%n", 4 * c.lado);
+    }
+}
+
+class Main {
+    public static void main(String[] args) {
+        List<$4> figuras = List.of(new $2(5), new $3(4), new $2(3));
+        $1 area = new $5(); $1 peri = new $6();
+        System.out.println("=== Áreas ===");
+        figuras.forEach(f -> f.aceptar(area));
+        System.out.println("=== Perímetros ===");
+        figuras.forEach(f -> f.aceptar(peri));
+    }
+}
+$0

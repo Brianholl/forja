@@ -1,0 +1,32 @@
+# -*- mode: snippet -*-
+# name: Adapter (Java)
+# key: adapter
+# --
+// Adapter — convierte la interfaz de una clase en otra que el cliente espera
+// Intención: reutilizar clases existentes aunque la interfaz no coincida.
+
+interface ${1:Enchufe} {
+    void conectar();
+}
+
+class ${2:EnchufeEuropeo} {
+    public void encender() { System.out.println("[$2] ⚡ Corriente 220V"); }
+}
+
+class ${3:AdaptadorEU} implements $1 {
+    private final $2 adaptee;
+    ${3}($2 a) { adaptee = a; }
+
+    @Override public void conectar() {
+        System.out.println("[$3] Adaptando 220V → 110V...");
+        adaptee.encender();
+    }
+}
+
+class Main {
+    static void usar($1 e) { e.conectar(); }
+    public static void main(String[] args) {
+        usar(new $3(new $2()));
+    }
+}
+$0

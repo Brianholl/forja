@@ -136,7 +136,7 @@ El paquete `yasnippet-snippets` ya cubre sintaxis básica — FORJA agrega patro
 |----------|------|:---:|:---:|:---:|
 | TypeScript | `typescript-mode` | 0 | 12  | `[x]` |
 | Python | `python-mode` | 187 (sintaxis) | ~12 | `[ ]` |
-| Java | `java-mode` | 33 | ~18 | `[ ]` |
+| Java | `java-mode` | 33 | 21  | `[x]` |
 | Kotlin | `kotlin-mode` | 17 | ~10 | `[ ]` |
 | Go | `go-mode` | 29 | ~10 | `[ ]` |
 | Rust | `rust-mode` | 65 | ~10 | `[ ]` |

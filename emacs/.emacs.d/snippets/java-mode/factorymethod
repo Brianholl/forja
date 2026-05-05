@@ -1,0 +1,39 @@
+# -*- mode: snippet -*-
+# name: Factory Method (Java)
+# key: factorymethod
+# --
+// Factory Method — método abstracto que las subclases sobreescriben
+// Intención: definir la interfaz de creación, diferir la instanciación a subclases.
+
+interface ${1:Transporte} {
+    void entregar();
+}
+
+class ${2:Camion} implements $1 {
+    public void entregar() { System.out.println("[$2] Entrega por tierra"); }
+}
+
+class ${3:Barco} implements $1 {
+    public void entregar() { System.out.println("[$3] Entrega por mar"); }
+}
+
+abstract class ${4:Logistica} {
+    abstract $1 crear();   // ← Factory Method
+
+    void planificar() {
+        System.out.println("[Logistica] Planificando...");
+        crear().entregar();
+    }
+}
+
+class ${5:LogisticaTierra} extends $4 { public $1 crear() { return new $2(); } }
+class ${6:LogisticaMar}    extends $4 { public $1 crear() { return new $3(); } }
+
+class Main {
+    static void ejecutar($4 l) { l.planificar(); }
+    public static void main(String[] args) {
+        ejecutar(new $5());
+        ejecutar(new $6());
+    }
+}
+$0

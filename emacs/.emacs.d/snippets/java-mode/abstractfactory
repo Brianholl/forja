@@ -1,0 +1,37 @@
+# -*- mode: snippet -*-
+# name: Abstract Factory (Java)
+# key: abstractfactory
+# --
+// Abstract Factory — familias de objetos sin especificar clases concretas
+// Intención: crear familias de objetos relacionados sin acoplar el cliente.
+
+interface ${1:Boton}    { void render(); }
+interface ${2:Checkbox} { void toggle(); }
+
+interface GUIFactory {
+    $1 crearBoton();
+    $2 crearCheckbox();
+}
+
+class ${3:Windows}Boton    implements $1 { public void render() { System.out.println("[$3 Botón]");    } }
+class ${3}Checkbox          implements $2 { public void toggle() { System.out.println("[$3 Checkbox]"); } }
+class ${4:Mac}Boton         implements $1 { public void render() { System.out.println("[$4 Botón]");    } }
+class ${4}Checkbox          implements $2 { public void toggle() { System.out.println("[$4 Checkbox]"); } }
+
+class ${3}Factory implements GUIFactory {
+    public $1 crearBoton()    { return new ${3}Boton();    }
+    public $2 crearCheckbox() { return new ${3}Checkbox(); }
+}
+class ${4}Factory implements GUIFactory {
+    public $1 crearBoton()    { return new ${4}Boton();    }
+    public $2 crearCheckbox() { return new ${4}Checkbox(); }
+}
+
+class Main {
+    static void app(GUIFactory f) { f.crearBoton().render(); f.crearCheckbox().toggle(); }
+    public static void main(String[] args) {
+        System.out.println("=== $3 ==="); app(new ${3}Factory());
+        System.out.println("=== $4 ==="); app(new ${4}Factory());
+    }
+}
+$0

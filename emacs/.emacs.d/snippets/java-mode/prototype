@@ -1,0 +1,46 @@
+# -*- mode: snippet -*-
+# name: Prototype (Java)
+# key: prototype
+# --
+// Prototype — clonar objetos sin acoplar al tipo concreto
+// Intención: crear nuevos objetos copiando un prototipo existente.
+
+interface ${1:Forma} {
+    $1 clonar();
+    void dibujar();
+}
+
+class ${2:Circulo} implements $1 {
+    int    radio;
+    String color;
+
+    ${2}(int radio, String color) { this.radio = radio; this.color = color; }
+    private ${2}($2 src)          { this.radio = src.radio; this.color = src.color; }
+
+    public $1    clonar()  { return new $2(this); }
+    public void  dibujar() { System.out.println("[$2] radio=" + radio + " color=" + color); }
+}
+
+class ${3:Rectangulo} implements $1 {
+    int ancho, alto;
+
+    ${3}(int ancho, int alto) { this.ancho = ancho; this.alto = alto; }
+    private ${3}($3 src)      { this.ancho = src.ancho; this.alto = src.alto; }
+
+    public $1   clonar()  { return new $3(this); }
+    public void dibujar() { System.out.println("[$3] " + ancho + "×" + alto); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $2 original = new $2(5, "rojo");
+        $2 copia    = ($2) original.clonar();
+        copia.color = "azul";
+
+        original.dibujar();   // rojo
+        copia.dibujar();      // azul — independiente del original
+
+        new $3(10, 4).clonar().dibujar();
+    }
+}
+$0

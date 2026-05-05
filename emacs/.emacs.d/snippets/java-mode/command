@@ -1,0 +1,51 @@
+# -*- mode: snippet -*-
+# name: Command (Java)
+# key: command
+# --
+// Command — encapsula una operación como objeto con soporte de undo
+// Intención: parametrizar operaciones, hacer cola, log y deshacer.
+
+import java.util.*;
+
+interface ${1:Comando} {
+    void execute();
+    void undo();
+}
+
+class ${2:Editor} {
+    StringBuilder texto = new StringBuilder();
+
+    void escribir(String s) {
+        texto.append(s);
+        System.out.println("[Editor] \"" + texto + "\"");
+    }
+    void borrar(int n) {
+        texto.delete(texto.length() - n, texto.length());
+        System.out.println("[Editor] \"" + texto + "\"");
+    }
+}
+
+class ${3:EscribirCmd} implements $1 {
+    private final $2 ed; private final String txt;
+    ${3}($2 e, String t) { ed = e; txt = t; }
+    public void execute() { ed.escribir(txt); }
+    public void undo()    { ed.borrar(txt.length()); }
+}
+
+class ${4:Invocador} {
+    private final Deque<$1> historial = new ArrayDeque<>();
+    void ejecutar($1 c) { c.execute(); historial.push(c); }
+    void deshacer()     { if (!historial.isEmpty()) historial.pop().undo(); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $2 ed = new $2(); $4 inv = new $4();
+        inv.ejecutar(new $3(ed, "Hola "));
+        inv.ejecutar(new $3(ed, "Mundo"));
+        System.out.println("-- Deshacer --");
+        inv.deshacer();
+        inv.deshacer();
+    }
+}
+$0

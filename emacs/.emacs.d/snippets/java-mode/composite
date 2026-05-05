@@ -1,0 +1,55 @@
+# -*- mode: snippet -*-
+# name: Composite (Java)
+# key: composite
+# --
+// Composite — trata objetos individuales y composiciones de forma uniforme
+// Intención: componer objetos en estructuras de árbol para representar jerarquías.
+
+import java.util.*;
+
+interface ${1:Componente} {
+    void mostrar(String indent);
+    int  precio();
+}
+
+class ${2:Hoja} implements $1 {
+    private final String nombre;
+    private final int    valor;
+
+    ${2}(String n, int v) { nombre = n; valor = v; }
+
+    public void mostrar(String i) { System.out.println(i + "- " + nombre + " ($" + valor + ")"); }
+    public int  precio()          { return valor; }
+}
+
+class ${3:Contenedor} implements $1 {
+    private final String     nombre;
+    private final List<$1>   hijos = new ArrayList<>();
+
+    ${3}(String n) { nombre = n; }
+
+    void agregar($1 c) { hijos.add(c); }
+
+    public void mostrar(String i) {
+        System.out.println(i + "+ " + nombre + " ($" + precio() + ")");
+        hijos.forEach(h -> h.mostrar(i + "  "));
+    }
+    public int precio() { return hijos.stream().mapToInt($1::precio).sum(); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $2 cpu  = new $2("CPU",  300);
+        $2 ram  = new $2("RAM",  100);
+        $2 ssd  = new $2("SSD",  150);
+
+        $3 caja = new $3("Caja principal");
+        caja.agregar(cpu); caja.agregar(ram);
+
+        $3 pc = new $3("PC Gamer");
+        pc.agregar(caja); pc.agregar(ssd);
+
+        pc.mostrar("");
+    }
+}
+$0

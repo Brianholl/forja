@@ -1,0 +1,49 @@
+# -*- mode: snippet -*-
+# name: Bridge (Java)
+# key: bridge
+# --
+// Bridge — separa abstracción de implementación para evolucionar independientemente
+// Intención: desacoplar una abstracción de su implementación.
+
+interface ${1:Renderer} {
+    void renderCirculo(int radio);
+    void renderCuadrado(int lado);
+}
+
+class ${2:VectorRenderer} implements $1 {
+    public void renderCirculo (int r) { System.out.println("[Vector] Círculo r=" + r); }
+    public void renderCuadrado(int l) { System.out.println("[Vector] Cuadrado l=" + l); }
+}
+
+class ${3:RasterRenderer} implements $1 {
+    public void renderCirculo (int r) { System.out.println("[Raster] ⬤ r=" + r); }
+    public void renderCuadrado(int l) { System.out.println("[Raster] ■ l=" + l); }
+}
+
+abstract class ${4:Figura} {
+    protected $1 renderer;
+    $4($1 r) { renderer = r; }
+    abstract void dibujar();
+}
+
+class ${5:Circulo} extends $4 {
+    int radio;
+    ${5}($1 r, int radio) { super(r); this.radio = radio; }
+    public void dibujar() { renderer.renderCirculo(radio); }
+}
+
+class ${6:Cuadrado} extends $4 {
+    int lado;
+    ${6}($1 r, int lado) { super(r); this.lado = lado; }
+    public void dibujar() { renderer.renderCuadrado(lado); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        new $5(new $2(), 5).dibujar();
+        new $5(new $3(), 5).dibujar();
+        new $6(new $2(), 4).dibujar();
+        new $6(new $3(), 4).dibujar();
+    }
+}
+$0

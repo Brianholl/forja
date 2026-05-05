@@ -1,0 +1,47 @@
+# -*- mode: snippet -*-
+# name: Chain of Responsibility (Java)
+# key: chainofresponsibility
+# --
+// Chain of Responsibility — cadena de manejadores; uno procesa o pasa al siguiente
+// Intención: evitar el acoplamiento emisor-receptor pasando la solicitud por la cadena.
+
+abstract class ${1:Manejador} {
+    protected $1 siguiente;
+
+    $1 setSiguiente($1 s) { siguiente = s; return s; }
+
+    final void manejar(int ${2:nivel}) {
+        if (puedeManejar($2)) procesar($2);
+        else if (siguiente != null) siguiente.manejar($2);
+        else System.out.println("[Sin manejador] nivel=" + $2);
+    }
+
+    abstract boolean puedeManejar(int $2);
+    abstract void    procesar    (int $2);
+}
+
+class ${3:Soporte} extends $1 {
+    public boolean puedeManejar(int n) { return n <= ${4:1}; }
+    public void    procesar    (int n) { System.out.println("[$3] Resolvió nivel=" + n); }
+}
+
+class ${5:Supervisor} extends $1 {
+    public boolean puedeManejar(int n) { return n <= ${6:2}; }
+    public void    procesar    (int n) { System.out.println("[$5] Resolvió nivel=" + n); }
+}
+
+class ${7:Director} extends $1 {
+    public boolean puedeManejar(int n) { return n <= ${8:3}; }
+    public void    procesar    (int n) { System.out.println("[$7] Resolvió nivel=" + n); }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $1 cadena = new $3();
+        cadena.setSiguiente(new $5()).setSiguiente(new $7());
+
+        for (int n : new int[]{1, 2, 3, 4})
+            cadena.manejar(n);
+    }
+}
+$0

@@ -1,0 +1,34 @@
+# -*- mode: snippet -*-
+# name: Singleton (Java)
+# key: singleton
+# --
+// Singleton — private constructor + doble verificación thread-safe
+// Intención: garantizar una única instancia con acceso global.
+
+class ${1:Database} {
+    private static volatile $1 instancia;
+    private final String url;
+
+    private $1(String url) { this.url = url; }
+
+    static $1 obtener() {
+        if (instancia == null)
+            synchronized ($1.class) {
+                if (instancia == null)
+                    instancia = new $1("${2:jdbc:postgresql://localhost/db}");
+            }
+        return instancia;
+    }
+
+    String getUrl() { return url; }
+}
+
+class Main {
+    public static void main(String[] args) {
+        $1 a = $1.obtener();
+        $1 b = $1.obtener();
+        System.out.println("URL: "              + a.getUrl());
+        System.out.println("¿Misma instancia? " + (a == b));   // true
+    }
+}
+$0
