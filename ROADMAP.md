@@ -120,7 +120,7 @@ Los ítems con `[ ]` son los que quedan antes de llamar a FORJA un producto **pu
 - [x] **FASM resuelto:** soporte básico existe en `30-cpp.org` (nasm-mode, `my/fasm-compile-and-run`, `my/fasm-debug`, F5 y C-c d); `fasm` y `nasm` en PKGBUILD optdepends; snippets NASM completos pasan a backlog v3.0
 - [ ] **WSL2 real:** instalar en Windows 11 + WSL2 — checklist en `COMPATIBILITY.md`; pendiente verificación manual
 - [ ] **Android 14+:** Termux con permisos nuevos — checklist en `COMPATIBILITY.md`; pendiente verificación manual
-- [ ] **AUR publish:** publicar `forja-git` en AUR y verificar con `makepkg -si` en instalación limpia
+- [~] **AUR publish:** descartado por ahora — PKGBUILD listo en `aur/`; publicar cuando haya ciclo de mantenimiento dedicado
 
 ---
 
