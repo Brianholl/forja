@@ -234,6 +234,14 @@ Ideas post-release sin compromiso de fecha:
 - **Múltiples workspaces por alumno:** más de un proyecto activo simultáneo
 - **Modo kiosk:** arrancar Emacs directamente en el proyecto del alumno activo
 - **Historial de sesiones visual:** dashboard con tiempo activo, commits y builds por alumno
+- **Integración EduProtocol — receptor `EduForja`:** FORJA como workbench de código dentro del ecosistema EduProtocol
+  - Servidor receptor (patrón `receptor-sdk` de EduProtocol) que expone primitivas pedagógicas de programación
+  - `crear_ejercicio_codigo(lenguaje, concepto, nivel_bloom)` → abre buffer con scaffold + snippet base correcto
+  - `evaluar_codigo(alumno, archivo)` → análisis agentico vía Gemini/OpenCode contra el código real del alumno
+  - `obtener_progreso(alumno)` → lectura del tracking de `49-multiusuario.el`
+  - `activar_modo_examen(alumno)` → dispara `C-c F e` vía emacsclient
+  - `reportar_compilacion` → hook en build hydra emite xAPI statement a EduLedger
+  - Desbloquea: badges verificables de programación (EduGamification + EduLedger), diplomaturas de código en EduPackage
 
 ---
 
