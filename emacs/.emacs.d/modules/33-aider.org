@@ -212,11 +212,23 @@
 (defun my/aider-fix-flycheck ()
   "Pide a Aider que corrija los errores de Flycheck del buffer actual."
   (interactive)
+  (unless (bound-and-true-p flycheck-mode)
+    (user-error "Flycheck no está activo en este buffer"))
   (unless (my/aider-buffer-running-p)
     (my/aider-open-project)
     (my/aider--wait-ready))
   (my/aider-add-current-file)
-  (aider-flycheck-fix-errors-in-scope))
+  (if flycheck-current-errors
+      (aider-flycheck-fix-errors-in-scope)
+    ;; Flycheck aún no terminó — forzar check y esperar resultado
+    (message "⏳ Esperando que Flycheck termine el chequeo…")
+    (flycheck-buffer)
+    (run-with-timer
+     2.0 nil
+     (lambda ()
+       (if flycheck-current-errors
+           (aider-flycheck-fix-errors-in-scope)
+         (message "✅ Flycheck no encontró errores en este buffer"))))))
 
 (defun my/aider-keybindings ()
   "Registra C-c i → hydra de Aider en el mapa local del buffer."
