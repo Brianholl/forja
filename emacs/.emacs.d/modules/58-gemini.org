@@ -1,0 +1,173 @@
+#+TITLE: Módulo Gemini CLI - Asistente IA en la Nube
+#+AUTHOR: Brian Hollweg
+#+STARTUP: indent showeverything
+#+PROPERTY: header-args:emacs-lisp :tangle yes :results silent
+
+* Gemini CLI — Asistente Google (Gemini API)
+
+Integración Emacs para los comandos *no-interactivos* de Gemini CLI
+(=gemini -p=). El TUI completo se lanza desde =~/forja/gemini.sh=.
+
+Requiere =GEMINI_API_KEY= (configurado por =connect.sh=).
+Activar en profile.conf: =FORJA_FEATURES="...,gemini"=
+
+* 1. Variables
+
+#+begin_src emacs-lisp
+(defvar my/gemini-buf-out "*gemini-output*"
+  "Buffer de salida para comandos gemini -p.")
+
+(defvar my/gemini-available
+  (executable-find "gemini")
+  "Non-nil si Gemini CLI está disponible en esta plataforma.")
+
+(defun my/gemini--guard ()
+  "Error si Gemini CLI no está disponible o modo examen activo."
+  (unless my/gemini-available
+    (user-error "Gemini CLI no disponible. Instalá via: npm install -g @google/gemini-cli"))
+  (when (bound-and-true-p my/forja-exam-mode-active)
+    (user-error "[MODO EXAMEN] Gemini deshabilitado")))
+
+(defun my/gemini--wrap-run (prompt)
+  "Devuelve el comando gemini -p con PROMPT."
+  (format "GEMINI_API_KEY='%s' gemini -p %s"
+          (or (getenv "GEMINI_API_KEY") "")
+          (shell-quote-argument prompt)))
+#+end_src
+
+* 2. TUI completo — lanzar en terminal externa
+
+Para sesiones interactivas usar =~/forja/gemini.sh= desde la terminal.
+Esta función abre alacritty directamente desde Emacs.
+
+#+begin_src emacs-lisp
+(defun my/gemini-run ()
+  "Lanza Gemini CLI TUI en alacritty (terminal externa)."
+  (interactive)
+  (my/gemini--guard)
+  (let* ((root (or (and (fboundp 'projectile-project-root)
+                        (ignore-errors (projectile-project-root)))
+                   default-directory))
+         (script (expand-file-name "~/forja/gemini.sh")))
+    (cond
+     (my/is-termux
+      (message "Corré en Termux: %s/forja/gemini.sh %s" (getenv "HOME") root))
+     ((file-executable-p script)
+      (start-process "gemini" nil "alacritty"
+                     "--working-directory" root
+                     "-e" script root)
+      (message "Gemini CLI abierto en alacritty — %s" root))
+     (t
+      (user-error "No se encontró ~/forja/gemini.sh o alacritty")))))
+#+end_src
+
+* 3. Consultas inline (gemini -p)
+
+Envían un prompt a =gemini -p= y muestran el resultado en un panel.
+
+#+begin_src emacs-lisp
+(defun my/gemini--run-async (prompt)
+  "Ejecuta gemini -p PROMPT y muestra resultado en panel inferior."
+  (let ((cmd (my/gemini--wrap-run prompt)))
+    (with-current-buffer (get-buffer-create my/gemini-buf-out)
+      (read-only-mode -1)
+      (erase-buffer)
+      (insert (format "=== Gemini — %s ===\n\n"
+                      (format-time-string "%H:%M:%S"))))
+    (async-shell-command cmd my/gemini-buf-out)
+    (display-buffer my/gemini-buf-out
+                    '(display-buffer-in-side-window
+                      (side . bottom) (window-height . 0.35)))))
+
+(defun my/gemini-ask-file ()
+  "Pregunta a Gemini sobre el archivo actual."
+  (interactive)
+  (my/gemini--guard)
+  (let* ((file (or (buffer-file-name) (user-error "Buffer sin archivo")))
+         (q    (read-string "Pregunta: ")))
+    (my/gemini--run-async (format "Archivo: %s\n\nPregunta: %s" file q))))
+
+(defun my/gemini-ask-region ()
+  "Pregunta a Gemini sobre la región seleccionada."
+  (interactive)
+  (my/gemini--guard)
+  (unless (use-region-p) (user-error "No hay región seleccionada"))
+  (let* ((code (buffer-substring-no-properties (region-beginning) (region-end)))
+         (lang (replace-regexp-in-string "-mode\\|-ts-mode" ""
+                                         (symbol-name major-mode)))
+         (q    (read-string "Pregunta: ")))
+    (deactivate-mark)
+    (my/gemini--run-async
+     (format "```%s\n%s\n```\n\nPregunta: %s" lang code q))))
+
+(defun my/gemini-process-file ()
+  "Análisis agentico completo del archivo actual."
+  (interactive)
+  (my/gemini--guard)
+  (let ((file (or (buffer-file-name) (user-error "Buffer sin archivo"))))
+    (my/gemini--run-async
+     (format "Analiza el archivo %s. Buscá bugs, problemas de lógica, performance y seguridad. Mostrá los cambios como diffs." file))
+    (message "Procesando %s..." (file-name-nondirectory file))))
+
+(defun my/gemini-generate-tests ()
+  "Genera tests para el archivo actual."
+  (interactive)
+  (my/gemini--guard)
+  (let ((file (or (buffer-file-name) (user-error "Buffer sin archivo"))))
+    (my/gemini--run-async
+     (format "Leé %s y generá un archivo de tests completo con casos normales y límite." file))))
+
+(defun my/gemini-fix-errors ()
+  "Pide a Gemini que corrija los errores de Flycheck."
+  (interactive)
+  (my/gemini--guard)
+  (let ((file (or (buffer-file-name) (user-error "Buffer sin archivo"))))
+    (my/gemini--run-async
+     (format "Archivo: %s\n\nCorregí todos los errores de linting y compilación." file))))
+#+end_src
+
+* 4. Keybindings
+
+#+begin_src emacs-lisp
+(defun my/gemini-keybindings ()
+  "Atajos de Gemini para modos de programación."
+  (local-set-key (kbd "C-c G g") #'my/gemini-run)
+  (local-set-key (kbd "C-c G p") #'my/gemini-ask-file)
+  (local-set-key (kbd "C-c G r") #'my/gemini-ask-region)
+  (local-set-key (kbd "C-c G f") #'my/gemini-process-file)
+  (local-set-key (kbd "C-c G t") #'my/gemini-generate-tests)
+  (local-set-key (kbd "C-c G e") #'my/gemini-fix-errors))
+
+(add-hook 'prog-mode-hook #'my/gemini-keybindings)
+(add-hook 'web-mode-hook      #'my/gemini-keybindings)
+(add-hook 'html-ts-mode-hook  #'my/gemini-keybindings)
+(global-set-key (kbd "C-c G g") #'my/gemini-run)
+#+end_src
+
+* 5. Hydra
+
+#+begin_src emacs-lisp
+(defhydra my/hydra-gemini (:color blue :hint nil)
+  "
+   GEMINI CLI — Asistente Google (Gemini API)
+  ─────────────────────────────────────
+   _g_ Abrir TUI (alacritty)
+  ─────────────────────────────────────
+   Inline / Chat
+   _p_ Pregunta sobre archivo actual
+   _r_ Pregunta sobre region
+  ─────────────────────────────────────
+   Agentico
+   _f_ Procesar archivo (analisis+diff)
+   _t_ Generar tests
+   _e_ Corregir errores Flycheck
+  ─────────────────────────────────────
+   _q_ Volver"
+  ("g" my/gemini-run)
+  ("p" my/gemini-ask-file)
+  ("r" my/gemini-ask-region)
+  ("f" my/gemini-process-file)
+  ("t" my/gemini-generate-tests)
+  ("e" my/gemini-fix-errors)
+  ("q" nil))
+#+end_src

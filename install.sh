@@ -818,6 +818,27 @@ else
 fi
 
 # =============================================================================
+# GEMINI CLI (CONDICIONAL)
+# =============================================================================
+if forja_has_feature "gemini"; then
+    info "Instalando Gemini CLI..."
+    if command -v gemini &>/dev/null; then
+        ok "Gemini CLI ya instalado"
+    else
+        npm install -g @google/gemini-cli \
+            && ok "Gemini CLI instalado" \
+            || warn "No se pudo instalar Gemini CLI (verificar: npm install -g @google/gemini-cli)"
+    fi
+    # Configurar API key via connect.sh
+    if [ -f "$HOME/forja/connect.sh" ]; then
+        info "Configurando Gemini CLI via connect.sh..."
+        bash "$HOME/forja/connect.sh" 2>/dev/null || true
+    fi
+else
+    info "Saltando Gemini CLI (no seleccionado)"
+fi
+
+# =============================================================================
 # UNREAL ENGINE (CONDICIONAL)
 # =============================================================================
 if [ "$PLATFORM" = "arch" ] && forja_has_feature "unreal"; then
