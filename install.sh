@@ -222,15 +222,15 @@ fi
 if [ -z "$FORJA_FEATURES" ]; then
     case "$PERFIL" in
         minimal)
-            FORJA_FEATURES="sync-drive,multiusuario"
+            FORJA_FEATURES="opencode,gemini,sync-drive,multiusuario"
             ;;
         casa)
-            FORJA_FEATURES="aider,godot,raylib,unreal,n8n,picoclaw,openclaw,latex,esp32,fasm,sync-drive,multiusuario"
+            FORJA_FEATURES="opencode,gemini,aider,godot,raylib,unreal,n8n,picoclaw,openclaw,latex,esp32,fasm,sync-drive,multiusuario"
             FORJA_MODEL_CODE="${FORJA_MODEL_CODE:-qwen2.5-coder:7b}"
             FORJA_MODEL_CHAT="${FORJA_MODEL_CHAT:-qwen2.5:7b}"
             ;;
         *)
-            FORJA_FEATURES="aider,godot,raylib,n8n,latex,sync-drive,multiusuario"
+            FORJA_FEATURES="opencode,gemini,aider,godot,raylib,n8n,latex,sync-drive,multiusuario"
             FORJA_MODEL_CODE="${FORJA_MODEL_CODE:-qwen2.5-coder:0.5b}"
             FORJA_MODEL_CHAT="${FORJA_MODEL_CHAT:-qwen2.5:0.5b}"
             ;;
