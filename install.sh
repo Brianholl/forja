@@ -728,13 +728,22 @@ elif forja_has_feature "n8n"; then
     if command -v n8n &>/dev/null; then
         info "n8n ya instalado: $(n8n --version 2>/dev/null)"
     else
-        info "Instalando n8n via npm..."
-        sudo npm install -g n8n
-
-        if command -v n8n &>/dev/null; then
-            ok "n8n instalado: $(n8n --version 2>/dev/null)"
+        # isolated-vm (dependencia de n8n) no compila con Node >= v22 (V8 API cambiada)
+        NODE_MAJOR=$(node -e "process.stdout.write(String(process.versions.node.split('.')[0]))" 2>/dev/null || echo "0")
+        if [ "$NODE_MAJOR" -ge 22 ]; then
+            warn "n8n requiere Node.js 18 o 20 LTS (tienes v$NODE_MAJOR)"
+            warn "isolated-vm no compila con V8 moderno. Opciones:"
+            warn "  A) Usar Docker: docker run -it --rm -p 5678:5678 n8nio/n8n"
+            warn "  B) Instalar Node 20 LTS con fnm: fnm install 20 && fnm use 20 && npm i -g n8n"
         else
-            warn "No se pudo instalar n8n (verificar npm)"
+            info "Instalando n8n via npm..."
+            sudo npm install -g n8n
+
+            if command -v n8n &>/dev/null; then
+                ok "n8n instalado: $(n8n --version 2>/dev/null)"
+            else
+                warn "No se pudo instalar n8n (verificar npm)"
+            fi
         fi
     fi
 else
@@ -825,9 +834,7 @@ if forja_has_feature "gemini"; then
     if command -v gemini &>/dev/null; then
         ok "Gemini CLI ya instalado"
     else
-        npm install -g @google/gemini-cli \
-            && ok "Gemini CLI instalado" \
-            || warn "No se pudo instalar Gemini CLI (verificar: npm install -g @google/gemini-cli)"
+        npm_install_if_missing "@google/gemini-cli" "gemini"
     fi
     # Configurar API key via connect.sh
     if [ -f "$HOME/forja/connect.sh" ]; then

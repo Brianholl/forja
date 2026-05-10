@@ -152,9 +152,15 @@ if command -v npm &>/dev/null; then
     ok "Paquetes npm actualizados"
     # Instalar gemini-cli si no está (npm update -g no instala paquetes nuevos)
     if forja_has_feature "gemini" && ! command -v gemini &>/dev/null; then
-        npm install -g @google/gemini-cli 2>/dev/null \
-            && ok "Gemini CLI instalado" \
-            || warn "No se pudo instalar Gemini CLI"
+        if [ "$PLATFORM" = "wsl" ] || [ "$PLATFORM" = "arch" ]; then
+            sudo npm install -g @google/gemini-cli 2>/dev/null \
+                && ok "Gemini CLI instalado" \
+                || warn "No se pudo instalar Gemini CLI"
+        else
+            npm install -g @google/gemini-cli 2>/dev/null \
+                && ok "Gemini CLI instalado" \
+                || warn "No se pudo instalar Gemini CLI"
+        fi
     fi
 fi
 
