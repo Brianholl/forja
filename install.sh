@@ -954,6 +954,8 @@ cat > "$EMACS_BOOTSTRAP_EL" << 'ELISP'
         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
         ("melpa"  . "https://melpa.org/packages/")))
 (package-initialize)
+;; Permite upgradear paquetes built-in (necesario para transient >= 0.13 que requiere magit)
+(setq package-install-upgrade-built-in t)
 
 (unless (package-installed-p 'use-package)
   (package-install 'use-package))
